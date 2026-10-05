@@ -40,9 +40,7 @@ internal sealed class DPoPNonceCache
     {
         if (!response.Headers.TryGetValues("DPoP-Nonce", out var values) ||
             values.FirstOrDefault() is not { Length: > 0 and <= MaxNonceLength } nonce)
-        {
             return null;
-        }
 
         Set(url, nonce);
         return nonce;

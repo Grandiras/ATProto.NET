@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
@@ -54,20 +53,14 @@ public sealed class AtProtoServiceAuthOptions : AuthenticationSchemeOptions
         base.Validate();
 
         if (Audiences.Count == 0)
-        {
             throw new InvalidOperationException(
                 $"Service auth needs the audiences this service answers to; add at least one to {nameof(Audiences)}, " +
                 "such as 'did:web:feed.example.com#bsky_fg'.");
-        }
 
         foreach (var audience in Audiences)
-        {
             if (!ServiceAuthSyntax.IsAudience(audience))
-            {
                 throw new InvalidOperationException(
                     $"A service auth audience is a DID with an optional service fragment; got '{audience}'.");
-            }
-        }
 
         try
         {
@@ -84,22 +77,13 @@ public sealed class AtProtoServiceAuthOptions : AuthenticationSchemeOptions
 // Authenticates a request by the service auth token in its Authorization: Bearer header, binding the
 // token to the XRPC method the endpoint serves — on an endpoint whose authorization asks for this
 // scheme, and nowhere else.
-internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoServiceAuthOptions>
+internal sealed class AtProtoServiceAuthHandler(
+    IOptionsMonitor<AtProtoServiceAuthOptions> options,
+    ILoggerFactory logger,
+    UrlEncoder encoder,
+    IDidResolver resolver,
+    IJtiReplayStore replayStore) : AuthenticationHandler<AtProtoServiceAuthOptions>(options, logger, encoder)
 {
-    private readonly IDidResolver _resolver;
-    private readonly IJtiReplayStore _replayStore;
-
-    public AtProtoServiceAuthHandler(
-        IOptionsMonitor<AtProtoServiceAuthOptions> options,
-        ILoggerFactory logger,
-        UrlEncoder encoder,
-        IDidResolver resolver,
-        IJtiReplayStore replayStore)
-        : base(options, logger, encoder)
-    {
-        _resolver = resolver;
-        _replayStore = replayStore;
-    }
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -128,7 +112,7 @@ internal sealed class AtProtoServiceAuthHandler : AuthenticationHandler<AtProtoS
         }
 
         var audiences = Options.Audiences as IReadOnlyCollection<string> ?? [.. Options.Audiences];
-        var verifier = new ServiceAuthVerifier(_resolver, _replayStore, Options.Verifier, TimeProvider);
+        var verifier = new ServiceAuthVerifier(resolver, replayStore, Options.Verifier, TimeProvider);
 
         VerifiedServiceAuth verified;
         try

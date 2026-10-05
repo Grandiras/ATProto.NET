@@ -78,11 +78,9 @@ public static class AtProtoServiceCollectionExtensions
     private static void ValidateClientOptions(AtProtoClientOptions options)
     {
         if (!AtProtoHttp.TryNormalizeBaseUrl(options.InstanceUrl, out _))
-        {
             throw new ArgumentException(
                 $"Must be an absolute http(s) URL with no query or fragment; got '{options.InstanceUrl}'.",
                 nameof(AtProtoClientOptions.InstanceUrl));
-        }
 
         ArgumentNullException.ThrowIfNull(options.RateLimit, nameof(AtProtoClientOptions.RateLimit));
     }

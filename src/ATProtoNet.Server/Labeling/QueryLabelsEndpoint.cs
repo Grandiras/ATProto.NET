@@ -120,10 +120,8 @@ public sealed class QueryLabelsEndpoint : IXrpcQuery<QueryLabelsParameters, Quer
 
             var wildcard = pattern.IndexOf('*', StringComparison.Ordinal);
             if (wildcard >= 0 && wildcard != pattern.Length - 1)
-            {
                 throw new XrpcException(
                     XrpcErrors.InvalidRequest, $"Invalid URI pattern '{pattern}': '*' may only end a pattern.");
-            }
         }
 
         return patterns;

@@ -144,18 +144,14 @@ public static class PdsAdminExtensions
     internal static void ValidateOptions(PdsAdminOptions options)
     {
         if (string.IsNullOrWhiteSpace(options.Url))
-        {
             throw new InvalidOperationException(
                 $"No PDS URL configured. Set '{DefaultConfigurationSection}:Url', or pass it explicitly. " +
                 "In an Aspire solution, call WithAtProtoPds(pds) on the project resource.");
-        }
 
         if (string.IsNullOrWhiteSpace(options.AdminPassword))
-        {
             throw new InvalidOperationException(
                 $"No PDS admin password configured. Set '{DefaultConfigurationSection}:AdminPassword', " +
                 "or pass it explicitly. In an Aspire solution, call WithAtProtoPds(pds) on the project resource.");
-        }
 
         if (options.Authentication == PdsAdminAuthentication.AdminAccount
             && string.IsNullOrWhiteSpace(options.AdminIdentifier))
@@ -167,17 +163,13 @@ public static class PdsAdminExtensions
         }
 
         if (!Http.AtProtoHttp.TryNormalizeBaseUrl(options.Url, out var url))
-        {
             throw new InvalidOperationException(
                 $"'{DefaultConfigurationSection}:Url' must be an absolute http(s) URL with no query or fragment; got '{options.Url}'.");
-        }
 
         if (url.Scheme != Uri.UriSchemeHttps && !url.IsLoopback && !options.AllowInsecureHttp)
-        {
             throw new InvalidOperationException(
                 $"Refusing to send the PDS admin credentials in the clear to '{url}'. Use HTTPS, or set " +
                 $"'{DefaultConfigurationSection}:AllowInsecureHttp' if the PDS is only reachable over a private " +
                 "network you trust.");
-        }
     }
 }

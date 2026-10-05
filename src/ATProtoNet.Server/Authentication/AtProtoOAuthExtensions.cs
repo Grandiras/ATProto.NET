@@ -144,9 +144,7 @@ public static class AtProtoOAuthExtensions
 
         if (string.IsNullOrWhiteSpace(options.Scopes) ||
             !options.Scopes.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(AtProtoScopes.AtProto))
-        {
             throw new ArgumentException($"Must include '{AtProtoScopes.AtProto}'; got '{options.Scopes}'.", nameof(options.Scopes));
-        }
 
         if (!string.IsNullOrWhiteSpace(options.BaseUrl))
             AtProtoOptionsRegistration.RequireHttpUrl(options.BaseUrl, nameof(options.BaseUrl));
@@ -155,11 +153,9 @@ public static class AtProtoOAuthExtensions
             throw new ArgumentOutOfRangeException(nameof(options.CookieExpiration), options.CookieExpiration, "Must be positive.");
 
         if (options.ClientKeys.Count > 0 && options.ClientMetadata is null)
-        {
             throw new InvalidOperationException(
                 "ClientKeys are for a confidential client, which needs ClientMetadata: its client_id " +
                 "document must publish the keys, which a loopback client has nowhere to do.");
-        }
 
         if (options.ServeClientMetadata)
             _ = ClientDocumentPaths(options);
@@ -224,11 +220,9 @@ public static class AtProtoOAuthExtensions
             var pdsUrl = query["pdsUrl"].ToString();
 
             if (string.IsNullOrWhiteSpace(handle))
-            {
                 return Results.BadRequest(
                     "The 'handle' query parameter is required. " +
                     "Example: /atproto/login?handle=alice.bsky.social");
-            }
 
             try
             {
@@ -270,10 +264,8 @@ public static class AtProtoOAuthExtensions
             }
 
             if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state) || string.IsNullOrEmpty(iss))
-            {
                 return Results.BadRequest(
                     "Missing required callback parameters: code, state, or iss.");
-            }
 
             try
             {
@@ -404,10 +396,8 @@ public static class AtProtoOAuthExtensions
             return LoginFailedError;
 
         foreach (var c in error)
-        {
             if (!char.IsAsciiLetterOrDigit(c) && c is not ('_' or '-' or '.'))
                 return LoginFailedError;
-        }
 
         return error;
     }

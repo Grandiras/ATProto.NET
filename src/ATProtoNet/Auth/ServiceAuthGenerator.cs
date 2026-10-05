@@ -58,11 +58,9 @@ public sealed class ServiceAuthGenerator : IDisposable
         _signingKey = signingKey ?? throw new ArgumentNullException(nameof(signingKey));
 
         if (keyId is not null && !ServiceAuthSyntax.IsKeyId(keyId))
-        {
             throw new ArgumentException(
                 $"A service auth key ID is a verification-method fragment such as '#atproto'; got '{keyId}'.",
                 nameof(keyId));
-        }
 
         KeyId = keyId;
         _encodedHeader = Jwt.EncodeHeader("JWT", signingKey.Curve, keyId);
@@ -93,11 +91,9 @@ public sealed class ServiceAuthGenerator : IDisposable
         ArgumentNullException.ThrowIfNull(lxm);
 
         if (!ServiceAuthSyntax.IsAudience(audience))
-        {
             throw new ArgumentException(
                 $"A service auth audience is a DID with an optional service fragment; got '{audience}'.",
                 nameof(audience));
-        }
 
         var exp = expiresIn ?? TimeSpan.FromSeconds(60);
         if (exp > TimeSpan.FromMinutes(5))

@@ -53,9 +53,7 @@ public sealed class OAuthClient : IDisposable
 
     private readonly OAuthOptions _options;
     private readonly OAuthClientKey[] _clientKeys;
-    private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
-    private readonly AuthorizationServerDiscovery _discovery;
     private readonly IdentityResolver? _ownedIdentityResolver;
     private readonly IOAuthStateStore _stateStore;
     private readonly ILogger _logger;
@@ -86,7 +84,7 @@ public sealed class OAuthClient : IDisposable
         // A client the options supply is the caller's, used as is; one created here enforces the
         // fetch policy and goes with this client on Dispose.
         _ownsHttpClient = options.HttpClient is null;
-        _httpClient = options.HttpClient ?? IdentityNetworkPolicy.CreateClient(options.AllowPrivateNetworks);
+        HttpClient = options.HttpClient ?? IdentityNetworkPolicy.CreateClient(options.AllowPrivateNetworks);
 
         // Likewise for the resolver.
         var identityResolver = options.IdentityResolver;
@@ -101,14 +99,14 @@ public sealed class OAuthClient : IDisposable
                 _logger);
         }
 
-        _discovery = new AuthorizationServerDiscovery(_httpClient, _logger, identityResolver, options.AllowPrivateNetworks);
+        Discovery = new AuthorizationServerDiscovery(HttpClient, _logger, identityResolver, options.AllowPrivateNetworks);
         _stateStore = options.StateStore ?? new InMemoryOAuthStateStore();
     }
 
-    internal AuthorizationServerDiscovery Discovery => _discovery;
+    internal AuthorizationServerDiscovery Discovery { get; }
 
     // The client every request to a PDS or authorization server goes through.
-    internal HttpClient HttpClient => _httpClient;
+    internal HttpClient HttpClient { get; }
 
     // The client_id this client identifies itself with.
     internal string ClientId => _options.ClientMetadata.ClientId;
@@ -151,10 +149,8 @@ public sealed class OAuthClient : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(redirectUri);
 
         if (options?.AppState is { Length: > OAuthAuthorizationOptions.MaxAppStateLength })
-        {
             throw new ArgumentException(
                 $"AppState is longer than {OAuthAuthorizationOptions.MaxAppStateLength} characters.", nameof(options));
-        }
 
         // Validate redirect_uri: must be HTTPS (except localhost for development)
         if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out var redirectUriParsed))
@@ -177,21 +173,21 @@ public sealed class OAuthClient : IDisposable
 
         if (!string.IsNullOrWhiteSpace(options?.ServerUrl))
         {
-            metadata = await _discovery.ResolveFromServerUrlAsync(options.ServerUrl, cancellationToken).ConfigureAwait(false);
+            metadata = await Discovery.ResolveFromServerUrlAsync(options.ServerUrl, cancellationToken).ConfigureAwait(false);
             loginHint = identifier;
         }
         else if (IsUrl(identifier))
         {
-            metadata = await _discovery.ResolveFromServerUrlAsync(identifier, cancellationToken).ConfigureAwait(false);
+            metadata = await Discovery.ResolveFromServerUrlAsync(identifier, cancellationToken).ConfigureAwait(false);
         }
         else
         {
-            identity = await _discovery.ResolveIdentityAsync(
+            identity = await Discovery.ResolveIdentityAsync(
                 AuthorizationServerDiscovery.ParseIdentifier(identifier), cancellationToken).ConfigureAwait(false);
             var pds = identity.PdsEndpoint
                 ?? throw new OAuthException(
                     $"DID document for '{identity.Did}' does not contain an atproto PDS service.", "pds_not_found");
-            metadata = await _discovery.ResolveAuthorizationServerAsync(pds.OriginalString, cancellationToken).ConfigureAwait(false);
+            metadata = await Discovery.ResolveAuthorizationServerAsync(pds.OriginalString, cancellationToken).ConfigureAwait(false);
             loginHint = identifier;
         }
 
@@ -205,24 +201,21 @@ public sealed class OAuthClient : IDisposable
 
         // Step 3: the pushed authorization request.
         var clientId = _options.ClientMetadata.ClientId;
+        var parForm = new Dictionary<string, string>
+        {
+            ["response_type"] = "code",
+            ["redirect_uri"] = redirectUri,
+            ["state"] = state,
+            ["scope"] = _options.Scope,
+            ["code_challenge"] = codeChallenge,
+            ["code_challenge_method"] = "S256",
+        };
+        if (loginHint is not null)
+            parForm["login_hint"] = loginHint;
+
         var par = await PostFormWithDpopAsync<PushedAuthorizationResponse>(
             new Uri(metadata.PushedAuthorizationRequestEndpoint, UriKind.Absolute),
-            () =>
-            {
-                var form = new Dictionary<string, string>
-                {
-                    ["response_type"] = "code",
-                    ["redirect_uri"] = redirectUri,
-                    ["state"] = state,
-                    ["scope"] = _options.Scope,
-                    ["code_challenge"] = codeChallenge,
-                    ["code_challenge_method"] = "S256",
-                };
-                if (loginHint is not null)
-                    form["login_hint"] = loginHint;
-                AddClientAuthentication(form, clientKey, metadata.Issuer);
-                return form;
-            },
+            parForm, clientKey, metadata.Issuer,
             dpop,
             "Pushed authorization request",
             "par_failed",
@@ -319,18 +312,14 @@ public sealed class OAuthClient : IDisposable
 
         var tokens = await PostFormWithDpopAsync<OAuthTokenResponse>(
             pending.TokenEndpoint,
-            () =>
+            new Dictionary<string, string>
             {
-                var form = new Dictionary<string, string>
-                {
-                    ["grant_type"] = "authorization_code",
-                    ["code"] = code,
-                    ["redirect_uri"] = pending.RedirectUri,
-                    ["code_verifier"] = pending.CodeVerifier,
-                };
-                AddClientAuthentication(form, clientKey, pending.Issuer);
-                return form;
+                ["grant_type"] = "authorization_code",
+                ["code"] = code,
+                ["redirect_uri"] = pending.RedirectUri,
+                ["code_verifier"] = pending.CodeVerifier,
             },
+            clientKey, pending.Issuer,
             dpop,
             "Token exchange",
             "token_error",
@@ -431,16 +420,8 @@ public sealed class OAuthClient : IDisposable
 
         var tokens = await PostFormWithDpopAsync<OAuthTokenResponse>(
             session.TokenEndpoint,
-            () =>
-            {
-                var form = new Dictionary<string, string>
-                {
-                    ["grant_type"] = "refresh_token",
-                    ["refresh_token"] = session.RefreshToken,
-                };
-                AddClientAuthentication(form, clientKey, session.Issuer);
-                return form;
-            },
+            new Dictionary<string, string> { ["grant_type"] = "refresh_token", ["refresh_token"] = session.RefreshToken },
+            clientKey, session.Issuer,
             dpop,
             "Token refresh",
             "token_error",
@@ -500,7 +481,7 @@ public sealed class OAuthClient : IDisposable
         var endpoint = session.RevocationEndpoint;
         if (endpoint is null)
         {
-            var metadata = await _discovery.GetAuthorizationServerMetadataAsync(session.Issuer, bypassCache: false, cancellationToken).ConfigureAwait(false);
+            var metadata = await Discovery.GetAuthorizationServerMetadataAsync(session.Issuer, bypassCache: false, cancellationToken).ConfigureAwait(false);
             if (!Uri.TryCreate(metadata.RevocationEndpoint, UriKind.Absolute, out endpoint))
             {
                 _logger.LogInformation(
@@ -515,16 +496,8 @@ public sealed class OAuthClient : IDisposable
 
         await PostFormWithDpopAsync(
             endpoint,
-            () =>
-            {
-                var form = new Dictionary<string, string>
-                {
-                    ["token"] = token,
-                    ["token_type_hint"] = hint,
-                };
-                AddClientAuthentication(form, clientKey, session.Issuer);
-                return form;
-            },
+            new Dictionary<string, string> { ["token"] = token, ["token_type_hint"] = hint },
+            clientKey, session.Issuer,
             dpop,
             "Token revocation",
             cancellationToken).ConfigureAwait(false);
@@ -550,12 +523,8 @@ public sealed class OAuthClient : IDisposable
         {
             await PostFormWithDpopAsync(
                 endpoint,
-                () =>
-                {
-                    var form = new Dictionary<string, string> { ["token"] = token, ["token_type_hint"] = hint };
-                    AddClientAuthentication(form, clientKey, issuer);
-                    return form;
-                },
+                new Dictionary<string, string> { ["token"] = token, ["token_type_hint"] = hint },
+                clientKey, issuer,
                 dpop,
                 "Revoking refused tokens",
                 CancellationToken.None).ConfigureAwait(false);
@@ -582,11 +551,9 @@ public sealed class OAuthClient : IDisposable
             throw new OAuthException($"{what} carries no access token.", "token_error");
 
         if (!string.Equals(tokens.TokenType, "DPoP", StringComparison.OrdinalIgnoreCase))
-        {
             throw new OAuthException(
                 $"{what} has token type '{tokens.TokenType}'; AT Protocol tokens are DPoP-bound.",
                 "token_error");
-        }
 
         if (tokens.Sub is null)
             throw new OAuthException($"{what} is missing the 'sub' field.", "missing_sub");
@@ -595,18 +562,14 @@ public sealed class OAuthClient : IDisposable
             throw new OAuthException($"{what} 'sub' is not a valid DID: '{tokens.Sub}'.", "invalid_sub");
 
         if (expected is not null && !did.Equals(expected))
-        {
             throw new OAuthException(
                 $"{what} is for '{did}', not the expected '{expected}'.",
                 "did_mismatch");
-        }
 
         // An exact token match, not a substring.
         if (tokens.Scope is null ||
             !tokens.Scope.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(AtProtoScopes.AtProto, StringComparer.Ordinal))
-        {
             throw new OAuthException($"{what} does not include the 'atproto' scope.", "invalid_scope");
-        }
 
         return did;
     }
@@ -621,7 +584,12 @@ public sealed class OAuthClient : IDisposable
     //
     // endpoint: The endpoint, from validated metadata or a stored session.
     //
-    // buildForm: Builds the form; called for each attempt, so a client assertion is never sent twice.
+    // form: The request's fields. The client's identification is added to it for each attempt, with a fresh
+    // client assertion, so an assertion is never sent twice.
+    //
+    // clientKey: The key a confidential client authenticates with; null for a public client.
+    //
+    // audience: The issuer the client assertion is for.
     //
     // dpop: The key the proof is signed with.
     //
@@ -636,7 +604,7 @@ public sealed class OAuthClient : IDisposable
     // Throws OperationCanceledException: The caller cancelled.
     private async Task<ReadOnlyMemory<byte>?> PostFormWithDpopAsync(
         Uri endpoint,
-        Func<Dictionary<string, string>> buildForm,
+        Dictionary<string, string> form, OAuthClientKey? clientKey, string audience,
         DPoPProofGenerator dpop,
         string operation,
         CancellationToken cancellationToken)
@@ -644,11 +612,9 @@ public sealed class OAuthClient : IDisposable
         // The endpoint came from metadata whoever controls the account's DID document chose; the
         // fetch policy's handler checks the address, and this the URL.
         if (!AuthorizationServerDiscovery.IsEndpoint(endpoint, _options.AllowPrivateNetworks))
-        {
             throw new OAuthException(
                 $"{operation} refused: '{endpoint}' is not an absolute HTTPS URL without query or fragment.",
                 "invalid_server_url");
-        }
 
         // One budget for the whole exchange, retry and body included: HttpClient.Timeout stops
         // applying once the headers are in, so a server stalling mid-body is bounded only by this.
@@ -657,7 +623,7 @@ public sealed class OAuthClient : IDisposable
 
         try
         {
-            return await SendFormWithDpopAsync(endpoint, buildForm, dpop, operation, budget.Token).ConfigureAwait(false);
+            return await SendFormWithDpopAsync(endpoint, form, clientKey, audience, dpop, operation, budget.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
@@ -679,22 +645,20 @@ public sealed class OAuthClient : IDisposable
 
     private async Task<ReadOnlyMemory<byte>?> SendFormWithDpopAsync(
         Uri endpoint,
-        Func<Dictionary<string, string>> buildForm,
+        Dictionary<string, string> form, OAuthClientKey? clientKey, string audience,
         DPoPProofGenerator dpop,
         string operation,
         CancellationToken cancellationToken)
     {
         for (var attempt = 1; ; attempt++)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
-            {
-                Content = new FormUrlEncodedContent(buildForm()),
-            };
+            AddClientAuthentication(form, clientKey, audience);
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = new FormUrlEncodedContent(form) };
             request.Headers.Accept.Add(JsonMediaType);
             request.Headers.TryAddWithoutValidation(
                 "DPoP", dpop.GenerateProof("POST", endpoint.AbsoluteUri, NonceCache.Get(endpoint)));
 
-            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             var freshNonce = NonceCache.Observe(endpoint, response);
 
             ReadOnlyMemory<byte>? body;
@@ -727,18 +691,18 @@ public sealed class OAuthClient : IDisposable
         }
     }
 
-    // PostFormWithDpopAsync(Uri, Func{Dictionary{string, string}}, DPoPProofGenerator, string,
-    // CancellationToken), reading the answer as T; an answer that is not one is invalidResponseError.
+    // PostFormWithDpopAsync(Uri, Dictionary{string, string}, OAuthClientKey, string, DPoPProofGenerator,
+    // string, CancellationToken), reading the answer as T; an answer that is not one is invalidResponseError.
     private async Task<T> PostFormWithDpopAsync<T>(
         Uri endpoint,
-        Func<Dictionary<string, string>> buildForm,
+        Dictionary<string, string> form, OAuthClientKey? clientKey, string audience,
         DPoPProofGenerator dpop,
         string operation,
         string invalidResponseError,
         CancellationToken cancellationToken)
         where T : class
     {
-        var body = await PostFormWithDpopAsync(endpoint, buildForm, dpop, operation, cancellationToken).ConfigureAwait(false)
+        var body = await PostFormWithDpopAsync(endpoint, form, clientKey, audience, dpop, operation, cancellationToken).ConfigureAwait(false)
             ?? throw new OAuthException($"The {operation} response is larger than {MaxResponseBytes} bytes.", invalidResponseError);
 
         try
@@ -807,10 +771,8 @@ public sealed class OAuthClient : IDisposable
     private OAuthClientKey FindClientKey(string keyId)
     {
         foreach (var key in _clientKeys)
-        {
             if (string.Equals(key.KeyId, keyId, StringComparison.Ordinal))
                 return key;
-        }
 
         // The authorization server binds a grant to the key that authenticated it, so no other
         // key can stand in.
@@ -832,12 +794,10 @@ public sealed class OAuthClient : IDisposable
         {
             case "none":
                 if (keys.Length > 0)
-                {
                     throw new ArgumentException(
                         "ClientKeys are only used by a confidential client: set the client metadata's " +
                         "TokenEndpointAuthMethod to 'private_key_jwt' and publish the keys.",
                         nameof(options));
-                }
 
                 return keys;
 
@@ -846,17 +806,13 @@ public sealed class OAuthClient : IDisposable
                     throw new ArgumentException("A private_key_jwt client needs at least one key in ClientKeys.", nameof(options));
 
                 if (metadata.TokenEndpointAuthSigningAlg != OAuthClientKey.Algorithm)
-                {
                     throw new ArgumentException(
                         "A private_key_jwt client must declare TokenEndpointAuthSigningAlg 'ES256'.", nameof(options));
-                }
 
                 if (metadata.Jwks is null && string.IsNullOrEmpty(metadata.JwksUri))
-                {
                     throw new ArgumentException(
                         "A private_key_jwt client must publish its keys in the client metadata, as Jwks or at JwksUri.",
                         nameof(options));
-                }
 
                 if (keys.Select(key => key.KeyId).Distinct(StringComparer.Ordinal).Count() != keys.Length)
                     throw new ArgumentException("ClientKeys contains two keys with the same key id.", nameof(options));
@@ -864,13 +820,9 @@ public sealed class OAuthClient : IDisposable
                 if (metadata.Jwks is { } published)
                 {
                     foreach (var key in keys)
-                    {
                         if (!published.Keys.Any(jwk => jwk.Kid == key.KeyId && key.Matches(jwk)))
-                        {
                             throw new ArgumentException(
                                 $"Client key '{key.KeyId}' is not published in the client metadata's Jwks.", nameof(options));
-                        }
-                    }
                 }
 
                 return keys;
@@ -894,20 +846,18 @@ public sealed class OAuthClient : IDisposable
         {
             // No cache on this path: a copy from before the account moved would confirm the
             // server it left, which may be the one asking.
-            var identity = await _discovery.ResolveIdentityUncachedAsync(did, cancellationToken).ConfigureAwait(false);
+            var identity = await Discovery.ResolveIdentityUncachedAsync(did, cancellationToken).ConfigureAwait(false);
             var pdsUrl = identity.PdsEndpoint
                 ?? throw new OAuthException(
                     $"DID document for '{did}' does not contain an atproto PDS service.", "pds_not_found");
-            var metadata = await _discovery.ResolveAuthorizationServerAsync(
+            var metadata = await Discovery.ResolveAuthorizationServerAsync(
                 pdsUrl.OriginalString, bypassCache: true, cancellationToken).ConfigureAwait(false);
 
             if (!string.Equals(metadata.Issuer, expectedIssuer, StringComparison.Ordinal))
-            {
                 throw new OAuthException(
                     $"DID '{did}' resolves to Authorization Server '{metadata.Issuer}' " +
                     $"but token was received from '{expectedIssuer}'. Possible security issue.",
                     "auth_server_mismatch");
-            }
 
             return identity;
         }
@@ -950,10 +900,10 @@ public sealed class OAuthClient : IDisposable
         if (!_disposed)
         {
             _disposed = true;
-            _discovery.Dispose();
+            Discovery.Dispose();
             _ownedIdentityResolver?.Dispose();
             if (_ownsHttpClient)
-                _httpClient.Dispose();
+                HttpClient.Dispose();
         }
     }
 }

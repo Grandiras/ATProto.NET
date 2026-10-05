@@ -56,9 +56,7 @@ internal sealed record OAuthLoginState(
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
             (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
-        {
             return false;
-        }
 
         var authority = value[(value.IndexOf("://", StringComparison.Ordinal) + 3)..];
         return authority.Length > 0 && authority.IndexOfAny(['/', '\\', '?', '#', '@']) < 0;
@@ -122,10 +120,8 @@ internal static class OAuthLoginBinding
             return false;
 
         foreach (var c in url)
-        {
             if (char.IsControl(c))
                 return false;
-        }
 
         return true;
     }

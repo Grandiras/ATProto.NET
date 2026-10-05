@@ -27,7 +27,6 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
     private readonly IAtProtoSessionStore _sessionStore;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly Func<OAuthClient?> _oauthClient;
-    private readonly ISessionRefreshCoordinator? _refreshCoordinator;
     private readonly AtProtoClientOptions? _clientOptions;
     private readonly ILogger<AtProtoClient> _clientLogger;
     private readonly ILogger<AtProtoClientFactory> _logger;
@@ -87,14 +86,14 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
         ArgumentNullException.ThrowIfNull(loggerFactory);
 
         _oauthClient = oauthClient;
-        _refreshCoordinator = refreshCoordinator;
+        RefreshCoordinator = refreshCoordinator;
         _clientOptions = clientOptions;
         _clientLogger = loggerFactory.CreateLogger<AtProtoClient>();
         _logger = loggerFactory.CreateLogger<AtProtoClientFactory>();
     }
 
     // The coordinator the clients refresh under.
-    internal ISessionRefreshCoordinator? RefreshCoordinator => _refreshCoordinator;
+    internal ISessionRefreshCoordinator? RefreshCoordinator { get; }
 
     // How many accounts' DPoP keys are cached.
     internal int CachedKeyCount => _keys.Count;
@@ -132,9 +131,7 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
         {
             if (change.Change is AtProtoSessionChange.Removed or AtProtoSessionChange.Expired &&
                 change.Previous is OAuthSession ended)
-            {
                 ForgetKey(ended.Did, ended.DPoPKey);
-            }
         };
 
         try
@@ -144,11 +141,9 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
             await client.InstallStoredSessionAsync(session, oauthClient, key, cancellationToken).ConfigureAwait(false);
 
             if (session is OAuthSession && oauthClient is null && Interlocked.Exchange(ref _warnedNoOAuthClient, 1) == 0)
-            {
                 _logger.LogWarning(
                     "No OAuthClient is registered, so per-request clients cannot refresh OAuth sessions once their " +
                     "access tokens expire. Register the hosted login (WithOAuth) or your own OAuthClient.");
-            }
         }
         catch
         {
@@ -164,7 +159,7 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
     // factory's coordinator).
     private AtProtoClientOptions CreateClientOptions()
     {
-        var options = new AtProtoClientOptions { RefreshCoordinator = _refreshCoordinator };
+        var options = new AtProtoClientOptions { RefreshCoordinator = RefreshCoordinator };
         if (_clientOptions is { } configured)
         {
             options.UserAgent = configured.UserAgent;
@@ -220,9 +215,7 @@ public sealed class AtProtoClientFactory : IAtProtoClientFactory
     {
         if (!_keys.TryPeek(did, out var cached) ||
             (keyBytes is { } ended && !cached.KeyBytes.AsSpan().SequenceEqual(ended.Span)))
-        {
             return;
-        }
 
         if (_keys.Remove(did, cached))
             cached.Prototype.Dispose();

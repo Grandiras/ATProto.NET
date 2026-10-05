@@ -29,11 +29,9 @@ internal sealed class XrpcEndpointRegistry
                 return;
 
             if (string.Equals(existing.Nsid.Value, registration.Nsid.Value, StringComparison.OrdinalIgnoreCase))
-            {
                 throw new InvalidOperationException(
                     $"Both '{existing.HandlerType}' ({existing.Nsid}) and '{registration.HandlerType}' ({registration.Nsid}) " +
                     "serve the same route. An XRPC method has exactly one handler, and routes match NSIDs case-insensitively.");
-            }
         }
 
         _registrations.Add(registration);
@@ -42,7 +40,8 @@ internal sealed class XrpcEndpointRegistry
 
 // One handler, resolved at registration into everything mapping it needs: its route, its HTTP method,
 // the request delegate for its shape, and the metadata its class carries.
-internal sealed class XrpcEndpointRegistration
+internal sealed class XrpcEndpointRegistration(
+    Nsid nsid, Type handlerType, string httpMethod, RequestDelegate invoke, object[] metadata)
 {
     // One entry per endpoint interface. Each factory is generic over the handler and the
     // interface's own type arguments, so a request runs without reflection; the one
@@ -59,31 +58,21 @@ internal sealed class XrpcEndpointRegistration
         [typeof(IXrpcBlobProcedure<>)] = (HttpMethods.Post, Factory(nameof(BlobProcedure))),
     };
 
-    private XrpcEndpointRegistration(
-        Nsid nsid, Type handlerType, string httpMethod, RequestDelegate invoke, object[] metadata)
-    {
-        Nsid = nsid;
-        HandlerType = handlerType;
-        HttpMethod = httpMethod;
-        Invoke = invoke;
-        Metadata = metadata;
-    }
-
     // The method served, and the route segment after /xrpc/.
-    public Nsid Nsid { get; }
+    public Nsid Nsid { get; } = nsid;
 
     // The handler class, resolved from the request's services.
-    public Type HandlerType { get; }
+    public Type HandlerType { get; } = handlerType;
 
     // GET for a query, POST for a procedure.
-    public string HttpMethod { get; }
+    public string HttpMethod { get; } = httpMethod;
 
     // Binds the request, runs the handler, and writes its output. Errors propagate.
-    public RequestDelegate Invoke { get; }
+    public RequestDelegate Invoke { get; } = invoke;
 
     // The handler class's attributes — [Authorize], [AllowAnonymous], [EnableRateLimiting],
     // [RequestSizeLimit] — as endpoint metadata, followed by the XrpcMethodMetadata naming the method.
-    public object[] Metadata { get; }
+    public object[] Metadata { get; } = metadata;
 
     // Reads THandler's NSID and endpoint interface.
     //
@@ -104,21 +93,17 @@ internal sealed class XrpcEndpointRegistration
                 continue;
 
             if (shapeInterface is not null)
-            {
                 throw new InvalidOperationException(
                     $"XRPC endpoint handler '{handlerType}' implements both '{shapeInterface}' and '{candidate}'. " +
                     "A handler serves one method, so it implements one endpoint interface.");
-            }
 
             shapeInterface = candidate;
         }
 
         if (shapeInterface is null)
-        {
             throw new InvalidOperationException(
                 $"'{handlerType}' implements none of the XRPC endpoint interfaces " +
                 "(IXrpcQuery, IXrpcBlobQuery, IXrpcProcedure, IXrpcProcedureVoid, IXrpcBlobProcedure).");
-        }
 
         var (httpMethod, factory) = Shapes[Definition(shapeInterface)];
         Type[] typeArguments = [handlerType, .. shapeInterface.GenericTypeArguments];
@@ -233,13 +218,11 @@ internal sealed class XrpcEndpointRegistration
     {
         var request = context.Request;
         if (!request.HasJsonContentType())
-        {
             throw new XrpcException(
                 XrpcErrors.InvalidRequest,
                 request.ContentType is null
                     ? "Request encoding (Content-Type) required but not provided."
                     : $"Wrong request encoding (Content-Type): {request.ContentType}. Expected application/json.");
-        }
 
         try
         {

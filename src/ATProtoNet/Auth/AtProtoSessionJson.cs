@@ -45,9 +45,7 @@ internal static class AtProtoSessionJson
         if (!session.ServiceEndpoint.IsAbsoluteUri ||
             session is OAuthSession { TokenEndpoint.IsAbsoluteUri: false } ||
             session is OAuthSession { RevocationEndpoint.IsAbsoluteUri: false })
-        {
             throw new JsonException("The stored session has an endpoint that is not an absolute URL.");
-        }
 
         return session;
     }
@@ -70,9 +68,7 @@ internal static class AtProtoSessionJson
         if (root.GetInt32OrNull("expiresIn") is { } expiresIn &&
             root.TryGetProperty("tokenObtainedAt", out var obtained) &&
             obtained.TryGetDateTimeOffset(out var obtainedAt))
-        {
             expiresAt = obtainedAt.AddSeconds(expiresIn);
-        }
 
         return new OAuthSession
         {

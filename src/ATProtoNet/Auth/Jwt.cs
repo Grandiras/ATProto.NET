@@ -176,9 +176,7 @@ internal static class Jwt
 
         if (!TryDecodeObject(jwt.AsSpan(0, first), "header", out var header, out error) ||
             !TryDecodeObject(jwt.AsSpan(first + 1, second - first - 1), "payload", out var payload, out error))
-        {
             return false;
-        }
 
         if (!TryDecodeBase64Url(jwt.AsSpan(second + 1), out var signature))
         {

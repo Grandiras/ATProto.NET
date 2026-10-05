@@ -39,17 +39,14 @@ internal sealed class InMemoryDefaultsWarning(InMemoryFallbacks fallbacks, ILogg
     public Task StartAsync(CancellationToken cancellationToken)
     {
         if (fallbacks.IsInEffect<IAtProtoSessionStore>())
-        {
             logger.LogWarning(
                 "Users' AT Protocol sessions are kept in memory ({Store}): a restart loses them, so everyone has " +
                 "to sign in again, and another instance does not see them. Choose a store: WithFileSessionStore(), " +
                 "WithEfCoreSessionStore<TContext>() from ATProtoNet.Server.EntityFrameworkCore, or " +
                 "WithSessionStore<TStore>(); or call WithInMemorySessionStore() to keep this one.",
                 nameof(InMemoryAtProtoSessionStore));
-        }
 
         if (fallbacks.IsInEffect<IJtiReplayStore>())
-        {
             logger.LogWarning(
                 "Single-use tokens are tracked by {Store}, which is per-process: a service auth token, or a space " +
                 "delegation token, client attestation or DPoP proof, replayed against another instance or after a " +
@@ -57,7 +54,6 @@ internal sealed class InMemoryDefaultsWarning(InMemoryFallbacks fallbacks, ILogg
                 "ATProtoNet.Server.EntityFrameworkCore) if more than one instance answers for this service, or register " +
                 "{Store} yourself to keep it.",
                 nameof(InMemoryJtiReplayStore), nameof(InMemoryJtiReplayStore));
-        }
 
         return Task.CompletedTask;
     }

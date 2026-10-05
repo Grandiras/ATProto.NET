@@ -66,27 +66,17 @@ internal sealed class KeyedLock<TKey>
     }
 
     // The held lock of one key; released once, however often it is disposed.
-    public sealed class Lease : IDisposable, IAsyncDisposable
+    public sealed class Lease(KeyedLock<TKey> owner, TKey key, Entry entry) : IDisposable, IAsyncDisposable
     {
-        private readonly KeyedLock<TKey> _owner;
-        private readonly TKey _key;
-        private readonly Entry _entry;
         private int _released;
-
-        internal Lease(KeyedLock<TKey> owner, TKey key, Entry entry)
-        {
-            _owner = owner;
-            _key = key;
-            _entry = entry;
-        }
 
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _released, 1) != 0)
                 return;
 
-            _entry.Semaphore.Release();
-            _owner.Forget(_key, _entry);
+            entry.Semaphore.Release();
+            owner.Forget(key, entry);
         }
 
         public ValueTask DisposeAsync()

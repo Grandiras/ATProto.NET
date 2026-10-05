@@ -31,9 +31,7 @@ public sealed class AtProtoPdsHealthCheck : IHealthCheck
             var description = await _client.Server.DescribeServerAsync(cancellationToken).ConfigureAwait(false);
 
             if (description is not null)
-            {
                 return HealthCheckResult.Healthy($"PDS reachable at {_client.ServiceUrl}");
-            }
 
             return HealthCheckResult.Degraded("PDS returned empty response");
         }

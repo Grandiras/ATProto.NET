@@ -334,12 +334,10 @@ public sealed class DistributedCacheOAuthStateStore : IOAuthStateStore
             throw new ArgumentException("Protect and Unprotect must be set together.", nameof(options));
 
         if (options.Protect is null && !options.StoreSecretsUnencrypted)
-        {
             throw new ArgumentException(
                 "Pending logins hold DPoP private keys and PKCE verifiers: set Protect and Unprotect (for example to " +
                 "an IDataProtector's), or StoreSecretsUnencrypted for a cache nobody else can read.",
                 nameof(options));
-        }
 
         _cache = cache;
         _options = options;

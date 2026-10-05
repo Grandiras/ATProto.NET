@@ -57,9 +57,7 @@ public static class XrpcEndpointExtensions
         {
             if (type is not { IsClass: true, IsAbstract: false, ContainsGenericParameters: false }
                 || !type.IsAssignableTo(typeof(IXrpcEndpoint)))
-            {
                 continue;
-            }
 
             AddEndpointMethod.MakeGenericMethod(type)
                 .Invoke(null, BindingFlags.DoNotWrapExceptions, binder: null, [services], culture: null);
@@ -112,10 +110,8 @@ public static class XrpcEndpointExtensions
         var group = endpoints.MapGroup("/xrpc");
 
         foreach (var registration in registry.Registrations)
-        {
             group.MapMethods($"/{registration.Nsid}", [registration.HttpMethod], XrpcErrorResponse.Handle(registration.Invoke, logger))
                 .WithMetadata(registration.Metadata);
-        }
 
         // Ordered after every other endpoint, so it answers only what nothing else matched —
         // including routes an application maps under /xrpc itself.
@@ -127,13 +123,9 @@ public static class XrpcEndpointExtensions
     private static XrpcEndpointRegistry GetOrCreateRegistry(IServiceCollection services)
     {
         foreach (var descriptor in services)
-        {
             if (descriptor.ServiceType == typeof(XrpcEndpointRegistry)
                 && descriptor.ImplementationInstance is XrpcEndpointRegistry existing)
-            {
                 return existing;
-            }
-        }
 
         var registry = new XrpcEndpointRegistry();
         services.AddSingleton(registry);

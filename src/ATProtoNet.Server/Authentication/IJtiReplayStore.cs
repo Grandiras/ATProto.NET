@@ -93,10 +93,8 @@ public sealed class InMemoryJtiReplayStore : IJtiReplayStore
         _sweeps.RunIfDue(now =>
         {
             foreach (var (key, expiry) in _consumed)
-            {
                 if (expiry <= now)
                     _consumed.TryRemove(key, out _);
-            }
 
             return Task.CompletedTask;
         });
@@ -124,9 +122,7 @@ internal sealed class SweepSchedule(TimeProvider timeProvider)
         var due = Interlocked.Read(ref _due);
         if (now.ToUnixTimeMilliseconds() < due ||
             Interlocked.CompareExchange(ref _due, now.Add(Interval).ToUnixTimeMilliseconds(), due) != due)
-        {
             return;
-        }
 
         // Not awaited, and not tied to the request's cancellation: the request that found the
         // sweep due should not pay for it, and cancelling it would only leave the entries for later.

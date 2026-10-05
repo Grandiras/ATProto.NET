@@ -32,9 +32,7 @@ internal static class OAuthUser
             if (!identity.IsAuthenticated ||
                 (!string.Equals(identity.AuthenticationType, IdentityType, StringComparison.Ordinal) &&
                  !identity.HasClaim(AtProtoClaimTypes.AuthMethod, AuthMethod)))
-            {
                 continue;
-            }
 
             var claim = identity.FindFirst(AtProtoClaimTypes.Did)?.Value ?? identity.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (Did.TryParse(claim, out var did))

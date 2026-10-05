@@ -55,7 +55,6 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
     private readonly XrpcClient _xrpc;
     private readonly ServerClient _server;
-    private readonly IAtProtoSessionStore? _store;
     private readonly ISessionRefreshCoordinator? _coordinator;
     private readonly Action<AtProtoSessionChangedEventArgs> _raise;
     private readonly ILogger _logger;
@@ -88,7 +87,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
     {
         _xrpc = xrpc;
         _server = server;
-        _store = store;
+        Store = store;
         _coordinator = store is null ? null : coordinator;
         _raise = raise;
         _logger = logger;
@@ -101,7 +100,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
     internal AtProtoSession? Session => _state?.Session;
 
     // The session store, if the client has one.
-    internal IAtProtoSessionStore? Store => _store;
+    internal IAtProtoSessionStore? Store { get; }
 
     // ── Install ──────────────────────────────────────────────
 
@@ -165,10 +164,8 @@ internal sealed class SessionManager : IXrpcSessionHandler
                 // Under the account's lease, so a refresh of the account's previous session by
                 // another client cannot write its result over this one afterwards.
                 if (persist)
-                {
                     await using (await AcquireStoreLeaseAsync(session.Did).ConfigureAwait(false))
                         await PersistAsync(session).ConfigureAwait(false);
-                }
 
                 change = new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Created, session, previous?.Session);
             }
@@ -227,9 +224,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
                     {
                         if (_coordinator is null ||
                             await ReadStoredQuietlyAsync(updated.Did).ConfigureAwait(false) is { } stored && SameGeneration(stored, password))
-                        {
                             await PersistAsync(updated).ConfigureAwait(false);
-                        }
                     }
 
                     change = new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Refreshed, updated, password);
@@ -567,7 +562,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
         using var deadline = new CancellationTokenSource(RefreshTimeout, _time);
         try
         {
-            return await _store!.GetAsync(did, deadline.Token).ConfigureAwait(false);
+            return await Store!.GetAsync(did, deadline.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (deadline.IsCancellationRequested)
         {
@@ -696,14 +691,10 @@ internal sealed class SessionManager : IXrpcSessionHandler
         state.DPoP?.Dispose();
 
         if (leaseHeld)
-        {
             await ForgetAsync(state.Session).ConfigureAwait(false);
-        }
         else
-        {
             await using (await AcquireStoreLeaseAsync(state.Session.Did).ConfigureAwait(false))
                 await ForgetAsync(state.Session).ConfigureAwait(false);
-        }
 
         return new AtProtoSessionChangedEventArgs(AtProtoSessionChange.Expired, null, state.Session, error);
     }
@@ -735,7 +726,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
             // What is revoked: this client's session, or the later copy of it another client
             // stored after refreshing it, whose tokens are the live ones.
             var revoked = state;
-            if (_store is not null)
+            if (Store is not null)
             {
                 try
                 {
@@ -750,7 +741,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
                             revoked = state with { Session = stored };
                         }
 
-                        await _store.RemoveAsync(state.Session.Did, CancellationToken.None).ConfigureAwait(false);
+                        await Store.RemoveAsync(state.Session.Did, CancellationToken.None).ConfigureAwait(false);
                     }
                 }
                 catch (Exception ex)
@@ -835,12 +826,12 @@ internal sealed class SessionManager : IXrpcSessionHandler
     // left behind the client would hand a spent token to the next reader.
     private async Task PersistAsync(AtProtoSession session)
     {
-        if (_store is null)
+        if (Store is null)
             return;
 
         try
         {
-            await _store.SetAsync(session, CancellationToken.None).ConfigureAwait(false);
+            await Store.SetAsync(session, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -857,14 +848,14 @@ internal sealed class SessionManager : IXrpcSessionHandler
     // A ISessionRefreshCoordinator keeps that from happening among the clients it coordinates.
     private async Task ForgetAsync(AtProtoSession refused)
     {
-        if (_store is null)
+        if (Store is null)
             return;
 
         try
         {
-            var stored = await _store.GetAsync(refused.Did, CancellationToken.None).ConfigureAwait(false);
+            var stored = await Store.GetAsync(refused.Did, CancellationToken.None).ConfigureAwait(false);
             if (stored is not null && string.Equals(RefreshCredential(stored), RefreshCredential(refused), StringComparison.Ordinal))
-                await _store.RemoveAsync(refused.Did, CancellationToken.None).ConfigureAwait(false);
+                await Store.RemoveAsync(refused.Did, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -903,9 +894,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
 
             if (!_backgroundRefresh || !_autoRefresh || _disposed || state is null || !CanRefresh(state) ||
                 state.Session.ExpiresAt is not { } expiresAt)
-            {
                 return;
-            }
 
             var due = retryIn ?? expiresAt - RefreshSkew - _time.GetUtcNow();
             due = due < TimeSpan.Zero ? TimeSpan.Zero : due > MaxTimerDelay ? MaxTimerDelay : due;
@@ -1060,9 +1049,7 @@ internal sealed class SessionManager : IXrpcSessionHandler
             !document.TryGetProperty("service", out var services) ||
             services.ValueKind != JsonValueKind.Array ||
             current.Scheme != Uri.UriSchemeHttps)
-        {
             return current;
-        }
 
         foreach (var service in services.EnumerateArray())
         {

@@ -72,14 +72,10 @@ public sealed class ServiceAuthVerifierOptions
             throw new ArgumentException("At least one key ID must be allowed.", nameof(AllowedKeyIds));
 
         foreach (var keyId in AllowedKeyIds)
-        {
             if (!ServiceAuthSyntax.IsKeyId(keyId))
-            {
                 throw new ArgumentException(
                     $"An allowed key ID is a verification-method fragment such as '#atproto'; got '{keyId}'.",
                     nameof(AllowedKeyIds));
-            }
-        }
 
         if (ClockSkew < TimeSpan.Zero)
             throw new ArgumentException("The clock skew cannot be negative.", nameof(ClockSkew));
@@ -229,11 +225,9 @@ public sealed class ServiceAuthVerifier
 
         var algorithm = header.GetStringOrNull("alg");
         if (algorithm is not ("ES256" or "ES256K"))
-        {
             throw Refuse(
                 ServiceAuthErrors.BadJwt,
                 $"The service auth token's \"alg\" must be ES256 or ES256K; got '{algorithm ?? "(none)"}'.");
-        }
 
         // Service auth is typed "JWT", or not at all. An explicit "+jwt" type (RFC 8725 section
         // 3.11) names a token of another kind — an OAuth access token, a DPoP proof, a space
@@ -253,18 +247,14 @@ public sealed class ServiceAuthVerifier
         // A fragment named the issuing service until the 2026 revision; a key is now named by
         // "kid", and the issuer is only ever the account.
         if (issuerText.Contains('#', StringComparison.Ordinal))
-        {
             throw Refuse(
                 ServiceAuthErrors.BadJwtIss,
                 $"The service auth token's \"iss\" must be a bare DID; got '{issuerText}'. " +
                 "Name the signing key with \"kid\".");
-        }
 
         if (!Did.TryParse(issuerText, out var issuer))
-        {
             throw Refuse(
                 ServiceAuthErrors.BadJwtIss, $"The service auth token's \"iss\" must be a DID; got '{issuerText}'.");
-        }
 
         var keyId = ReadKeyId(header, issuer);
 
@@ -308,14 +298,12 @@ public sealed class ServiceAuthVerifier
         // No kid means #atproto, which is held to the allow-list like any named key: a service
         // accepting only #atproto_label must not take an account-key token that omits the header.
         if (!header.TryGetProperty("kid", out var kid))
-        {
             return _allowedKeyIds.Contains(ServiceAuthVerifierOptions.DefaultKeyId)
                 ? ServiceAuthVerifierOptions.DefaultKeyId
                 : throw Refuse(
                     ServiceAuthErrors.BadJwt,
                     "The service auth token names no \"kid\", so it is signed with " +
                     $"'{ServiceAuthVerifierOptions.DefaultKeyId}', a key this service does not accept.");
-        }
 
         if (kid.ValueKind != JsonValueKind.String)
             throw Refuse(ServiceAuthErrors.BadJwt, "The service auth token's \"kid\" is not a string.");
@@ -329,11 +317,9 @@ public sealed class ServiceAuthVerifier
             value = value[hash..];
 
         if (!_allowedKeyIds.Contains(value))
-        {
             throw Refuse(
                 ServiceAuthErrors.BadJwt,
                 $"The service auth token is signed with '{kid.GetString()}', a key this service does not accept.");
-        }
 
         return value;
     }
@@ -352,19 +338,15 @@ public sealed class ServiceAuthVerifier
 
         // Required since the spec's 2026 revision.
         if (tokenMethod is null)
-        {
             throw Refuse(
                 ServiceAuthErrors.BadJwtLexiconMethod,
                 $"The service auth token names no \"lxm\"; a call to '{method}' needs one naming it.");
-        }
 
         // Exact, as the reference compares: the token names the method its issuer approved.
         if (!string.Equals(tokenMethod.Value, method.Value, StringComparison.Ordinal))
-        {
             throw Refuse(
                 ServiceAuthErrors.BadJwtLexiconMethod,
                 $"The service auth token is scoped to '{tokenMethod}', not to '{method}'.");
-        }
 
         return tokenMethod;
     }
@@ -389,11 +371,9 @@ public sealed class ServiceAuthVerifier
             throw Refuse(ServiceAuthErrors.JwtExpired, "The service auth token is expired.");
 
         if (expiresAt - now - _clockSkew > _maxTokenLifetime)
-        {
             throw Refuse(
                 ServiceAuthErrors.BadJwt,
                 $"The service auth token is valid for longer than the {_maxTokenLifetime} this service accepts.");
-        }
 
         if (issuedAt - now > _clockSkew)
             throw Refuse(ServiceAuthErrors.BadJwt, "The service auth token is dated in the future.");
@@ -401,11 +381,9 @@ public sealed class ServiceAuthVerifier
         // As @atproto/lex-server bounds it: a token minted longer ago than any this service would
         // accept a lifetime of is refused, whatever exp it names.
         if (now - issuedAt - _clockSkew > _maxTokenLifetime)
-        {
             throw Refuse(
                 ServiceAuthErrors.BadJwt,
                 $"The service auth token was issued more than the {_maxTokenLifetime} this service accepts ago.");
-        }
 
         if (!payload.TryGetNumericDate("nbf", out var nbf))
             throw Refuse(ServiceAuthErrors.BadJwt, "The service auth token's \"nbf\" is not a valid time.");

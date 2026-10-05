@@ -57,10 +57,8 @@ internal static partial class XrpcErrorResponse
             var segment = context.Request.RouteValues["nsid"] as string;
 
             if (!Nsid.TryParse(segment, out _))
-            {
                 return WriteAsync(
                     context, HttpStatusCode.BadRequest, XrpcErrors.InvalidRequest, $"Invalid XRPC path: '{segment}' is not an NSID.");
-            }
 
             if (methods.TryGetValue(segment, out var method))
             {

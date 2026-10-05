@@ -68,8 +68,6 @@ internal static class AtProtoOptionsRegistration
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
             (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
-        {
             throw new ArgumentException($"Must be an absolute http(s) URL; got '{value}'.", name);
-        }
     }
 }

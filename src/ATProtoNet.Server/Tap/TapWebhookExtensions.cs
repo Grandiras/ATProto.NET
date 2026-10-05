@@ -125,11 +125,9 @@ public static class TapWebhookExtensions
 
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxBodyBytes, nameof(TapWebhookOptions.MaxBodyBytes));
         if (string.IsNullOrEmpty(options.AdminPassword) && !options.AllowUnauthenticated)
-        {
             throw new InvalidOperationException(
                 "A Tap webhook needs the instance's admin password to authenticate deliveries. Set AdminPassword, " +
                 "or AllowUnauthenticated for an instance that has none.");
-        }
 
         return options;
     }

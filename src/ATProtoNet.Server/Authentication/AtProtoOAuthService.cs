@@ -44,7 +44,6 @@ public sealed class AtProtoOAuthService : IDisposable
     private readonly IdentityResolverOptions _identityOptions;
     private readonly IOAuthStateStore? _stateStore;
     private readonly IServer? _server;
-    private readonly ISessionRefreshCoordinator? _refreshCoordinator;
     private readonly object _lock = new();
     private readonly ConcurrentDictionary<string, RelayCode> _relayCodes = new(StringComparer.Ordinal);
     private volatile OAuthClient? _oauthClient;
@@ -84,11 +83,11 @@ public sealed class AtProtoOAuthService : IDisposable
         _identityOptions = identityOptions ?? new IdentityResolverOptions();
         _stateStore = stateStore;
         _server = server;
-        _refreshCoordinator = refreshCoordinator;
+        RefreshCoordinator = refreshCoordinator;
     }
 
     // The coordinator a new session is stored under and a sign-out waits on.
-    internal ISessionRefreshCoordinator? RefreshCoordinator => _refreshCoordinator;
+    internal ISessionRefreshCoordinator? RefreshCoordinator { get; }
 
     // The clock relayed logins expire by.
     internal TimeProvider TimeProvider { get; init; } = TimeProvider.System;
@@ -421,10 +420,8 @@ public sealed class AtProtoOAuthService : IDisposable
     {
         var now = TimeProvider.GetUtcNow();
         foreach (var (code, relay) in _relayCodes)
-        {
             if (relay.Entry.Expiry <= now)
                 ExpireRelayCode(code, relay);
-        }
     }
 
     private void ExpireRelayCode(string code, RelayCode relay)
@@ -506,9 +503,7 @@ public sealed class AtProtoOAuthService : IDisposable
         var colon = authority.LastIndexOf(':');
         if (colon <= 0 || authority.EndsWith(']') ||
             !ushort.TryParse(authority[(colon + 1)..], out var port) || port == 0)
-        {
             return null;
-        }
 
         var host = authority[..colon];
         return host.ToLowerInvariant() switch
@@ -593,7 +588,7 @@ public sealed class AtProtoOAuthService : IDisposable
     }
 
     private async ValueTask<IAsyncDisposable> AcquireRefreshLeaseAsync(Did did, CancellationToken cancellationToken) =>
-        _refreshCoordinator is null ? NoLease.Instance : await _refreshCoordinator.AcquireAsync(did, cancellationToken).ConfigureAwait(false);
+        RefreshCoordinator is null ? NoLease.Instance : await RefreshCoordinator.AcquireAsync(did, cancellationToken).ConfigureAwait(false);
 
     // Revokes a session this service refuses to sign in with, best effort.
     private async Task RevokeQuietlyAsync(OAuthClient client, OAuthSession session)
