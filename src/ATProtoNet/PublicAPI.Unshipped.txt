@@ -1,1 +1,3 @@
 #nullable enable
+ATProtoNet.Identity.IdentityResolverOptions.HandleCacheTtl.get -> System.TimeSpan
+ATProtoNet.Identity.IdentityResolverOptions.HandleCacheTtl.set -> void

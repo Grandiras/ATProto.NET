@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using ATProtoNet.Identity;
 using ATProtoNet.Tests.TestSupport;
+using NSubstitute;
 
 namespace ATProtoNet.Tests.Identity;
 
@@ -108,6 +109,64 @@ public class HandleResolverTests
         using var resolver = Create((_, _) => Task.FromResult(HttpStub.Status(HttpStatusCode.NotFound)), out _);
 
         Assert.Null(await resolver.ResolveAsync(Alice));
+    }
+
+    // ── Cache ────────────────────────────────────────────────
+
+    private static Task<HttpResponseMessage> DnsOnly(HttpStub.RecordedRequest request, CancellationToken _) =>
+        Task.FromResult(IsWellKnown(request) ? HttpStub.Status(HttpStatusCode.NotFound) : HttpStub.TxtAnswer($"\"did={AliceDid}\""));
+
+    [Fact]
+    public async Task ResolveAsync_AnswerIsCached_SecondResolutionSendsNothing()
+    {
+        using var resolver = Create(DnsOnly, out var handler);
+
+        await resolver.ResolveAsync(Alice);
+        var sent = handler.Requests.Count;
+
+        Assert.Equal(AliceDid, await resolver.ResolveAsync(Alice));
+        Assert.Equal(sent, handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_CacheDisabled_LooksUpEveryTime()
+    {
+        using var resolver = Create(DnsOnly, out var handler, new IdentityResolverOptions { HandleCacheTtl = TimeSpan.Zero });
+
+        await resolver.ResolveAsync(Alice);
+        var sent = handler.Requests.Count;
+        await resolver.ResolveAsync(Alice);
+
+        Assert.Equal(2 * sent, handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_NoAnswer_IsNotCached()
+    {
+        var answer = false;
+        using var resolver = Create((request, ct) => answer ? DnsOnly(request, ct) : Task.FromResult(HttpStub.Status(HttpStatusCode.NotFound)), out _);
+
+        Assert.Null(await resolver.ResolveAsync(Alice));
+        answer = true;
+        Assert.Equal(AliceDid, await resolver.ResolveAsync(Alice));
+    }
+
+    [Fact]
+    public async Task IdentityResolver_ResolveUncachedAsync_LooksTheHandleUpAfresh()
+    {
+        var current = AliceDid;
+        using var handles = Create((request, _) => Task.FromResult(IsWellKnown(request)
+            ? HttpStub.Status(HttpStatusCode.NotFound)
+            : HttpStub.TxtAnswer($"\"did={current}\"")), out _);
+        var dids = Substitute.For<IDidResolver>();
+        dids.ResolveAsync(AliceDid, Arg.Any<CancellationToken>()).Returns(DidDocs.Parse(AliceDid.Value, Alice.Value, null));
+        using var identities = new IdentityResolver(dids, handles);
+
+        Assert.True((await identities.ResolveAsync(AtIdentifier.FromDid(AliceDid))).HandleVerified);
+        current = Did.Parse("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb");
+
+        Assert.True((await identities.ResolveAsync(AtIdentifier.FromDid(AliceDid))).HandleVerified);
+        Assert.False((await identities.ResolveUncachedAsync(AliceDid)).HandleVerified);
     }
 
     // ── Budget ───────────────────────────────────────────────

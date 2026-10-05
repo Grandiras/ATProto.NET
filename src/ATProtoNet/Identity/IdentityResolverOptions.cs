@@ -31,6 +31,14 @@ public sealed class IdentityResolverOptions
     /// </remarks>
     public TimeSpan HandleResolutionTimeout { get; set; } = TimeSpan.FromSeconds(5);
 
+    /// <summary>How long a handle's resolved DID is remembered, so verifying the same handle again costs no lookup. Defaults to five minutes; <see cref="TimeSpan.Zero"/> turns the cache off.</summary>
+    /// <remarks>
+    /// Only answers are remembered, never "no answer" or a conflict, so a handle that has just been
+    /// set up resolves at once. <see cref="IdentityResolver.ResolveUncachedAsync"/> looks the handle
+    /// up afresh. At most <see cref="DidCacheOptions.Capacity"/> handles are held.
+    /// </remarks>
+    public TimeSpan HandleCacheTtl { get; set; } = TimeSpan.FromMinutes(5);
+
     /// <summary>The largest DID document accepted, in bytes. Defaults to 64 KiB.</summary>
     public int MaxDidDocumentBytes { get; set; } = 64 * 1024;
 
@@ -56,6 +64,7 @@ public sealed class IdentityResolverOptions
         ArgumentNullException.ThrowIfNull(PlcDirectoryUrl, nameof(PlcDirectoryUrl));
         RequirePositive(RequestTimeout, nameof(RequestTimeout));
         RequirePositive(HandleResolutionTimeout, nameof(HandleResolutionTimeout));
+        ArgumentOutOfRangeException.ThrowIfLessThan(HandleCacheTtl, TimeSpan.Zero, nameof(HandleCacheTtl));
         ArgumentOutOfRangeException.ThrowIfLessThan(MaxDidDocumentBytes, 1024, nameof(MaxDidDocumentBytes));
         ArgumentNullException.ThrowIfNull(Cache, nameof(Cache));
         Cache.Validate();

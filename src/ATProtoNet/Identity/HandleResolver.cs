@@ -1,4 +1,5 @@
 using System.Text;
+using ATProtoNet.Caching;
 using ATProtoNet.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -38,6 +39,7 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
     private readonly IdentityResolverOptions _options;
     private readonly Uri? _dnsOverHttpsUrl;
     private readonly ILogger _logger;
+    private readonly LruCache<Handle, (Did Did, long ExpiresAt)>? _answers;
 
     /// <summary>Creates a resolver with its own client under the SDK's identity fetch policy.</summary>
     /// <param name="options">Resolver options. Defaults apply when omitted.</param>
@@ -69,6 +71,8 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
         _ownsHttpClient = ownsHttpClient;
         _httpClient = httpClient ?? IdentityNetworkPolicy.CreateClient(_options.AllowPrivateNetworks);
         _logger = logger ?? NullLogger.Instance;
+        if (_options.HandleCacheTtl > TimeSpan.Zero)
+            _answers = new(_options.Cache.Capacity);
     }
 
     /// <inheritdoc/>
@@ -81,6 +85,9 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
             _logger.LogDebug("Not resolving {Handle}: its TLD never resolves.", handle);
             return null;
         }
+
+        if (_answers is not null && _answers.TryGetValue(handle, out var cached) && Environment.TickCount64 < cached.ExpiresAt)
+            return cached.Did;
 
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budget.CancelAfter(_options.HandleResolutionTimeout);
@@ -113,8 +120,14 @@ public sealed class HandleResolver : IHandleResolver, IDisposable
                 DidResolutionErrorKind.HandleConflict);
         }
 
-        return httpsDid ?? dnsDid;
+        var answer = httpsDid ?? dnsDid;
+        if (answer is not null)
+            _answers?.Set(handle, (answer, Environment.TickCount64 + (long)_options.HandleCacheTtl.TotalMilliseconds));
+        return answer;
     }
+
+    // Drops the remembered answer for handle, so the next resolution looks it up.
+    internal void Forget(Handle handle) => _answers?.Remove(handle);
 
     // Whether a handle's TLD is one that resolves: the reserved ones never do, and .test only under the
     // development opt-out.

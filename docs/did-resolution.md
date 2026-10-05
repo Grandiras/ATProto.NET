@@ -124,6 +124,10 @@ failure to read it counts as no answer. Handles under TLDs that never resolve (`
 `.internal`, `.arpa`, `.onion`, `.alt`, `.example`, `.invalid`) are not looked up; `.test` is,
 under the development opt-out only.
 
+An answer is remembered for `HandleCacheTtl` (5 minutes by default; `TimeSpan.Zero` turns the
+cache off), so verifying the same handle again costs no lookup. "No answer" and conflicts are
+not remembered, and `IdentityResolver.ResolveUncachedAsync` looks the handle up afresh.
+
 .NET has no TXT lookup of its own, so the DNS query goes to a DNS-over-HTTPS endpoint, which
 learns every handle resolved. It defaults to `https://dns.google/resolve`; point it at a resolver
 you run or trust, or disable DNS resolution:

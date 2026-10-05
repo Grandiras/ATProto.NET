@@ -60,7 +60,13 @@ internal static class IdentityFetch
             await FetchSlots.WaitAsync(budget.Token).ConfigureAwait(false);
             slot = true;
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            // HTTP/2 where the host offers it, so concurrent lookups against one host (the PLC directory,
+            // the DNS-over-HTTPS endpoint) share a connection instead of each paying for a handshake.
+            using var request = new HttpRequestMessage(HttpMethod.Get, url)
+            {
+                Version = HttpVersion.Version20,
+                VersionPolicy = HttpVersionPolicy.RequestVersionOrLower,
+            };
             request.Headers.TryAddWithoutValidation("Accept", accept);
 
             using var response = await client

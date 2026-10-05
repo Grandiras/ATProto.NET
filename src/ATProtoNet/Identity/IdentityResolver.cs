@@ -104,15 +104,18 @@ public sealed class IdentityResolver : IIdentityResolver, IDisposable
         ArgumentNullException.ThrowIfNull(did);
 
         await _didResolver.InvalidateAsync(did, cancellationToken).ConfigureAwait(false);
-        return await ResolveDidAsync(did, cancellationToken).ConfigureAwait(false);
+        return await ResolveDidAsync(did, cancellationToken, uncached: true).ConfigureAwait(false);
     }
 
-    private async Task<ResolvedIdentity> ResolveDidAsync(Did did, CancellationToken cancellationToken)
+    private async Task<ResolvedIdentity> ResolveDidAsync(Did did, CancellationToken cancellationToken, bool uncached = false)
     {
         var document = await _didResolver.ResolveAsync(did, cancellationToken).ConfigureAwait(false);
         var claimed = document.GetHandle();
         if (claimed is null)
             return new ResolvedIdentity(did, null, false, document.GetPdsEndpoint(), document);
+
+        if (uncached)
+            (_handleResolver as HandleResolver)?.Forget(claimed);
 
         Did? resolved;
         try
