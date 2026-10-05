@@ -244,7 +244,7 @@ public sealed class ReportClient
                 .Add("cursor", cursor),
             cancellationToken: cancellationToken);
 
-    /// <summary>Get report statistics for the current day. Leave every filter out for the totals.</summary>
+    /// <summary>Get report statistics for the current UTC calendar day. Leave every filter out for the totals.</summary>
     /// <param name="queueId">Only reports in this queue; <c>-1</c> for reports in no queue.</param>
     /// <param name="moderatorDid">Only reports handled by this moderator.</param>
     /// <param name="reportTypes">Only reports of these reason types.</param>

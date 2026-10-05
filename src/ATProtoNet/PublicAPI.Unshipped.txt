@@ -1,3 +1,140 @@
 #nullable enable
 ATProtoNet.Identity.IdentityResolverOptions.HandleCacheTtl.get -> System.TimeSpan
 ATProtoNet.Identity.IdentityResolverOptions.HandleCacheTtl.set -> void
+ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetListFeedAsync(ATProtoNet.Identity.AtUri! list, string? since = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse!>!
+ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetQuotesAsync(ATProtoNet.Identity.AtUri! uri, ATProtoNet.Identity.Cid? cid = null, string? sort = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.GetQuotesResponse!>!
+ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetTimelineAsync(string? algorithm = null, string? since = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse!>!
+ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse.StartCursor.get -> string?
+ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse.StartCursor.init -> void
+ATProtoNet.Lexicon.App.Bsky.Feed.FeedViewPost.OpThreadPostCount.get -> int?
+ATProtoNet.Lexicon.App.Bsky.Feed.FeedViewPost.OpThreadPostCount.init -> void
+ATProtoNet.Lexicon.App.Bsky.Feed.FeedViewPost.OpThreadPostIndex.get -> int?
+ATProtoNet.Lexicon.App.Bsky.Feed.FeedViewPost.OpThreadPostIndex.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.ActionView() -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.CreatedAt.get -> ATProtoNet.Identity.AtDatetime
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.CreatedAt.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.ExpiresAt.get -> ATProtoNet.Identity.AtDatetime?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.ExpiresAt.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.Id.get -> long
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.Id.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.Labels.get -> System.Collections.Generic.IReadOnlyList<string!>?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.Labels.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.Policies.get -> System.Collections.Generic.IReadOnlyList<string!>?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.Policies.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.ReversedAt.get -> ATProtoNet.Identity.AtDatetime?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.ReversedAt.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.Scope.get -> string?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.Scope.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.Type.get -> string!
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.Type.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealAction
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealAction.AppealAction() -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealActionRef
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealActionRef.AppealActionRef() -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealActionRef.Id.get -> long
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealActionRef.Id.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealLabelRef
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealLabelRef.AppealLabelRef() -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealLabelRef.Val.get -> string!
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealLabelRef.Val.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealTakedownRef
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealTakedownRef.AppealTakedownRef() -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.AppealableUntil.get -> ATProtoNet.Identity.AtDatetime?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.AppealableUntil.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.AppealedAt.get -> ATProtoNet.Identity.AtDatetime?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.AppealedAt.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.AppealView() -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.Note.get -> string?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.Note.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.ResolvedAt.get -> ATProtoNet.Identity.AtDatetime?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.ResolvedAt.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.State.get -> string!
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.State.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.EnforcementView
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.EnforcementView.EnforcementView() -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.EnforcementView.ExpiresAt.get -> ATProtoNet.Identity.AtDatetime?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.EnforcementView.ExpiresAt.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.EnforcementView.Labels.get -> System.Collections.Generic.IReadOnlyList<string!>?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.EnforcementView.Labels.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.EnforcementView.Scope.get -> string?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.EnforcementView.Scope.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.EnforcementView.State.get -> string!
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.EnforcementView.State.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.InboxClient
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.InboxClient.AppealActionedSubjectAsync(ATProtoNet.Lexicon.Com.AtProto.Moderation.ModerationSubject! subject, ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealAction? action = null, string? reason = null, ATProtoNet.Lexicon.Com.AtProto.Moderation.ModTool? modTool = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView!>!
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.ActionCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.ActionCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.Appeal.get -> ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.Appeal.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.AvailableActions.get -> System.Collections.Generic.IReadOnlyList<string!>?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.AvailableActions.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.CreatedAt.get -> ATProtoNet.Identity.AtDatetime
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.CreatedAt.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.Enforcement.get -> ATProtoNet.Lexicon.Tools.Ozone.Inbox.EnforcementView!
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.Enforcement.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.LatestAction.get -> ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView?
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.LatestAction.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.Src.get -> ATProtoNet.Identity.Did!
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.Src.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.Subject.get -> ATProtoNet.Lexicon.Com.AtProto.Moderation.ModerationSubject!
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.Subject.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.SubjectView() -> void
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.UpdatedAt.get -> ATProtoNet.Identity.AtDatetime
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.UpdatedAt.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.OzoneClient.Inbox.get -> ATProtoNet.Lexicon.Tools.Ozone.Inbox.InboxClient!
+ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.CreateQueueAsync(string! name, System.Collections.Generic.IEnumerable<string!>? subjectTypes = null, ATProtoNet.Identity.Nsid? collection = null, System.Collections.Generic.IEnumerable<string!>? reportTypes = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Collections.Generic.IEnumerable<string!>? recommendedLabels = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.CreateQueueResponse!>!
+ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.UpdateQueueAsync(long queueId, string? name = null, bool? enabled = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Collections.Generic.IEnumerable<string!>? recommendedLabels = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.UpdateQueueResponse!>!
+ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueView.RecommendedLabels.get -> System.Collections.Generic.IReadOnlyList<string!>?
+ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueView.RecommendedLabels.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.GetLiveStatsResponse.Stats.get -> ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats!
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.AcknowledgedCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.AcknowledgedCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.AhtDurationSec.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.AhtDurationSec.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.AhtSampleCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.AhtSampleCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.AvgResolutionTimeSec.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.AvgResolutionTimeSec.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.ClosedCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.ClosedCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.LabelActionCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.LabelActionCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.ResolutionDurationSec.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.ResolutionDurationSec.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.ResolutionSampleCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.ResolutionSampleCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.TagActionCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.TagActionCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.TakedownActionCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.TakedownActionCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.AcknowledgedCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.AcknowledgedCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.AhtDurationSec.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.AhtDurationSec.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.AhtSampleCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.AhtSampleCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.AvgResolutionTimeSec.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.AvgResolutionTimeSec.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.ClosedCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.ClosedCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.LabelActionCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.LabelActionCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.LiveStats() -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.ResolutionDurationSec.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.ResolutionDurationSec.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.ResolutionSampleCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.ResolutionSampleCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TagActionCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TagActionCount.init -> void
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TakedownActionCount.get -> int?
+ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TakedownActionCount.init -> void
+*REMOVED*ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetListFeedAsync(ATProtoNet.Identity.AtUri! list, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse!>!
+*REMOVED*ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetQuotesAsync(ATProtoNet.Identity.AtUri! uri, ATProtoNet.Identity.Cid? cid = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.GetQuotesResponse!>!
+*REMOVED*ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetTimelineAsync(string? algorithm = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse!>!
+*REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.CreateQueueAsync(string! name, System.Collections.Generic.IEnumerable<string!>? subjectTypes = null, ATProtoNet.Identity.Nsid? collection = null, System.Collections.Generic.IEnumerable<string!>? reportTypes = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.CreateQueueResponse!>!
+*REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.UpdateQueueAsync(long queueId, string? name = null, bool? enabled = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.UpdateQueueResponse!>!
+*REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Report.GetLiveStatsResponse.Stats.get -> ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueStats!

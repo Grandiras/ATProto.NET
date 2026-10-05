@@ -311,7 +311,7 @@ public sealed class HistoricalStats : LexObject
     [JsonPropertyName("pendingCount")]
     public int? PendingCount { get; init; }
 
-    /// <summary>The reports closed that day.</summary>
+    /// <summary>The closures that day whose last report action is a label, tag or takedown.</summary>
     [JsonPropertyName("actionedCount")]
     public int? ActionedCount { get; init; }
 
@@ -323,13 +323,53 @@ public sealed class HistoricalStats : LexObject
     [JsonPropertyName("inboundCount")]
     public int? InboundCount { get; init; }
 
-    /// <summary>The percentage of received reports that were actioned, rounded.</summary>
+    /// <summary>The percentage of that day's closures that were actioned (<see cref="ActionedCount"/> / <see cref="ClosedCount"/>), rounded.</summary>
     [JsonPropertyName("actionRate")]
     public int? ActionRate { get; init; }
 
-    /// <summary>The average time in seconds from a report's creation (or assignment) to its close.</summary>
+    /// <summary>The average time in seconds from a report's assignment to its close.</summary>
     [JsonPropertyName("avgHandlingTimeSec")]
     public int? AvgHandlingTimeSec { get; init; }
+
+    /// <summary>The close transitions that day.</summary>
+    [JsonPropertyName("closedCount")]
+    public int? ClosedCount { get; init; }
+
+    /// <summary>The closures that day whose last report action is not a label, tag or takedown.</summary>
+    [JsonPropertyName("acknowledgedCount")]
+    public int? AcknowledgedCount { get; init; }
+
+    /// <summary>The closures that day whose last report action is a label event.</summary>
+    [JsonPropertyName("labelActionCount")]
+    public int? LabelActionCount { get; init; }
+
+    /// <summary>The closures that day whose last report action is a tag event.</summary>
+    [JsonPropertyName("tagActionCount")]
+    public int? TagActionCount { get; init; }
+
+    /// <summary>The closures that day whose last report action is a takedown event.</summary>
+    [JsonPropertyName("takedownActionCount")]
+    public int? TakedownActionCount { get; init; }
+
+    /// <summary>The sum of seconds from assignment to close over the assigned, closed reports counted in <see cref="AhtSampleCount"/>.</summary>
+    [JsonPropertyName("ahtDurationSec")]
+    public int? AhtDurationSec { get; init; }
+
+    /// <summary>The number of assigned, closed reports in <see cref="AhtDurationSec"/>.</summary>
+    [JsonPropertyName("ahtSampleCount")]
+    public int? AhtSampleCount { get; init; }
+
+    /// <summary>The sum of seconds from creation to close over the closed reports counted in <see cref="ResolutionSampleCount"/>.</summary>
+    [JsonPropertyName("resolutionDurationSec")]
+    public int? ResolutionDurationSec { get; init; }
+
+    /// <summary>The number of closed reports in <see cref="ResolutionDurationSec"/>.</summary>
+    [JsonPropertyName("resolutionSampleCount")]
+    public int? ResolutionSampleCount { get; init; }
+
+    /// <summary>The average time in seconds from a report's creation to its close.</summary>
+    [JsonPropertyName("avgResolutionTimeSec")]
+    public int? AvgResolutionTimeSec { get; init; }
 }
 
 // ─── Filters ───
@@ -467,12 +507,56 @@ public sealed class GetLatestReportResponse
     public required ReportView Report { get; init; }
 }
 
+/// <summary>Report statistics for the current UTC day (<c>tools.ozone.report.defs#liveStats</c>). It extends <see cref="QueueStats"/>, whose counts it shares, with the closure breakdown and handling-time sums.</summary>
+public sealed class LiveStats : QueueStats
+{
+    /// <summary>The close transitions.</summary>
+    [JsonPropertyName("closedCount")]
+    public int? ClosedCount { get; init; }
+
+    /// <summary>The closures whose last report action is not a label, tag or takedown.</summary>
+    [JsonPropertyName("acknowledgedCount")]
+    public int? AcknowledgedCount { get; init; }
+
+    /// <summary>The closures whose last report action is a label event.</summary>
+    [JsonPropertyName("labelActionCount")]
+    public int? LabelActionCount { get; init; }
+
+    /// <summary>The closures whose last report action is a tag event.</summary>
+    [JsonPropertyName("tagActionCount")]
+    public int? TagActionCount { get; init; }
+
+    /// <summary>The closures whose last report action is a takedown event.</summary>
+    [JsonPropertyName("takedownActionCount")]
+    public int? TakedownActionCount { get; init; }
+
+    /// <summary>The sum of seconds from assignment to close over the assigned, closed reports counted in <see cref="AhtSampleCount"/>.</summary>
+    [JsonPropertyName("ahtDurationSec")]
+    public int? AhtDurationSec { get; init; }
+
+    /// <summary>The number of assigned, closed reports in <see cref="AhtDurationSec"/>.</summary>
+    [JsonPropertyName("ahtSampleCount")]
+    public int? AhtSampleCount { get; init; }
+
+    /// <summary>The sum of seconds from creation to close over the closed reports counted in <see cref="ResolutionSampleCount"/>.</summary>
+    [JsonPropertyName("resolutionDurationSec")]
+    public int? ResolutionDurationSec { get; init; }
+
+    /// <summary>The number of closed reports in <see cref="ResolutionDurationSec"/>.</summary>
+    [JsonPropertyName("resolutionSampleCount")]
+    public int? ResolutionSampleCount { get; init; }
+
+    /// <summary>The average time in seconds from a report's creation to its close.</summary>
+    [JsonPropertyName("avgResolutionTimeSec")]
+    public int? AvgResolutionTimeSec { get; init; }
+}
+
 /// <summary>Response from tools.ozone.report.getLiveStats.</summary>
 public sealed class GetLiveStatsResponse
 {
-    /// <summary>The statistics.</summary>
+    /// <summary>The statistics for the current UTC day.</summary>
     [JsonPropertyName("stats")]
-    public required QueueStats Stats { get; init; }
+    public required LiveStats Stats { get; init; }
 }
 
 /// <summary>Response from tools.ozone.report.listActivities.</summary>

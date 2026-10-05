@@ -66,6 +66,10 @@ public class TypedIdentifierGuardTests
             "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
         ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.SearchPostsAsync(until)"] =
             "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
+        ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetTimelineAsync(since)"] =
+            "No Lexicon format: an opaque cursor, the `startCursor` of an earlier response.",
+        ["ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetListFeedAsync(since)"] =
+            "No Lexicon format: an opaque cursor, the `startCursor` of an earlier response.",
         ["ATProtoNet.Lexicon.App.Bsky.Feed.PostSearchFilters.Since"] =
             "No Lexicon format: a datetime or a bare ISO date (YYYY-MM-DD).",
         ["ATProtoNet.Lexicon.App.Bsky.Feed.PostSearchFilters.Until"] =

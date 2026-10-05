@@ -36,6 +36,10 @@ public sealed class QueueView : LexObject
     [JsonPropertyName("recommendedPolicies")]
     public IReadOnlyList<string>? RecommendedPolicies { get; init; }
 
+    /// <summary>The labels recommended for this queue, also the fallback when routing label appeals.</summary>
+    [JsonPropertyName("recommendedLabels")]
+    public IReadOnlyList<string>? RecommendedLabels { get; init; }
+
     /// <summary>The DID of the moderator who created the queue.</summary>
     [JsonPropertyName("createdBy")]
     public required Did CreatedBy { get; init; }
@@ -61,8 +65,8 @@ public sealed class QueueView : LexObject
     public required QueueStats Stats { get; init; }
 }
 
-/// <summary>Statistics about a queue's, or the whole instance's, reports (<c>tools.ozone.queue.defs#queueStats</c>, reused for <c>tools.ozone.report.defs#liveStats</c>, whose shape is identical).</summary>
-public sealed class QueueStats : LexObject
+/// <summary>Statistics about a queue's, or the whole instance's, reports (<c>tools.ozone.queue.defs#queueStats</c>).</summary>
+public class QueueStats : LexObject
 {
     /// <summary>The reports in <c>open</c> status.</summary>
     [JsonPropertyName("pendingCount")]
@@ -129,7 +133,8 @@ internal sealed record CreateQueueRequest(
     [property: JsonPropertyName("collection")] Nsid? Collection = null,
     [property: JsonPropertyName("reportTypes")] IReadOnlyList<string>? ReportTypes = null,
     [property: JsonPropertyName("description")] string? Description = null,
-    [property: JsonPropertyName("recommendedPolicies")] IReadOnlyList<string>? RecommendedPolicies = null);
+    [property: JsonPropertyName("recommendedPolicies")] IReadOnlyList<string>? RecommendedPolicies = null,
+    [property: JsonPropertyName("recommendedLabels")] IReadOnlyList<string>? RecommendedLabels = null);
 
 /// <summary>Response from tools.ozone.queue.createQueue.</summary>
 public sealed class CreateQueueResponse
@@ -144,7 +149,8 @@ internal sealed record UpdateQueueRequest(
     [property: JsonPropertyName("name")] string? Name = null,
     [property: JsonPropertyName("enabled")] bool? Enabled = null,
     [property: JsonPropertyName("description")] string? Description = null,
-    [property: JsonPropertyName("recommendedPolicies")] IReadOnlyList<string>? RecommendedPolicies = null);
+    [property: JsonPropertyName("recommendedPolicies")] IReadOnlyList<string>? RecommendedPolicies = null,
+    [property: JsonPropertyName("recommendedLabels")] IReadOnlyList<string>? RecommendedLabels = null);
 
 /// <summary>Response from tools.ozone.queue.updateQueue.</summary>
 public sealed class UpdateQueueResponse

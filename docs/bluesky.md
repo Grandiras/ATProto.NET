@@ -115,6 +115,9 @@ var timeline = await client.Bsky.Feed.GetTimelineAsync(limit: 30);
 foreach (var item in timeline.Feed)
     Console.WriteLine($"{item.Post.Author.Handle}: {item.Post.Record.GetProperty("text").GetString()}");
 
+// Later: only what is newer than the first page (also GetListFeedAsync)
+var newer = await client.Bsky.Feed.GetTimelineAsync(since: timeline.StartCursor);
+
 await foreach (var item in client.Bsky.Feed.EnumerateAuthorFeedAsync(profile.Did))
     Console.WriteLine(item.Post.Uri);
 ```

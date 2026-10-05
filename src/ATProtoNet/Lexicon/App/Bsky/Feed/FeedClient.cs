@@ -15,10 +15,12 @@ public sealed class FeedClient
 
     /// <summary>Get one page of the authenticated user's home timeline.</summary>
     /// <param name="algorithm">Variant of the timeline algorithm; the server's default when omitted.</param>
+    /// <param name="since">Only items newer than this position, newest first: the <see cref="FeedResponse.StartCursor"/> of an earlier response. The item at that position is not returned.</param>
     /// <param name="limit">Max posts per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
     public Task<FeedResponse> GetTimelineAsync(
         string? algorithm = null,
+        string? since = null,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default) =>
@@ -26,6 +28,7 @@ public sealed class FeedClient
             "app.bsky.feed.getTimeline",
             new XrpcParams()
                 .Add("algorithm", algorithm)
+                .Add("since", since)
                 .Add("limit", limit)
                 .Add("cursor", cursor),
             cancellationToken: cancellationToken);
@@ -38,7 +41,7 @@ public sealed class FeedClient
         int? pageSize = null,
         CancellationToken cancellationToken = default) =>
         Pagination.EnumerateAsync<FeedResponse, FeedViewPost>(
-            (cursor, ct) => GetTimelineAsync(algorithm, pageSize, cursor, ct),
+            (cursor, ct) => GetTimelineAsync(algorithm, null, pageSize, cursor, ct),
             cancellationToken);
 
     /// <summary>Get one page of an author's feed (posts and reposts by the actor).</summary>
@@ -100,10 +103,12 @@ public sealed class FeedClient
 
     /// <summary>Get one page of a list feed (recent posts by the list's members).</summary>
     /// <param name="list">The AT-URI of the list.</param>
+    /// <param name="since">Only items newer than this position, newest first: the <see cref="FeedResponse.StartCursor"/> of an earlier response. The item at that position is not returned.</param>
     /// <param name="limit">Max posts per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
     public Task<FeedResponse> GetListFeedAsync(
         AtUri list,
+        string? since = null,
         int? limit = null,
         string? cursor = null,
         CancellationToken cancellationToken = default) =>
@@ -111,6 +116,7 @@ public sealed class FeedClient
             "app.bsky.feed.getListFeed",
             new XrpcParams()
                 .Add("list", list)
+                .Add("since", since)
                 .Add("limit", limit)
                 .Add("cursor", cursor),
             cancellationToken: cancellationToken);
@@ -207,16 +213,18 @@ public sealed class FeedClient
     /// <summary>Get one page of the posts that quote a given post.</summary>
     /// <param name="uri">The AT-URI of the quoted post.</param>
     /// <param name="cid">Optional CID of a specific version of the post.</param>
+    /// <param name="sort">The order: <c>latest</c> (newest first) or <c>top</c> (by like count); the server's default when omitted.</param>
     /// <param name="limit">Max results per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
     public Task<GetQuotesResponse> GetQuotesAsync(
-        AtUri uri, Cid? cid = null, int? limit = null, string? cursor = null,
+        AtUri uri, Cid? cid = null, string? sort = null, int? limit = null, string? cursor = null,
         CancellationToken cancellationToken = default) =>
         _xrpc.QueryAsync<GetQuotesResponse>(
             "app.bsky.feed.getQuotes",
             new XrpcParams()
                 .Add("uri", uri)
                 .Add("cid", cid)
+                .Add("sort", sort)
                 .Add("limit", limit)
                 .Add("cursor", cursor),
             cancellationToken: cancellationToken);

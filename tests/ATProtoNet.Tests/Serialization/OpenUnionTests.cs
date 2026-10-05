@@ -244,7 +244,7 @@ public class OpenUnionTests
 
         var closed = polymorphic.Where(t => t.GetCustomAttribute<AtProtoUnionAttribute>()!.Closed).ToList();
         Assert.Equal(
-            [typeof(ApplyWriteOperation), typeof(ATProtoNet.Lexicon.Com.AtProto.Space.SpaceWriteOp)],
+            [typeof(ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealAction), typeof(ApplyWriteOperation), typeof(ATProtoNet.Lexicon.Com.AtProto.Space.SpaceWriteOp)],
             closed.OrderBy(t => t.Name, StringComparer.Ordinal));
     }
 

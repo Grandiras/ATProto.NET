@@ -5,16 +5,19 @@ SDK's hand-written surface against it (see "What the drift test checks" below).
 
 | Source | Namespaces | Pinned at |
 |---|---|---|
-| [bluesky-social/atproto](https://github.com/bluesky-social/atproto) `lexicons/`, copied unchanged | `app.bsky.*`, `chat.bsky.*`, `com.atproto.*`, `tools.ozone.*` | commit `2e583a4ed26659923b2a1effd952fce937f0feeb` (2026-09-24, "adds the ability to disable accounts via oauth sessions on com.atproto.server.deactivateAccount (#5545)") |
+| [bluesky-social/atproto](https://github.com/bluesky-social/atproto) `lexicons/`, copied unchanged | `app.bsky.*`, `chat.bsky.*`, `com.atproto.*`, `tools.ozone.*` | commit `a7c8604d876a200a1e4fa4aec83d4189ac4f1c12` (2026-10-02, "Version packages (#5566)") |
 | The `com.atproto.lexicon.schema` records of the `standard.site` Lexicon authority (`_lexicon.standard.site` → `did:plc:re3ebnp5v7ffagz6rb6xfei4`) | `site.standard.*` | the record CIDs below |
 
-- **Fetched:** 2026-09-25.
+- **Fetched:** 2026-10-05.
 - **Licenses:** the atproto repository is dual MIT / Apache-2.0 (its `LICENSE.txt`,
   `LICENSE-MIT.txt` and `LICENSE-APACHE.txt`). The standard.site Lexicons are MIT
   ([tangled.org/standard.site](https://tangled.org/standard.site)); their record, object and theme
   schemas are also in the atproto repository under its license.
 - Permissioned data (`com.atproto.space.*`, `com.atproto.simplespace.*`) is not here: it is a
   proposal that is not on upstream `main` yet.
+- `app.bsky.notification.getGroupedNotifications` is in the snapshot but deliberately not modeled:
+  its Lexicon is flagged unstable ("DO NOT USE THIS ENDPOINT WHILE THIS NOTE IS HERE"). The drift
+  test checks the SDK against upstream, not the reverse, so it needs no allow-list entry.
 
 The `site.standard.*` files come from the network rather than the atproto repository because only
 the network has the two permission sets. Each file is the record's `value` without its `$type`:

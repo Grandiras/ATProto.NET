@@ -478,6 +478,14 @@ public sealed class FeedViewPost : LexObject
     /// <summary>The identifier of the request that produced the item, which the feed generator may ask for back in interaction events.</summary>
     [JsonPropertyName("reqId")]
     public string? ReqId { get; init; }
+
+    /// <summary>The 1-indexed position of this post within the contiguous thread of its author; absent when it is not part of one.</summary>
+    [JsonPropertyName("opThreadPostIndex")]
+    public int? OpThreadPostIndex { get; init; }
+
+    /// <summary>The number of posts in the contiguous thread of its author this post belongs to; absent when it is not part of one.</summary>
+    [JsonPropertyName("opThreadPostCount")]
+    public int? OpThreadPostCount { get; init; }
 }
 
 /// <summary>Why a post appears in a feed (the open union behind <see cref="FeedViewPost.Reason"/>). A reason this SDK does not model reads as <see cref="UnknownFeedReason"/>.</summary>
@@ -714,6 +722,10 @@ public sealed record FeedResponse : CursorPage<FeedViewPost>
     /// <summary>The feed items.</summary>
     [JsonPropertyName("feed")]
     public required IReadOnlyList<FeedViewPost> Feed { get; init; }
+
+    /// <summary>A cursor for the newest item of the page, to pass as <c>since</c> to fetch only newer items later. Only getTimeline and getListFeed return it.</summary>
+    [JsonPropertyName("startCursor")]
+    public string? StartCursor { get; init; }
 
     /// <inheritdoc />
     [JsonIgnore]

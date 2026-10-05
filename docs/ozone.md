@@ -18,6 +18,7 @@ ATProto.NET provides full support for the `tools.ozone.*` namespace — the cont
 | `Ozone.Hosting` | `tools.ozone.hosting` | Account history from the account's host |
 | `Ozone.Server` | `tools.ozone.server` | Server configuration |
 | `Ozone.Signature` | `tools.ozone.signature` | Signature correlation & analysis |
+| `Ozone.Inbox` | `tools.ozone.inbox` | Appeals of moderation actions, filed by the affected account |
 
 Identifiers are typed (`Did`, `Handle`, `AtUri`, `Cid`, `Nsid` and `AtDatetime` from
 `ATProtoNet.Identity`): parse literals with `Did.Parse("…")` and friends. The exception is a
@@ -35,6 +36,7 @@ using ATProtoNet.Http;
 using ATProtoNet.Lexicon.Com.AtProto.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Communication;
 using ATProtoNet.Lexicon.Tools.Ozone.Hosting;
+using ATProtoNet.Lexicon.Tools.Ozone.Inbox;
 using ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Report;
 using ATProtoNet.Lexicon.Tools.Ozone.Safelink;
@@ -322,7 +324,8 @@ var created = await client.Ozone.Queue.CreateQueueAsync(
     subjectTypes: [ReportSubjectType.Record],
     collection: Nsid.Parse("app.bsky.feed.post"),
     reportTypes: [ReportReasons.MisleadingSpam, ReportReasons.Spam],
-    recommendedPolicies: ["spam"]);
+    recommendedPolicies: ["spam"],
+    recommendedLabels: ["spam"]);
 
 await foreach (var queue in Pagination.EnumerateAsync<ATProtoNet.Lexicon.Tools.Ozone.Queue.ListQueuesResponse, ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueView>(
     (cursor, ct) => client.Ozone.Queue.ListQueuesAsync(enabled: true, cursor: cursor, cancellationToken: ct)))
@@ -347,6 +350,25 @@ await foreach (var assignment in Pagination.EnumerateAsync<ATProtoNet.Lexicon.To
 // Delete it, moving its reports to another queue (or to none)
 await client.Ozone.Queue.DeleteQueueAsync(created.Queue.Id, migrateToQueueId: 5);
 ```
+
+## Appeals
+
+`Ozone.Inbox` is for the account a moderation action was taken against, not for moderators: it
+appeals an action on the caller's account or on one of its records. Name the action with an
+`AppealActionRef` (its id from the inbox), an `AppealLabelRef` (a label value) or an
+`AppealTakedownRef`; omit it to appeal the subject's actions as a whole. The answer is the subject's
+`SubjectView`: its enforcement state, the appeal's state and the actions that were taken.
+
+```csharp
+var subject = await client.Ozone.Inbox.AppealActionedSubjectAsync(
+    new RecordSubject { Uri = AtUri.Parse("at://did:plc:abc/app.bsky.feed.post/123"), Cid = Cid.Parse("bafyreibdamyqel7hurrk66bbpvrqgf6cby3kmpnchvwrkjb5rijgkrdsve") },
+    new AppealLabelRef { Val = "spam" },
+    reason: "This post is not spam.");
+Console.WriteLine($"{subject.Enforcement.State}, appeal {subject.Appeal?.State}");
+```
+
+`InvalidAppealSubject`, `AlreadyAppealed`, `NotAppealable` and `AppealWindowExpired` arrive as
+`XrpcException`s.
 
 ## Communication Templates
 

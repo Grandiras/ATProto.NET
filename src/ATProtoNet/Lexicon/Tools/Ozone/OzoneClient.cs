@@ -1,6 +1,7 @@
 using ATProtoNet.Http;
 using ATProtoNet.Lexicon.Tools.Ozone.Communication;
 using ATProtoNet.Lexicon.Tools.Ozone.Hosting;
+using ATProtoNet.Lexicon.Tools.Ozone.Inbox;
 using ATProtoNet.Lexicon.Tools.Ozone.Moderation;
 using ATProtoNet.Lexicon.Tools.Ozone.Queue;
 using ATProtoNet.Lexicon.Tools.Ozone.Report;
@@ -31,6 +32,7 @@ public sealed class OzoneClient
         Hosting = new HostingClient(xrpc);
         Server = new OzoneServerClient(xrpc);
         Signature = new SignatureClient(xrpc);
+        Inbox = new InboxClient(xrpc);
     }
 
     /// <summary>Moderation event and subject management.</summary>
@@ -68,4 +70,7 @@ public sealed class OzoneClient
 
     /// <summary>Signature correlation and related account discovery.</summary>
     public SignatureClient Signature { get; }
+
+    /// <summary>Appeals of moderation actions, filed by the affected account.</summary>
+    public InboxClient Inbox { get; }
 }

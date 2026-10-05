@@ -8,7 +8,7 @@ ATProto.NET is a .NET 10 SDK for the [AT Protocol](https://atproto.com) — the 
 2. **[Custom Lexicon Records](custom-records.md)** — the SDK's headline feature: define your own record types and use `RecordCollection<T>` for typed CRUD.
 3. **Pick your integration** — [ASP.NET Core](aspnet-core.md), [Blazor](blazor.md), [Aspire](aspire.md), or run a [managed PDS](managed-pds.md).
 
-Upgrading from 0.6? Read **[Migrating to 0.7](migrating-to-0.7.md)**. For a map of how the packages compose, see **[Architecture](architecture.md)**. Every type and method is documented in its XML comments, which IntelliSense shows.
+Upgrading from 0.7? Read **[Migrating to 0.8](migrating-to-0.8.md)**; from 0.6, **[Migrating to 0.7](migrating-to-0.7.md)** first. For a map of how the packages compose, see **[Architecture](architecture.md)**. Every type and method is documented in its XML comments, which IntelliSense shows.
 
 ## Guides
 
@@ -56,4 +56,5 @@ Upgrading from 0.6? Read **[Migrating to 0.7](migrating-to-0.7.md)**. For a map 
 
 ### Reference
 - [Architecture](architecture.md) — package layering, source tree, conventions
+- [Migrating to 0.8](migrating-to-0.8.md) — every breaking change of 0.8
 - [Migrating to 0.7](migrating-to-0.7.md) — every breaking change of 0.7, with before and after

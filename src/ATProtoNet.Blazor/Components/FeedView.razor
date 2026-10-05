@@ -167,7 +167,7 @@ else
     {
         FeedSource.AuthorSource author => client.Bsky.Feed.GetAuthorFeedAsync(author.Actor, limit: PageSize, cursor: cursor),
         FeedSource.GeneratorSource generator => client.Bsky.Feed.GetFeedAsync(generator.GeneratorUri, PageSize, cursor),
-        FeedSource.ListSource list => client.Bsky.Feed.GetListFeedAsync(list.ListUri, PageSize, cursor),
+        FeedSource.ListSource list => client.Bsky.Feed.GetListFeedAsync(list.ListUri, limit: PageSize, cursor: cursor),
         _ => client.Bsky.Feed.GetTimelineAsync(limit: PageSize, cursor: cursor),
     };
 }

@@ -260,6 +260,18 @@ public sealed class PartialMerkleSearchTreeTests
         Assert.Throws<FormatException>(() => PartialMerkleSearchTree.Load(CidOf(forged), Lookup(blocks)));
     }
 
+    [Fact]
+    public void Load_SameNodeReferencedTwice_ThrowsFormatException()
+    {
+        // One layer-0 node is both the left subtree of "F1/085263" and the subtree after it, so the
+        // tree is a DAG; its key can sort on only one side of the key between them (atproto #5584).
+        var shared = Node(null, [("A0/374913", Leaf, null)]);
+        var root = Node(CidOf(shared), [("F1/085263", Leaf, CidOf(shared))]);
+        var blocks = new Dictionary<string, byte[]> { [Text(CidOf(shared))] = shared, [Text(CidOf(root))] = root };
+
+        Assert.Throws<FormatException>(() => PartialMerkleSearchTree.Load(CidOf(root), Lookup(blocks)));
+    }
+
     private static byte[] CidOf(byte[] node) => CidComputation.ComputeBinaryForDagCbor(node);
 
     /// <summary>Encodes an MST node with full keys (no prefix compression), as a hostile producer may.</summary>

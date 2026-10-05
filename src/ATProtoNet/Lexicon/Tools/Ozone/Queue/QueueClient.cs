@@ -23,6 +23,7 @@ public sealed class QueueClient
     /// <param name="reportTypes">The report reason types the queue takes (at most 25).</param>
     /// <param name="description">A description of the queue.</param>
     /// <param name="recommendedPolicies">The policies to recommend when actioning the queue's reports.</param>
+    /// <param name="recommendedLabels">The labels to recommend for the queue; also the fallback when routing label appeals.</param>
     /// <exception cref="XrpcException"><c>InvalidRecommendedPolicies</c> or <c>ConflictingQueue</c>.</exception>
     public Task<CreateQueueResponse> CreateQueueAsync(
         string name,
@@ -31,6 +32,7 @@ public sealed class QueueClient
         IEnumerable<string>? reportTypes = null,
         string? description = null,
         IEnumerable<string>? recommendedPolicies = null,
+        IEnumerable<string>? recommendedLabels = null,
         CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<CreateQueueResponse>(
             "tools.ozone.queue.createQueue",
@@ -40,22 +42,25 @@ public sealed class QueueClient
                 Collection: collection,
                 ReportTypes: reportTypes is null ? null : [.. reportTypes],
                 Description: description,
-                RecommendedPolicies: recommendedPolicies is null ? null : [.. recommendedPolicies]),
+                RecommendedPolicies: recommendedPolicies is null ? null : [.. recommendedPolicies],
+                RecommendedLabels: recommendedLabels is null ? null : [.. recommendedLabels]),
             cancellationToken: cancellationToken);
 
-    /// <summary>Change a queue's name, description, recommended policies or whether it is active.</summary>
+    /// <summary>Change a queue's name, description, recommended policies and labels or whether it is active.</summary>
     /// <param name="queueId">The queue.</param>
     /// <param name="name">The new display name.</param>
     /// <param name="enabled">Whether the queue is active.</param>
     /// <param name="description">The new description.</param>
     /// <param name="recommendedPolicies">The policies to recommend when actioning the queue's reports.</param>
-    /// <exception cref="XrpcException"><c>InvalidRecommendedPolicies</c>.</exception>
+    /// <param name="recommendedLabels">The labels to recommend for the queue; also the fallback when routing label appeals.</param>
+    /// <exception cref="XrpcException"><c>InvalidRecommendedPolicies</c> or <c>ConflictingQueue</c>.</exception>
     public Task<UpdateQueueResponse> UpdateQueueAsync(
         long queueId,
         string? name = null,
         bool? enabled = null,
         string? description = null,
         IEnumerable<string>? recommendedPolicies = null,
+        IEnumerable<string>? recommendedLabels = null,
         CancellationToken cancellationToken = default) =>
         _xrpc.ProcedureAsync<UpdateQueueResponse>(
             "tools.ozone.queue.updateQueue",
@@ -64,7 +69,8 @@ public sealed class QueueClient
                 Name: name,
                 Enabled: enabled,
                 Description: description,
-                RecommendedPolicies: recommendedPolicies is null ? null : [.. recommendedPolicies]),
+                RecommendedPolicies: recommendedPolicies is null ? null : [.. recommendedPolicies],
+                RecommendedLabels: recommendedLabels is null ? null : [.. recommendedLabels]),
             cancellationToken: cancellationToken);
 
     /// <summary>Delete a queue, moving its reports to another queue or to none.</summary>
