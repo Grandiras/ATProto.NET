@@ -58,7 +58,7 @@ jobs:
       image: mcr.microsoft.com/dotnet/sdk:10.0
     services:
       pds:
-        image: ghcr.io/bluesky-social/pds:latest
+        image: ghcr.io/bluesky-social/pds:0.4.5037
         env:
           PDS_HOSTNAME: localhost
           PDS_DEV_MODE: "true"

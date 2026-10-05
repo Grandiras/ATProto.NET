@@ -28,16 +28,16 @@
   <ItemGroup>
     <!-- Providers the storage samples configure. Keep them on the version
          ATProtoNet.Server.EntityFrameworkCore references. -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <!-- RemoveAllResilienceHandlers, which the Aspire samples call on the SDK's clients. -->
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <!-- The replay store the Spaces guide shows over Redis, and the zstd decompressor the
          Jetstream guide plugs into the SDK's seams: both are the application's dependencies. -->
-    <PackageReference Include="StackExchange.Redis" Version="2.13.17" />
-    <PackageReference Include="ZstdSharp.Port" Version="0.8.6" />
+    <PackageReference Include="StackExchange.Redis" Version="3.3.1" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
     <!-- The custom-XRPC guide shows a sub-client's test substituting the transport. -->
-    <PackageReference Include="NSubstitute" Version="6.0.0" />
+    <PackageReference Include="NSubstitute" Version="6.2.0" />
   </ItemGroup>
 
   <ItemGroup>

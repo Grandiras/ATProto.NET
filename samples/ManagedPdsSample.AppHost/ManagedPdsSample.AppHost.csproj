@@ -1,16 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <Sdk Name="Aspire.AppHost.Sdk" Version="13.4.6" />
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.6.0" />
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsAspireHost>true</IsAspireHost>
     <!-- The PDS secrets are persisted here, so accounts survive a restart. -->
     <UserSecretsId>atprotonet-managed-pds-apphost</UserSecretsId>
+    <!-- Runs with `dotnet run` (and CI's manifest generation) without the Aspire CLI bundle. -->
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.AppHost" Version="13.4.6" />
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="13.6.0" />
   </ItemGroup>
 
   <ItemGroup>

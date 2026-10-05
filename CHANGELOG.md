@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Dependencies updated** — the packages now build against .NET 10.0.12 (`System.Formats.Cbor`, the `Microsoft.Extensions` abstractions, EF Core) and Aspire 13.6; the PDS integration tests run against a pinned `pds:0.4.5037` (#219)
 - **Handle resolution prefers DNS** — a DNS TXT answer is returned at once instead of waiting for the handle's web host, as the handle spec recommends; the HTTPS well-known counts only when DNS has none, and no longer fails a DNS answer it disagrees with (#193)
 - **Leaner Lexicon clients** — the generated-style XRPC clients, the PDS admin client, the Aspire hosting extensions and the Lexicon tool build their requests as single expressions, with no change to the public API or behaviour. About 650 fewer lines (#196)
 - **Leaner auth and server layers** — Braces, forwarding fields and form-building callbacks are gone from the OAuth client, session manager and ASP.NET Core integration; behavior and public API are unchanged (#204)

@@ -53,7 +53,7 @@ podman run -d --name atproto-pds \
   -e PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=$(openssl rand -hex 32) \
   -e PDS_DEV_MODE=true \
   -v pds-data:/pds \
-  ghcr.io/bluesky-social/pds:latest
+  ghcr.io/bluesky-social/pds:0.4.5037   # the version CI runs against
 
 # Run integration tests — AuthenticatedClientFixture and SpaceNetworkFixture provision their
 # own throwaway accounts through the admin API, so no account needs creating by hand.

@@ -7,7 +7,7 @@
   <ItemGroup>
     <!-- The core package ships no zstd; the archive's .jss blocks are zstd frames, so the
          sample supplies the decompressor the SDK asks for. -->
-    <PackageReference Include="ZstdSharp.Port" Version="0.8.6" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
   </ItemGroup>
 
   <ItemGroup>

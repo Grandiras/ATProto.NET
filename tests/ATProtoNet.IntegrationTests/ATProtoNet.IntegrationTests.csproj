@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="10.0.1" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
-    <PackageReference Include="xunit.v3" Version="3.2.2" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageReference Include="coverlet.collector" Version="10.1.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="xunit.v3.mtp-off" Version="4.0.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0" />
     <!-- Jetstream .jss segment blocks are zstd frames; the core package ships no zstd, so the
          archive tests supply the decompressor the SDK asks for. -->
-    <PackageReference Include="ZstdSharp.Port" Version="0.8.6" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
   </ItemGroup>
 
   <ItemGroup>
