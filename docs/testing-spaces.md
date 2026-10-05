@@ -6,12 +6,12 @@ The unit tests for [spaces](spaces.md) stub the HTTP layer: the cryptographic co
 
 ## Where the alpha is published
 
-No stable PDS release serves `com.atproto.space.*`. The implementation lives on [bluesky-social/atproto#5187](https://github.com/bluesky-social/atproto/pull/5187) (branch `permissioned-data`), still an open draft whose endpoints may change. Bluesky does publish an alpha of it, announced in [AT Protocol Spaces (alpha)](https://atproto.com/blog/atproto-spaces-alpha):
+No stable PDS release serves `com.atproto.space.*`. The implementation lives on [bluesky-social/atproto#5187](https://github.com/bluesky-social/atproto/pull/5187) (branch `permissioned-data`), still an open draft whose endpoints may change. The SDK targets the 2026-10-01 alpha: implementation commit `679724ad`, proposal [`0c9c2e88`](https://github.com/bluesky-social/proposals/blob/0c9c2e88ba385809fc9ecba92f362389d9338e16/0016-permissioned-data/README.md). Bluesky does publish an alpha of it, announced in [AT Protocol Spaces (alpha)](https://atproto.com/blog/atproto-spaces-alpha):
 
 | Artifact | What it is |
 | --- | --- |
-| `ghcr.io/bluesky-social/atproto:pds-spaces-alpha` | The PDS as a container image, built from the `permissioned-data-alpha` branch. The tag moves, so pin the digest: `ghcr.io/bluesky-social/atproto@sha256:4b19b376aa6164b62ede70bb35db79096c6dac9985cecb175e82022860a3d796` was built on 2026-09-15 from `158c439b` and includes the `simplespace` read/write split. It listens on port 3000 and is configured with the same `PDS_*` variables as the reference PDS image. |
-| `@atproto/pds@alpha`, `@atproto/dev-env@alpha` on npm | The same code as packages. `0.0.0-spaces-alpha-20260915165437` matches the image above. |
+| `ghcr.io/bluesky-social/atproto:pds-spaces-alpha` | The PDS as a container image, built from the `permissioned-data-alpha` branch. The tag moves, so pin the digest: `ghcr.io/bluesky-social/atproto@sha256:1cf9349e9f0e89789784569fed376cd647742ea7c368948625f44779ba03f150` is the 2026-10-01 alpha, built from `79d6307e` (the head of `permissioned-data-alpha`; the reference implementation is `679724ad`), which renames `type` to `spaceType`, signs space requests with HTTP Message Signatures instead of DPoP, and shortens credentials to ten minutes. It listens on port 3000 and is configured with the same `PDS_*` variables as the reference PDS image. |
+| `@atproto/pds@alpha`, `@atproto/dev-env@alpha` on npm | The same code as packages. `0.0.0-spaces-alpha-20261001173819` matches the image above. |
 | `https://spaces-alpha.host.bsky.network` | A hosted PDS running the alpha. Invite-only, updated weekly, and its data is not kept. |
 
 The tests provision and delete their own accounts, so they need admin access to the PDS. They also need the PLC directory it registers those accounts with. That rules out the hosted PDS, and the container image needs a PLC directory alongside it. The simplest host is the in-process dev network, which brings its own.
@@ -28,22 +28,22 @@ Requires Node 22+. The alpha dev network installs with pnpm. Several `@atproto/l
   "private": true,
   "type": "module",
   "dependencies": {
-    "@atproto/dev-env": "0.0.0-spaces-alpha-20260915165437"
+    "@atproto/dev-env": "0.0.0-spaces-alpha-20261001173819"
   },
   "pnpm": {
     "overrides": {
-      "@atproto/bsync": "0.0.0-spaces-alpha-20260915165437",
-      "@atproto/lex": "0.0.0-spaces-alpha-20260915165437",
-      "@atproto/lex-builder": "0.0.0-spaces-alpha-20260915165437",
-      "@atproto/lex-cbor": "0.0.0-spaces-alpha-20260915165437",
-      "@atproto/lex-client": "0.0.0-spaces-alpha-20260915165437",
-      "@atproto/lex-data": "0.0.0-spaces-alpha-20260915165437",
-      "@atproto/lex-document": "0.0.0-spaces-alpha-20260915165437",
-      "@atproto/lex-installer": "0.0.0-spaces-alpha-20260915165437",
-      "@atproto/lex-json": "0.0.0-spaces-alpha-20260915165437",
-      "@atproto/lex-password-session": "0.0.0-spaces-alpha-20260915165437",
-      "@atproto/lex-resolver": "0.0.0-spaces-alpha-20260915165437",
-      "@atproto/lex-schema": "0.0.0-spaces-alpha-20260915165437"
+      "@atproto/bsync": "0.0.0-spaces-alpha-20261001173819",
+      "@atproto/lex": "0.0.0-spaces-alpha-20261001173819",
+      "@atproto/lex-builder": "0.0.0-spaces-alpha-20261001173819",
+      "@atproto/lex-cbor": "0.0.0-spaces-alpha-20261001173819",
+      "@atproto/lex-client": "0.0.0-spaces-alpha-20261001173819",
+      "@atproto/lex-data": "0.0.0-spaces-alpha-20261001173819",
+      "@atproto/lex-document": "0.0.0-spaces-alpha-20261001173819",
+      "@atproto/lex-installer": "0.0.0-spaces-alpha-20261001173819",
+      "@atproto/lex-json": "0.0.0-spaces-alpha-20261001173819",
+      "@atproto/lex-password-session": "0.0.0-spaces-alpha-20261001173819",
+      "@atproto/lex-resolver": "0.0.0-spaces-alpha-20261001173819",
+      "@atproto/lex-schema": "0.0.0-spaces-alpha-20261001173819"
     }
   }
 }
@@ -82,7 +82,7 @@ To test against a revision that has not been published yet, build the branch. Re
 ```bash
 git clone -b permissioned-data https://github.com/bluesky-social/atproto.git
 cd atproto
-git checkout 787a730fcd22ed7791e2636beb509a943017ba1c   # permissioned-data as of 2026-09-22
+git checkout 679724ad62eb9a02f7f40429c3c4fdd65d3e4c79   # the 2026-10-01 alpha's reference implementation
 pnpm install
 pnpm build                                              # test files fail to type-check; dist/ is still emitted
 pnpm --filter @atproto/oauth-provider-ui run build       # the PDS refuses to boot without this bundle

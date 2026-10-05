@@ -88,7 +88,7 @@ public sealed class SpaceClient
     // ── Discovery ────────────────────────────────────────────
 
     /// <summary>Lists one page of the spaces the authenticated user holds a repo in.</summary>
-    /// <param name="type">Filter to spaces of this type.</param>
+    /// <param name="spaceType">Filter to spaces of this type.</param>
     /// <param name="did">Filter to spaces under this authority DID.</param>
     /// <param name="limit">Maximum number of results per page (1–100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
@@ -99,7 +99,7 @@ public sealed class SpaceClient
     /// its permissioned repos through this method.
     /// </remarks>
     public Task<ListSpacesResponse> ListSpacesAsync(
-        Nsid? type = null,
+        Nsid? spaceType = null,
         Did? did = null,
         int? limit = null,
         string? cursor = null,
@@ -107,7 +107,7 @@ public sealed class SpaceClient
         _xrpc.QueryAsync<ListSpacesResponse>(
             "com.atproto.space.listSpaces",
             new XrpcParams()
-                .Add("type", type)
+                .Add("spaceType", spaceType)
                 .Add("did", did)
                 .Add("limit", limit)
                 .Add("cursor", cursor),

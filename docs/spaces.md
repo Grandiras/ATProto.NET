@@ -10,7 +10,8 @@ Spaces serve the modalities public broadcast cannot: personal data (bookmarks, d
 gated content (subscriber-only posts), socially shared data (private posts, stories), and groups
 (private forums, communities, group chats).
 
-> **Alpha.** This implements [proposal 0016, *Permissioned Data*](https://github.com/bluesky-social/proposals/tree/main/0016-permissioned-data),
+> **Alpha.** This implements [proposal 0016, *Permissioned Data*](https://github.com/bluesky-social/proposals/blob/0c9c2e88ba385809fc9ecba92f362389d9338e16/0016-permissioned-data/README.md)
+> as of the 2026-10-01 alpha (reference implementation `679724ad` on the `permissioned-data-alpha` branch),
 > announced in [AT Protocol Spaces (alpha)](https://atproto.com/blog/atproto-spaces-alpha). It is a
 > proposal, not a final specification — terminology and wire details are expected to change, and it
 > has not had a security review. Do not put production data behind it yet.
@@ -96,7 +97,7 @@ await foreach (var record in client.Space.EnumerateRecordsAsync(space, client.Di
 
 // Spaces the user has written data to — note: written to, not "is a member of".
 await foreach (var view in Pagination.EnumerateAsync<ListSpacesResponse, SpaceView>(
-    (cursor, ct) => client.Space.ListSpacesAsync(type: Nsid.Parse("com.example.bookmarks"), cursor: cursor, cancellationToken: ct)))
+    (cursor, ct) => client.Space.ListSpacesAsync(spaceType: Nsid.Parse("com.example.bookmarks"), cursor: cursor, cancellationToken: ct)))
 {
     Console.WriteLine(view.Uri);
 }

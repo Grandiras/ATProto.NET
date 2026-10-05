@@ -81,7 +81,7 @@ await foreach (var record in client.Space.EnumerateRecordsAsync(space, did))
 
 // listSpaces is "spaces I have written to", not "spaces I am a member of" — a PDS only tracks
 // the former, since membership is the authority's business.
-var spaces = await client.Space.ListSpacesAsync(type: Nsid.Parse("com.example.bookmarks"));
+var spaces = await client.Space.ListSpacesAsync(spaceType: Nsid.Parse("com.example.bookmarks"));
 Console.WriteLine($"\n{spaces.Spaces.Count} space(s) of this type hold data for this account.\n");
 
 // ── 2. Sync ───────────────────────────────────────────────────────────────

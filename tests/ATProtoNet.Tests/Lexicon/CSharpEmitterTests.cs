@@ -574,6 +574,36 @@ public class CSharpEmitterTests
     }
 
     [Fact]
+    public void Emit_SpaceRefFormat_UsesSpaceUriAndItsNamespace()
+    {
+        Assert.Equal("SpaceUri", TypeMapper.StringType("space-ref"));
+        Assert.NotNull(typeof(AtProtoClient).Assembly.GetType("ATProtoNet.Spaces.SpaceUri"));
+
+        var doc = """
+            {
+              "lexicon": 1,
+              "id": "com.example.membership",
+              "defs": {
+                "main": {
+                  "type": "object",
+                  "required": ["space"],
+                  "properties": {
+                    "space": { "type": "string", "format": "space-ref" },
+                    "others": { "type": "array", "items": { "type": "string", "format": "space-ref" } }
+                  }
+                }
+              }
+            }
+            """;
+
+        var content = EmitAll(doc)["Com/Example/Membership.g.cs"];
+
+        Assert.Contains("using ATProtoNet.Spaces;", content);
+        Assert.Contains("public required SpaceUri Space { get; init; }", content);
+        Assert.Contains("public IReadOnlyList<SpaceUri>? Others { get; init; }", content);
+    }
+
+    [Fact]
     public void SdkTypeMap_EveryMappedType_ExistsInTheSdk()
     {
         var sdkAssembly = typeof(AtProtoClient).Assembly;

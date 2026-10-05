@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **⚠ ALWAYS update `CHANGELOG.md` when committing.** Every commit that changes runtime behavior, public API, or build/CI surface MUST add a bullet under `## [Unreleased]` in the correct subsection (`Breaking changes` / `Added` / `Changed` / `Fixed` / `Removed` / `Security`, in that order). Trivial doc-only commits, comment cleanups, or whitespace-only changes are the only exceptions. Binary-incompatible API changes (signature changes, constructor parameter additions even when source-compatible) MUST go under `Breaking changes` with a one-line migration note. Update CHANGELOG in the SAME commit as the code change — don't batch it into a separate "update changelog" commit.
 >
-> **CHANGELOG style:** one bullet per logical change, at most ~300 characters: a **bold title** plus 1–3 sentences of user-visible effect, ending with the issue reference `(#N)`. No tables, no benchmark numbers, no implementation narration — that belongs in the PR description. A breaking change's bullet includes a one-line `Migration: …`, and the change also gets its entry in the release's migration guide (`docs/migrating-to-0.7.md` for 0.7).
+> **CHANGELOG style:** one bullet per logical change, at most ~300 characters: a **bold title** plus 1–3 sentences of user-visible effect, ending with the issue reference `(#N)`. No tables, no benchmark numbers, no implementation narration — that belongs in the PR description. A breaking change's bullet includes a one-line `Migration: …`, and the change also gets its entry in the release's migration guide (`docs/migrating-to-0.7.md` for 0.7, `docs/migrating-to-0.8.md` for 0.8).
 
 ## Build & Test
 

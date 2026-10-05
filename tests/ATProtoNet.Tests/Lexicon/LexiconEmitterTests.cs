@@ -89,6 +89,7 @@ public sealed class LexiconEmitterTests
         Assert.Equal(("string", "at-uri"), (properties["parent"].Type, properties["parent"].Format));
         Assert.Equal(("string", "did"), (properties["author"].Type, properties["author"].Format));
         Assert.Equal(("string", "datetime"), (properties["createdAt"].Type, properties["createdAt"].Format));
+        Assert.Equal(("string", "space-ref"), (properties["space"].Type, properties["space"].Format));
         Assert.Equal("array", properties["mentions"].Type);
         Assert.Equal(("string", "did"), (properties["mentions"].Items!.Type, properties["mentions"].Items!.Format));
     }
@@ -144,4 +145,7 @@ public sealed class TestReplyRecord : AtProtoRecord
 
     [System.Text.Json.Serialization.JsonPropertyName("mentions")]
     public IReadOnlyList<ATProtoNet.Identity.Did>? Mentions { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("space")]
+    public ATProtoNet.Spaces.SpaceUri? Space { get; init; }
 }

@@ -60,10 +60,10 @@ internal sealed class CreateSimpleSpaceEndpoint(ISpaceCallerResolver callerResol
         ArgumentNullException.ThrowIfNull(input);
 
         var caller = CallerResolver.RequireCallerDid(context);
-        var type = SpaceRequestValidation.Require(input.Type, "type");
+        var spaceType = SpaceRequestValidation.Require(input.SpaceType, "spaceType");
 
         // A TID when the caller names no key, so repeated creates do not collide.
-        var uri = SpaceUri.Create(caller, type, input.Skey ?? RecordKey.NewTid());
+        var uri = SpaceUri.Create(caller, spaceType, input.Skey ?? RecordKey.NewTid());
 
         // Required on the wire; a JSON null gets past deserialization, so it is caught here rather
         // than stored as a space with no policy to enforce.

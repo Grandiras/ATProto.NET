@@ -362,6 +362,9 @@ public sealed class LexiconEmitter
         if (type.Namespace == "ATProtoNet.Identity" && IdentityFormat(type.Name) is { } format)
             return new LexiconSchema { Type = "string", Format = format };
 
+        if (type.Namespace == "ATProtoNet.Spaces" && type.Name == "SpaceUri")
+            return new LexiconSchema { Type = "string", Format = "space-ref" };
+
         // For complex types, emit a ref to their $type if they have one,
         // otherwise use "unknown"
         var typeValue = GetTypeDiscriminator(type);

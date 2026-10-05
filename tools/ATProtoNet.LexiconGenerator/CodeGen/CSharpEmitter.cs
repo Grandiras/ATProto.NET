@@ -571,6 +571,8 @@ public sealed class CSharpEmitter
                     ctx.NeedsJson = true;
                 if (TypeMapper.IsIdentityType(mapped))
                     ctx.NeedsSdkIdentity = true;
+                if (TypeMapper.IsSpacesType(mapped))
+                    ctx.NeedsSdkSpaces = true;
                 return mapped;
             }
         }
@@ -614,6 +616,8 @@ public sealed class CSharpEmitter
                         ctx.NeedsSdkModels = true;
                     if (TypeMapper.IsIdentityType(mapped))
                         ctx.NeedsSdkIdentity = true;
+                    if (TypeMapper.IsSpacesType(mapped))
+                        ctx.NeedsSdkSpaces = true;
                     return mapped;
                 }
             }

@@ -84,7 +84,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var response = await PostAsync(SpaceNsids.CreateSimpleSpace, new CreateSimpleSpaceRequest
         {
-            Type = Nsid.Parse("com.atmoboards.forum"),
+            SpaceType = Nsid.Parse("com.atmoboards.forum"),
             Skey = RecordKey.Parse("default"),
             ReadPolicy = new MemberListPolicy(),
             WritePolicy = new MemberListPolicy(),
@@ -104,7 +104,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var response = await PostAsync(SpaceNsids.CreateSimpleSpace, new CreateSimpleSpaceRequest
         {
-            Type = Nsid.Parse("com.atmoboards.forum"),
+            SpaceType = Nsid.Parse("com.atmoboards.forum"),
             ReadPolicy = new PublicPolicy(),
             WritePolicy = new PublicPolicy(),
             AppAccess = new OpenAppAccess(),
@@ -120,7 +120,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
         _caller.Did = Owner;
         var request = new CreateSimpleSpaceRequest
         {
-            Type = Nsid.Parse("com.atmoboards.forum"),
+            SpaceType = Nsid.Parse("com.atmoboards.forum"),
             Skey = RecordKey.Parse("default"),
             ReadPolicy = new MemberListPolicy(),
             WritePolicy = new MemberListPolicy(),
@@ -142,7 +142,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var response = await PostAsync(SpaceNsids.CreateSimpleSpace, new CreateSimpleSpaceRequest
         {
-            Type = Nsid.Parse("com.atmoboards.forum"),
+            SpaceType = Nsid.Parse("com.atmoboards.forum"),
             ReadPolicy = new PublicPolicy(),
             WritePolicy = new PublicPolicy(),
             AppAccess = new OpenAppAccess(),
@@ -158,7 +158,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         using var response = await PostAsync(SpaceNsids.CreateSimpleSpace, new CreateSimpleSpaceRequest
         {
-            Type = Nsid.Parse("com.atmoboards.forum"),
+            SpaceType = Nsid.Parse("com.atmoboards.forum"),
             Skey = RecordKey.Parse("split"),
             ReadPolicy = new MemberListPolicy(),
             WritePolicy = new PublicPolicy(),
@@ -172,17 +172,18 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
     }
 
     [Theory]
+    [InlineData("spaceType")]
     [InlineData("readPolicy")]
     [InlineData("writePolicy")]
-    public async Task CreateSpace_WithoutEitherPolicy_IsARequestError(string omitted)
+    public async Task CreateSpace_WithoutARequiredField_IsARequestError(string omitted)
     {
-        // Both are required on the wire. Defaulting a missing one server-side would store a policy
+        // All are required on the wire. Defaulting a missing one server-side would store a policy
         // the caller never asked for.
         _caller.Did = Owner;
 
         var fields = new Dictionary<string, string>
         {
-            ["type"] = "\"com.atmoboards.forum\"",
+            ["spaceType"] = "\"com.atmoboards.forum\"",
             ["readPolicy"] = $$"""{"$type":"{{SimpleSpaceTypes.MemberListPolicy}}"}""",
             ["writePolicy"] = $$"""{"$type":"{{SimpleSpaceTypes.MemberListPolicy}}"}""",
             ["appAccess"] = $$"""{"$type":"{{SimpleSpaceTypes.Open}}"}""",
@@ -208,7 +209,7 @@ public class SimpleSpaceEndpointTests : IAsyncLifetime
 
         var fields = new Dictionary<string, string>
         {
-            ["type"] = "\"com.atmoboards.forum\"",
+            ["spaceType"] = "\"com.atmoboards.forum\"",
             ["readPolicy"] = $$"""{"$type":"{{SimpleSpaceTypes.MemberListPolicy}}"}""",
             ["writePolicy"] = $$"""{"$type":"{{SimpleSpaceTypes.MemberListPolicy}}"}""",
             ["appAccess"] = $$"""{"$type":"{{SimpleSpaceTypes.Open}}"}""",

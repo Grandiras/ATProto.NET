@@ -29,7 +29,7 @@ public sealed class SimpleSpaceClient
     internal SimpleSpaceClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Creates a space anchored on the authenticated user's DID, who becomes its owner.</summary>
-    /// <param name="type">The space type.</param>
+    /// <param name="spaceType">The space type.</param>
     /// <param name="skey">The space key. A TID is generated when omitted.</param>
     /// <param name="readPolicy">
     /// How to authorize users to read the space. Defaults to <see cref="MemberListPolicy"/>.
@@ -47,20 +47,20 @@ public sealed class SimpleSpaceClient
     /// lists them in the writer set and forwards their write notifications to syncers.
     /// </remarks>
     public async Task<CreateSimpleSpaceResponse> CreateSpaceAsync(
-        Nsid type,
+        Nsid spaceType,
         RecordKey? skey = null,
         SimpleSpaceUserPolicy? readPolicy = null,
         SimpleSpaceUserPolicy? writePolicy = null,
         SimpleSpaceAppAccess? appAccess = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(spaceType);
 
         return await _xrpc.ProcedureAsync<CreateSimpleSpaceResponse>(
             "com.atproto.simplespace.createSpace",
             new CreateSimpleSpaceRequest
             {
-                Type = type,
+                SpaceType = spaceType,
                 Skey = skey,
                 ReadPolicy = readPolicy ?? new MemberListPolicy(),
                 WritePolicy = writePolicy ?? new MemberListPolicy(),

@@ -82,6 +82,7 @@ One AT Protocol account can power many such apps — todos, bookmarks, recipes, 
 | Index a few collections cheaply over JSON | [Jetstream Streaming](docs/jetstream.md) |
 | Backfill history, then keep tailing live | [Jetstream Historical Replay](docs/jetstream.md#historical-replay-v2-archive) |
 | Run your own PDS | [Managed PDS](docs/managed-pds.md) |
+| Upgrade from 0.7 | [Migrating to 0.8](docs/migrating-to-0.8.md) |
 | Upgrade from 0.6 | [Migrating to 0.7](docs/migrating-to-0.7.md) |
 | Understand how the packages compose | [Architecture](docs/architecture.md) |
 | Everything else | [docs/index.md](docs/index.md) |

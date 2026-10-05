@@ -50,6 +50,7 @@ across the whole input set, so generating documents one at a time loses type inf
 | `record` def | `sealed class XRecord : AtProtoRecord` (`createdAt` comes from the base class) |
 | `space` def | `static class XSpace` holding the `SpaceTypeDeclaration` (see [Space type declarations](#space-type-declarations)) |
 | `permission-set` def | `static class X` with the NSID and an `Include(aud)` scope helper (see [Permission sets](#permission-sets)) |
+| string with a `format` the SDK has a type for (`did`, `at-uri`, `nsid`, `datetime`, `space-ref`, …) | the SDK type (`Did`, `AtUri`, `Nsid`, `AtDatetime`, `SpaceUri`, …); other formats stay `string` |
 | ref to a def in the same run | that generated type |
 | ref to a `com.atproto.*` / `app.bsky.*` def the SDK already models | the SDK type (e.g. `app.bsky.embed.defs#aspectRatio` → `ATProtoNet.Lexicon.App.Bsky.Embed.AspectRatio`) |
 | ref that cannot be resolved | `JsonElement?` plus a `WARN` line naming the ref |

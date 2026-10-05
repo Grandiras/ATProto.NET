@@ -23,6 +23,10 @@ fields upstream added to live statistics. Code that reads `Stats` as a `QueueSta
 
 ## Spaces
 
+Spaces are an alpha protocol: a 0.8 client or server only interoperates with hosts that run the
+2026-10-01 alpha or later (reference implementation `679724ad`, proposal 0016 at `0c9c2e88`), and not
+with the one 0.7 targeted.
+
 ### `repoRev`, `spaceRev` and `listRepos` checkpoints
 
 The permissioned-data protocol distinguishes a repo's own revision (`repoRev`) from the space-wide
@@ -59,3 +63,28 @@ the sequence to `ForwardWriteAsync`.
 with `Space`, and `AtProtoSpaces` gains a nullable `LastSpaceRev`. Generate a migration, clear the
 writer rows (the set is rebuilt by each repo host's next `notifyWrite`), and give `SpaceRev` an ordinal
 collation. The full migration is in [Spaces](spaces.md#upgrading-the-writer-set-from-07).
+
+### `type` is `spaceType`
+
+`com.atproto.simplespace.createSpace` takes `spaceType` in its body, and
+`com.atproto.space.listSpaces` takes it as a query parameter, where both said `type`. The SDK
+follows the wire name:
+
+- `SimpleSpaceClient.CreateSpaceAsync(type, …)` and `SpaceClient.ListSpacesAsync(type: …)` take a
+  `spaceType` parameter instead. A call that names the argument stops compiling.
+- `CreateSimpleSpaceRequest.Type` is `CreateSimpleSpaceRequest.SpaceType`.
+- A host built on `ATProtoNet.Server` reads `spaceType` from `createSpace` and rejects a body that
+  only carries the old `type` with `InvalidRequest`.
+- `atproto-lexgen` maps the new `space-ref` string format to `SpaceUri` (and back).
+
+```csharp before
+var created = await client.SimpleSpace.CreateSpaceAsync(type: Nsid.Parse("com.example.forum"));
+var spaces = await client.Space.ListSpacesAsync(type: Nsid.Parse("com.example.forum"));
+```
+
+```csharp
+var created = await client.SimpleSpace.CreateSpaceAsync(spaceType: Nsid.Parse("com.example.forum"));
+var spaces = await client.Space.ListSpacesAsync(spaceType: Nsid.Parse("com.example.forum"));
+```
+
+A positional call (`CreateSpaceAsync(Nsid.Parse("com.example.forum"))`) compiles unchanged.

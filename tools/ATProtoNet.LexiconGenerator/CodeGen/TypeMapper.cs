@@ -180,7 +180,8 @@ public static class TypeMapper
 
     /// <summary>
     /// The C# type for a Lexicon <c>string</c> of the given format: the SDK's identifier type
-    /// (<c>ATProtoNet.Identity</c>) for the formats that have one, <c>string</c> otherwise.
+    /// (<c>ATProtoNet.Identity</c>, or <c>SpaceUri</c> from <c>ATProtoNet.Spaces</c>) for the formats
+    /// that have one, <c>string</c> otherwise.
     /// </summary>
     /// <param name="format">The Lexicon <c>format</c>, or <see langword="null"/>.</param>
     public static string StringType(string? format) => format switch
@@ -194,6 +195,7 @@ public static class TypeMapper
         "record-key" => "RecordKey",
         "tid" => "Tid",
         "datetime" => "AtDatetime",
+        "space-ref" => "SpaceUri",
         _ => "string",
     };
 
@@ -211,6 +213,12 @@ public static class TypeMapper
         return type is "Did" or "Handle" or "AtIdentifier" or "AtUri" or "Nsid"
             or "Cid" or "RecordKey" or "Tid" or "AtDatetime";
     }
+
+    /// <summary>
+    /// Whether a C# type from <see cref="StringType"/>, or a list of one, is <c>SpaceUri</c>, so the
+    /// generated file needs <c>ATProtoNet.Spaces</c>.
+    /// </summary>
+    public static bool IsSpacesType(string csharpType) => csharpType.Contains("SpaceUri", StringComparison.Ordinal);
 
     /// <summary>
     /// Splits an identifier into words on camel-case humps and <c>_</c>/<c>-</c>/<c>.</c> separators.

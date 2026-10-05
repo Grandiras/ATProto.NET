@@ -730,7 +730,7 @@ public class SpaceServerEndpointTests : IAsyncLifetime
             JsonContent.Create(
                 new CreateSimpleSpaceRequest
                 {
-                    Type = Nsid.Parse("com.atmoboards.forum"),
+                    SpaceType = Nsid.Parse("com.atmoboards.forum"),
                     Skey = RecordKey.Parse(skey),
                     // Public, so the exchange turns on the space existing rather than on membership.
                     ReadPolicy = new PublicPolicy(),

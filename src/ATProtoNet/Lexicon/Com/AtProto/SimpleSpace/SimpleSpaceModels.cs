@@ -142,8 +142,8 @@ public static class SimpleSpaceAccess
 public sealed class CreateSimpleSpaceRequest
 {
     /// <summary>The NSID of the space type, describing the modality of the space (e.g. <c>app.bsky.group</c>).</summary>
-    [JsonPropertyName("type")]
-    public required Nsid Type { get; init; }
+    [JsonPropertyName("spaceType")]
+    public required Nsid SpaceType { get; init; }
 
     /// <summary>The space key, distinguishing multiple spaces of the same type under the same owner. A TID is generated when omitted.</summary>
     [JsonPropertyName("skey")]

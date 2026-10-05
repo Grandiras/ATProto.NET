@@ -1,8 +1,11 @@
 #nullable enable
 ATProtoNet.Identity.IdentityResolverOptions.HandleCacheTtl.get -> System.TimeSpan
 ATProtoNet.Identity.IdentityResolverOptions.HandleCacheTtl.set -> void
+*REMOVED*ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetListFeedAsync(ATProtoNet.Identity.AtUri! list, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse!>!
 ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetListFeedAsync(ATProtoNet.Identity.AtUri! list, string? since = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse!>!
+*REMOVED*ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetQuotesAsync(ATProtoNet.Identity.AtUri! uri, ATProtoNet.Identity.Cid? cid = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.GetQuotesResponse!>!
 ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetQuotesAsync(ATProtoNet.Identity.AtUri! uri, ATProtoNet.Identity.Cid? cid = null, string? sort = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.GetQuotesResponse!>!
+*REMOVED*ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetTimelineAsync(string? algorithm = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse!>!
 ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetTimelineAsync(string? algorithm = null, string? since = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse!>!
 ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse.StartCursor.get -> string?
 ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse.StartCursor.init -> void
@@ -10,6 +13,30 @@ ATProtoNet.Lexicon.App.Bsky.Feed.FeedViewPost.OpThreadPostCount.get -> int?
 ATProtoNet.Lexicon.App.Bsky.Feed.FeedViewPost.OpThreadPostCount.init -> void
 ATProtoNet.Lexicon.App.Bsky.Feed.FeedViewPost.OpThreadPostIndex.get -> int?
 ATProtoNet.Lexicon.App.Bsky.Feed.FeedViewPost.OpThreadPostIndex.init -> void
+ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.CreateSimpleSpaceRequest.SpaceType.get -> ATProtoNet.Identity.Nsid!
+ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.CreateSimpleSpaceRequest.SpaceType.init -> void
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.CreateSimpleSpaceRequest.Type.get -> ATProtoNet.Identity.Nsid!
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.CreateSimpleSpaceRequest.Type.init -> void
+ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceClient.CreateSpaceAsync(ATProtoNet.Identity.Nsid! spaceType, ATProtoNet.Identity.RecordKey? skey = null, ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceUserPolicy? readPolicy = null, ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceUserPolicy? writePolicy = null, ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceAppAccess? appAccess = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.CreateSimpleSpaceResponse!>!
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceClient.CreateSpaceAsync(ATProtoNet.Identity.Nsid! type, ATProtoNet.Identity.RecordKey? skey = null, ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceUserPolicy? readPolicy = null, ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceUserPolicy? writePolicy = null, ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.SimpleSpaceAppAccess? appAccess = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Com.AtProto.SimpleSpace.CreateSimpleSpaceResponse!>!
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.PrevSpaceRev.get -> ATProtoNet.Identity.Tid?
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.PrevSpaceRev.init -> void
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.RepoRev.get -> ATProtoNet.Identity.Tid!
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.RepoRev.init -> void
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.Rev.get -> ATProtoNet.Identity.Tid!
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.Rev.init -> void
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.SpaceRev.get -> ATProtoNet.Identity.Tid?
+ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.SpaceRev.init -> void
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient.ListSpacesAsync(ATProtoNet.Identity.Nsid? spaceType = null, ATProtoNet.Identity.Did? did = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Com.AtProto.Space.ListSpacesResponse!>!
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient.ListSpacesAsync(ATProtoNet.Identity.Nsid? type = null, ATProtoNet.Identity.Did? did = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Com.AtProto.Space.ListSpacesResponse!>!
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient.NotifyWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repo, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient.NotifyWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repo, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.RepoRev.get -> ATProtoNet.Identity.Tid!
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.RepoRev.init -> void
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.Rev.get -> ATProtoNet.Identity.Tid!
+*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.Rev.init -> void
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.SpaceRev.get -> ATProtoNet.Identity.Tid!
+ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.SpaceRev.init -> void
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.ActionView() -> void
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.ActionView.CreatedAt.get -> ATProtoNet.Identity.AtDatetime
@@ -41,11 +68,11 @@ ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealLabelRef.Val.init -> void
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealTakedownRef
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealTakedownRef.AppealTakedownRef() -> void
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView
+ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.AppealView() -> void
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.AppealableUntil.get -> ATProtoNet.Identity.AtDatetime?
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.AppealableUntil.init -> void
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.AppealedAt.get -> ATProtoNet.Identity.AtDatetime?
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.AppealedAt.init -> void
-ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.AppealView() -> void
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.Note.get -> string?
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.Note.init -> void
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.AppealView.ResolvedAt.get -> ATProtoNet.Identity.AtDatetime?
@@ -86,9 +113,12 @@ ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.UpdatedAt.get -> ATProtoNet.Ide
 ATProtoNet.Lexicon.Tools.Ozone.Inbox.SubjectView.UpdatedAt.init -> void
 ATProtoNet.Lexicon.Tools.Ozone.OzoneClient.Inbox.get -> ATProtoNet.Lexicon.Tools.Ozone.Inbox.InboxClient!
 ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.CreateQueueAsync(string! name, System.Collections.Generic.IEnumerable<string!>? subjectTypes = null, ATProtoNet.Identity.Nsid? collection = null, System.Collections.Generic.IEnumerable<string!>? reportTypes = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Collections.Generic.IEnumerable<string!>? recommendedLabels = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.CreateQueueResponse!>!
+*REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.CreateQueueAsync(string! name, System.Collections.Generic.IEnumerable<string!>? subjectTypes = null, ATProtoNet.Identity.Nsid? collection = null, System.Collections.Generic.IEnumerable<string!>? reportTypes = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.CreateQueueResponse!>!
 ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.UpdateQueueAsync(long queueId, string? name = null, bool? enabled = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Collections.Generic.IEnumerable<string!>? recommendedLabels = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.UpdateQueueResponse!>!
+*REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.UpdateQueueAsync(long queueId, string? name = null, bool? enabled = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.UpdateQueueResponse!>!
 ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueView.RecommendedLabels.get -> System.Collections.Generic.IReadOnlyList<string!>?
 ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueView.RecommendedLabels.init -> void
+*REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Report.GetLiveStatsResponse.Stats.get -> ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueStats!
 ATProtoNet.Lexicon.Tools.Ozone.Report.GetLiveStatsResponse.Stats.get -> ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats!
 ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.AcknowledgedCount.get -> int?
 ATProtoNet.Lexicon.Tools.Ozone.Report.HistoricalStats.AcknowledgedCount.init -> void
@@ -132,28 +162,6 @@ ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TagActionCount.get -> int?
 ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TagActionCount.init -> void
 ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TakedownActionCount.get -> int?
 ATProtoNet.Lexicon.Tools.Ozone.Report.LiveStats.TakedownActionCount.init -> void
-*REMOVED*ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetListFeedAsync(ATProtoNet.Identity.AtUri! list, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse!>!
-*REMOVED*ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetQuotesAsync(ATProtoNet.Identity.AtUri! uri, ATProtoNet.Identity.Cid? cid = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.GetQuotesResponse!>!
-*REMOVED*ATProtoNet.Lexicon.App.Bsky.Feed.FeedClient.GetTimelineAsync(string? algorithm = null, int? limit = null, string? cursor = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.App.Bsky.Feed.FeedResponse!>!
-*REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.CreateQueueAsync(string! name, System.Collections.Generic.IEnumerable<string!>? subjectTypes = null, ATProtoNet.Identity.Nsid? collection = null, System.Collections.Generic.IEnumerable<string!>? reportTypes = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.CreateQueueResponse!>!
-*REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueClient.UpdateQueueAsync(long queueId, string? name = null, bool? enabled = null, string? description = null, System.Collections.Generic.IEnumerable<string!>? recommendedPolicies = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Lexicon.Tools.Ozone.Queue.UpdateQueueResponse!>!
-*REMOVED*ATProtoNet.Lexicon.Tools.Ozone.Report.GetLiveStatsResponse.Stats.get -> ATProtoNet.Lexicon.Tools.Ozone.Queue.QueueStats!
-ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.PrevSpaceRev.get -> ATProtoNet.Identity.Tid?
-ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.PrevSpaceRev.init -> void
-ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.RepoRev.get -> ATProtoNet.Identity.Tid!
-ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.RepoRev.init -> void
-*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.Rev.get -> ATProtoNet.Identity.Tid!
-*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.Rev.init -> void
-ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.SpaceRev.get -> ATProtoNet.Identity.Tid?
-ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest.SpaceRev.init -> void
-ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient.NotifyWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repo, ATProtoNet.Identity.Tid! repoRev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient.NotifyWriteAsync(ATProtoNet.Spaces.SpaceUri! space, ATProtoNet.Identity.Did! repo, ATProtoNet.Identity.Tid! rev, byte[]! hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.RepoRev.get -> ATProtoNet.Identity.Tid!
-ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.RepoRev.init -> void
-*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.Rev.get -> ATProtoNet.Identity.Tid!
-*REMOVED*ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.Rev.init -> void
-ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.SpaceRev.get -> ATProtoNet.Identity.Tid!
-ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView.SpaceRev.init -> void
 ATProtoNet.Spaces.SpaceSyncer.ListChangedReposAsync(ATProtoNet.Lexicon.Com.AtProto.Space.SpaceClient! client, ATProtoNet.Identity.Tid? checkpoint, int? pageSize = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<ATProtoNet.Lexicon.Com.AtProto.Space.SpaceRepoView!>!
 const ATProtoNet.Lexicon.Com.AtProto.Space.SpaceErrors.FutureRev = "FutureRev" -> string!
 static ATProtoNet.Spaces.SpaceSyncer.NeedsCatchUp(ATProtoNet.Identity.Tid? checkpoint, ATProtoNet.Lexicon.Com.AtProto.Space.NotifyWriteRequest! notification) -> bool
