@@ -13,10 +13,7 @@ public sealed class UnspeccedClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal UnspeccedClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal UnspeccedClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Get a thread around an anchor post as a flat list, the way the Bluesky app shows threads: the anchor's parents up to the root, then its replies, branching up to a depth.</summary>
     /// <param name="anchor">The AT-URI of the post to build the thread around; any post of the thread.</param>
@@ -33,26 +30,22 @@ public sealed class UnspeccedClient
         int? below = null,
         int? branchingFactor = null,
         string? sort = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("anchor", anchor)
-            .Add("above", above)
-            .Add("below", below)
-            .Add("branchingFactor", branchingFactor)
-            .Add("sort", sort);
-
-        return _xrpc.QueryAsync<GetPostThreadV2Response>(
-            "app.bsky.unspecced.getPostThreadV2", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetPostThreadV2Response>(
+            "app.bsky.unspecced.getPostThreadV2",
+            new XrpcParams()
+                .Add("anchor", anchor)
+                .Add("above", above)
+                .Add("below", below)
+                .Add("branchingFactor", branchingFactor)
+                .Add("sort", sort),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get the replies to an anchor post that <see cref="GetPostThreadV2Async"/> leaves out, such as those the threadgate hides. Call it when that response's <see cref="GetPostThreadV2Response.HasOtherReplies"/> is set.</summary>
     /// <param name="anchor">The AT-URI of the anchor post.</param>
     public Task<GetPostThreadOtherV2Response> GetPostThreadOtherV2Async(
-        AtUri anchor, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("anchor", anchor);
-        return _xrpc.QueryAsync<GetPostThreadOtherV2Response>(
-            "app.bsky.unspecced.getPostThreadOtherV2", parameters, cancellationToken: cancellationToken);
-    }
+        AtUri anchor, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetPostThreadOtherV2Response>(
+            "app.bsky.unspecced.getPostThreadOtherV2",
+            new XrpcParams().Add("anchor", anchor), cancellationToken: cancellationToken);
 }

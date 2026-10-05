@@ -89,10 +89,8 @@ public sealed class RichTextBuilder
     }
 
     /// <summary>Append a newline.</summary>
-    public RichTextBuilder NewLine()
-    {
-        return Text("\n");
-    }
+    public RichTextBuilder NewLine() =>
+        Text("\n");
 
     /// <summary>Build the rich text result.</summary>
     /// <returns>

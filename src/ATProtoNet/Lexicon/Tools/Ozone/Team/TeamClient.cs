@@ -8,10 +8,7 @@ public sealed class TeamClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal TeamClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal TeamClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Add a new team member with the specified role.</summary>
     /// <param name="request">The member's DID and role.</param>
@@ -23,14 +20,11 @@ public sealed class TeamClient
 
     /// <summary>Remove a team member.</summary>
     /// <param name="did">The member's DID.</param>
-    public async Task DeleteMemberAsync(
+    public Task DeleteMemberAsync(
         Did did,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new DeleteMemberRequest(Did: did);
-        await _xrpc.ProcedureAsync(
-            "tools.ozone.team.deleteMember", request, cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "tools.ozone.team.deleteMember", new DeleteMemberRequest(Did: did), cancellationToken: cancellationToken);
 
     /// <summary>List one page of team members.</summary>
     /// <param name="q">Only members whose handle or display name matches this search term.</param>
@@ -44,17 +38,16 @@ public sealed class TeamClient
         IEnumerable<string>? roles = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("q", q)
-            .Add("disabled", disabled)
-            .AddAll("roles", roles)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<ListMembersResponse>(
-            "tools.ozone.team.listMembers", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListMembersResponse>(
+            "tools.ozone.team.listMembers",
+            new XrpcParams()
+                .Add("q", q)
+                .Add("disabled", disabled)
+                .AddAll("roles", roles)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Update a team member's role or status.</summary>
     /// <param name="request">The member's DID and the changes.</param>

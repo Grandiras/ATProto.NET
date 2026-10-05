@@ -8,10 +8,7 @@ public sealed class ModerationClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal ModerationClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal ModerationClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Submit a moderation report for a repo (account) or record.</summary>
     /// <param name="subject">
@@ -25,17 +22,15 @@ public sealed class ModerationClient
         string reasonType,
         string? reason = null,
         ModTool? modTool = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new CreateReportRequest(
-            ReasonType: reasonType,
-            Subject: subject,
-            Reason: reason,
-            ModTool: modTool);
-
-        return _xrpc.ProcedureAsync<CreateReportResponse>(
-            "com.atproto.moderation.createReport", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<CreateReportResponse>(
+            "com.atproto.moderation.createReport",
+            new CreateReportRequest(
+                ReasonType: reasonType,
+                Subject: subject,
+                Reason: reason,
+                ModTool: modTool),
+            cancellationToken: cancellationToken);
 
     /// <summary>Report a repo (account) for moderation.</summary>
     /// <param name="did">The DID of the account being reported.</param>
@@ -45,14 +40,12 @@ public sealed class ModerationClient
         Did did,
         string reasonType,
         string? reason = null,
-        CancellationToken cancellationToken = default)
-    {
-        return CreateReportAsync(
+        CancellationToken cancellationToken = default) =>
+        CreateReportAsync(
             new RepoSubject { Did = did },
             reasonType,
             reason,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Report a specific record for moderation.</summary>
     /// <param name="uri">The AT URI of the record being reported.</param>
@@ -64,12 +57,10 @@ public sealed class ModerationClient
         Cid cid,
         string reasonType,
         string? reason = null,
-        CancellationToken cancellationToken = default)
-    {
-        return CreateReportAsync(
+        CancellationToken cancellationToken = default) =>
+        CreateReportAsync(
             new RecordSubject { Uri = uri, Cid = cid },
             reasonType,
             reason,
             cancellationToken: cancellationToken);
-    }
 }

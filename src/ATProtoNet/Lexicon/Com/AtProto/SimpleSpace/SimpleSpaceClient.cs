@@ -26,10 +26,7 @@ public sealed class SimpleSpaceClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal SimpleSpaceClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal SimpleSpaceClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Creates a space anchored on the authenticated user's DID, who becomes its owner.</summary>
     /// <param name="type">The space type.</param>
@@ -59,17 +56,17 @@ public sealed class SimpleSpaceClient
     {
         ArgumentNullException.ThrowIfNull(type);
 
-        var request = new CreateSimpleSpaceRequest
-        {
-            Type = type,
-            Skey = skey,
-            ReadPolicy = readPolicy ?? new MemberListPolicy(),
-            WritePolicy = writePolicy ?? new MemberListPolicy(),
-            AppAccess = appAccess ?? new OpenAppAccess(),
-        };
-
         return await _xrpc.ProcedureAsync<CreateSimpleSpaceResponse>(
-            "com.atproto.simplespace.createSpace", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.simplespace.createSpace",
+            new CreateSimpleSpaceRequest
+            {
+                Type = type,
+                Skey = skey,
+                ReadPolicy = readPolicy ?? new MemberListPolicy(),
+                WritePolicy = writePolicy ?? new MemberListPolicy(),
+                AppAccess = appAccess ?? new OpenAppAccess(),
+            },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Updates a space's configuration. Omitted arguments are left unchanged; a supplied one replaces that policy wholesale.</summary>
@@ -86,16 +83,16 @@ public sealed class SimpleSpaceClient
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var request = new UpdateSimpleSpaceRequest
-        {
-            Space = space,
-            ReadPolicy = readPolicy,
-            WritePolicy = writePolicy,
-            AppAccess = appAccess,
-        };
-
         await _xrpc.ProcedureAsync(
-            "com.atproto.simplespace.updateSpace", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.simplespace.updateSpace",
+            new UpdateSimpleSpaceRequest
+            {
+                Space = space,
+                ReadPolicy = readPolicy,
+                WritePolicy = writePolicy,
+                AppAccess = appAccess,
+            },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Deletes a space. The authenticated user must be its owner. Idempotent.</summary>
@@ -114,9 +111,10 @@ public sealed class SimpleSpaceClient
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var request = new DeleteSimpleSpaceRequest { Space = space };
         await _xrpc.ProcedureAsync(
-            "com.atproto.simplespace.deleteSpace", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.simplespace.deleteSpace",
+            new DeleteSimpleSpaceRequest { Space = space },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Describes a space and its configuration. Served by the space host.</summary>
@@ -125,9 +123,11 @@ public sealed class SimpleSpaceClient
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var parameters = new XrpcParams().Add("space", space);
         return _xrpc.QueryAsync<GetSimpleSpaceResponse>(
-            "com.atproto.simplespace.getSpace", parameters, cancellationToken: cancellationToken);
+            "com.atproto.simplespace.getSpace",
+            new XrpcParams()
+                .Add("space", space),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Adds a member to a space's member list, or replaces an existing member's access.</summary>
@@ -149,9 +149,10 @@ public sealed class SimpleSpaceClient
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(did);
 
-        var request = new PutSimpleSpaceMemberRequest { Space = space, Did = did, Read = read, Write = write };
         await _xrpc.ProcedureAsync(
-            "com.atproto.simplespace.putMember", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.simplespace.putMember",
+            new PutSimpleSpaceMemberRequest { Space = space, Did = did, Read = read, Write = write },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Removes a member from a space's member list.</summary>
@@ -167,9 +168,10 @@ public sealed class SimpleSpaceClient
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(did);
 
-        var request = new RemoveSimpleSpaceMemberRequest { Space = space, Did = did };
         await _xrpc.ProcedureAsync(
-            "com.atproto.simplespace.removeMember", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.simplespace.removeMember",
+            new RemoveSimpleSpaceMemberRequest { Space = space, Did = did },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Lists one page of a space's member list, with each member's read and write access. Must be called on the space authority's PDS.</summary>
@@ -188,13 +190,13 @@ public sealed class SimpleSpaceClient
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var parameters = new XrpcParams()
-            .Add("space", space)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
         return _xrpc.QueryAsync<ListSimpleSpaceMembersResponse>(
-            "com.atproto.simplespace.listMembers", parameters, cancellationToken: cancellationToken);
+            "com.atproto.simplespace.listMembers",
+            new XrpcParams()
+                .Add("space", space)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Enumerates a space's whole member list, fetching pages as needed.</summary>
@@ -241,13 +243,13 @@ public sealed class SimpleSpaceClient
         ArgumentNullException.ThrowIfNull(user);
         ArgumentException.ThrowIfNullOrWhiteSpace(access);
 
-        var parameters = new XrpcParams()
-            .Add("space", space)
-            .Add("user", user)
-            .Add("access", access)
-            .Add("clientId", clientId);
-
         return _xrpc.QueryAsync<CheckUserAccessResponse>(
-            "com.atproto.simplespace.checkUserAccess", parameters, cancellationToken: cancellationToken);
+            "com.atproto.simplespace.checkUserAccess",
+            new XrpcParams()
+                .Add("space", space)
+                .Add("user", user)
+                .Add("access", access)
+                .Add("clientId", clientId),
+            cancellationToken: cancellationToken);
     }
 }

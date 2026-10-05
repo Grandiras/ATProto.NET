@@ -12,10 +12,7 @@ public sealed class BookmarkClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal BookmarkClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal BookmarkClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Bookmark a post.</summary>
     /// <param name="uri">The AT-URI of the post.</param>
@@ -23,35 +20,26 @@ public sealed class BookmarkClient
     /// <exception cref="XrpcException">
     /// <see cref="BookmarkErrors.UnsupportedCollection"/> when <paramref name="uri"/> is not a post.
     /// </exception>
-    public Task CreateBookmarkAsync(AtUri uri, Cid cid, CancellationToken cancellationToken = default)
-    {
-        var request = new CreateBookmarkRequest(Uri: uri, Cid: cid);
-        return _xrpc.ProcedureAsync(
-            "app.bsky.bookmark.createBookmark", request, cancellationToken: cancellationToken);
-    }
+    public Task CreateBookmarkAsync(AtUri uri, Cid cid, CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "app.bsky.bookmark.createBookmark",
+            new CreateBookmarkRequest(Uri: uri, Cid: cid), cancellationToken: cancellationToken);
 
     /// <summary>Remove the bookmark of a post.</summary>
     /// <param name="uri">The AT-URI of the bookmarked post.</param>
-    public Task DeleteBookmarkAsync(AtUri uri, CancellationToken cancellationToken = default)
-    {
-        var request = new DeleteBookmarkRequest(Uri: uri);
-        return _xrpc.ProcedureAsync(
-            "app.bsky.bookmark.deleteBookmark", request, cancellationToken: cancellationToken);
-    }
+    public Task DeleteBookmarkAsync(AtUri uri, CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "app.bsky.bookmark.deleteBookmark",
+            new DeleteBookmarkRequest(Uri: uri), cancellationToken: cancellationToken);
 
     /// <summary>Get one page of the authenticated account's bookmarks.</summary>
     /// <param name="limit">Max bookmarks per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
     public Task<GetBookmarksResponse> GetBookmarksAsync(
-        int? limit = null, string? cursor = null, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetBookmarksResponse>(
-            "app.bsky.bookmark.getBookmarks", parameters, cancellationToken: cancellationToken);
-    }
+        int? limit = null, string? cursor = null, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetBookmarksResponse>(
+            "app.bsky.bookmark.getBookmarks",
+            new XrpcParams().Add("limit", limit).Add("cursor", cursor), cancellationToken: cancellationToken);
 
     /// <summary>Enumerate the authenticated account's bookmarks, fetching pages as needed.</summary>
     /// <param name="pageSize">Bookmarks per request (1-100); <see langword="null"/> for the server default.</param>

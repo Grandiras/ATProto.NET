@@ -102,9 +102,7 @@ public static class AtProtoTranquilPdsHostingExtensions
         // The hostname fixes the domain new handles are created under, so "localhost" is
         // only ever right for a local run. A deployment supplies its own.
         if (builder.ExecutionContext.IsPublishMode)
-        {
             resource.Hostname = builder.AddParameter($"{name}-hostname").Resource;
-        }
 
         // Credentials are generated here rather than left to AddPostgres's defaults so
         // that they are known to be URI-safe: Tranquil is handed a postgres:// URL, not
@@ -143,9 +141,7 @@ public static class AtProtoTranquilPdsHostingExtensions
                 context.EnvironmentVariables["MASTER_KEY"] = resource.MasterKeyParameter;
 
                 if (resource.DevelopmentMode)
-                {
                     ApplyDevelopmentDefaults(context.EnvironmentVariables);
-                }
             })
             .WithVolume($"{name}-blobs", BlobTarget)
             .WaitFor(database);
@@ -398,14 +394,10 @@ public static class AtProtoTranquilPdsHostingExtensions
             .ToList();
 
         foreach (var wait in waits)
-        {
             builder.Resource.Annotations.Remove(wait);
-        }
 
         foreach (var resource in generated)
-        {
             application.Resources.Remove(resource);
-        }
     }
 
     /// <summary>
@@ -528,9 +520,7 @@ public static class AtProtoTranquilPdsHostingExtensions
             .WithEnvironment("S3_BUCKET", bucket);
 
         if (endpoint is not null)
-        {
             builder = builder.WithEnvironment("S3_ENDPOINT", endpoint);
-        }
 
         return builder;
     }
@@ -566,14 +556,10 @@ public static class AtProtoTranquilPdsHostingExtensions
             .WithEnvironment("MAIL_SMARTHOST_PORT", port.ToString());
 
         if (userName is not null)
-        {
             builder = builder.WithEnvironment("MAIL_SMARTHOST_USERNAME", userName);
-        }
 
         if (password is not null)
-        {
             builder = builder.WithEnvironment("MAIL_SMARTHOST_PASSWORD", password);
-        }
 
         return builder;
     }

@@ -12,10 +12,7 @@ public sealed class DraftClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal DraftClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal DraftClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Store a new draft.</summary>
     /// <returns>The new draft's identifier.</returns>
@@ -26,9 +23,10 @@ public sealed class DraftClient
     {
         ArgumentNullException.ThrowIfNull(draft);
 
-        var request = new CreateDraftRequest(Draft: draft);
         var response = await _xrpc.ProcedureAsync<CreateDraftResponse>(
-            "app.bsky.draft.createDraft", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "app.bsky.draft.createDraft",
+            new CreateDraftRequest(Draft: draft),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return response.Id;
     }
 
@@ -39,31 +37,24 @@ public sealed class DraftClient
     {
         ArgumentNullException.ThrowIfNull(draft);
 
-        var request = new UpdateDraftRequest(Draft: new DraftWithId { Id = id, Draft = draft });
         return _xrpc.ProcedureAsync(
-            "app.bsky.draft.updateDraft", request, cancellationToken: cancellationToken);
+            "app.bsky.draft.updateDraft",
+            new UpdateDraftRequest(Draft: new DraftWithId { Id = id, Draft = draft }),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Delete a draft.</summary>
     /// <param name="id">The draft's identifier.</param>
-    public Task DeleteDraftAsync(Tid id, CancellationToken cancellationToken = default)
-    {
-        var request = new DeleteDraftRequest(Id: id);
-        return _xrpc.ProcedureAsync(
-            "app.bsky.draft.deleteDraft", request, cancellationToken: cancellationToken);
-    }
+    public Task DeleteDraftAsync(Tid id, CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "app.bsky.draft.deleteDraft", new DeleteDraftRequest(Id: id), cancellationToken: cancellationToken);
 
     /// <summary>Get one page of the authenticated account's drafts.</summary>
     /// <param name="limit">Max drafts per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
     public Task<GetDraftsResponse> GetDraftsAsync(
-        int? limit = null, string? cursor = null, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetDraftsResponse>(
-            "app.bsky.draft.getDrafts", parameters, cancellationToken: cancellationToken);
-    }
+        int? limit = null, string? cursor = null, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetDraftsResponse>(
+            "app.bsky.draft.getDrafts",
+            new XrpcParams().Add("limit", limit).Add("cursor", cursor), cancellationToken: cancellationToken);
 }

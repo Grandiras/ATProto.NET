@@ -19,10 +19,7 @@ public sealed class VideoClient
 
     private readonly XrpcClient _xrpc;
 
-    internal VideoClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal VideoClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Upload a video in parts, wait for the service to process it, and return the finished job, whose <see cref="JobStatus.Blob"/> goes into a video embed.</summary>
     /// <param name="data">
@@ -129,29 +126,22 @@ public sealed class VideoClient
     /// <returns>The initial job status for the upload.</returns>
     public Task<UploadVideoResponse> UploadVideoInOneRequestAsync(
         Stream data, string mimeType = "video/mp4",
-        CancellationToken cancellationToken = default)
-    {
-        return _xrpc.UploadAsync<UploadVideoResponse>(
+        CancellationToken cancellationToken = default) =>
+        _xrpc.UploadAsync<UploadVideoResponse>(
             "app.bsky.video.uploadVideo", data, mimeType, cancellationToken: cancellationToken);
-    }
 
     /// <summary>Get the processing status of a video upload job.</summary>
     /// <param name="jobId">The job identifier returned from upload.</param>
     public Task<GetJobStatusResponse> GetJobStatusAsync(
-        string jobId, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("jobId", jobId);
-        return _xrpc.QueryAsync<GetJobStatusResponse>(
-            "app.bsky.video.getJobStatus", parameters, cancellationToken: cancellationToken);
-    }
+        string jobId, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetJobStatusResponse>(
+            "app.bsky.video.getJobStatus", new XrpcParams().Add("jobId", jobId), cancellationToken: cancellationToken);
 
     /// <summary>Get the current video upload limits for the authenticated account.</summary>
     public Task<GetUploadLimitsResponse> GetUploadLimitsAsync(
-        CancellationToken cancellationToken = default)
-    {
-        return _xrpc.QueryAsync<GetUploadLimitsResponse>(
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetUploadLimitsResponse>(
             "app.bsky.video.getUploadLimits", null, cancellationToken: cancellationToken);
-    }
 
     // ── Multipart upload ─────────────────────────────────────
 
@@ -171,19 +161,17 @@ public sealed class VideoClient
         long? durationMs = null,
         int? width = null,
         int? height = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new StartUploadRequest(
-            SizeBytes: sizeBytes,
-            MimeType: mimeType,
-            Name: name,
-            DurationMs: durationMs,
-            Width: width,
-            Height: height);
-
-        return _xrpc.ProcedureAsync<StartUploadResponse>(
-            "app.bsky.video.startUpload", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<StartUploadResponse>(
+            "app.bsky.video.startUpload",
+            new StartUploadRequest(
+                SizeBytes: sizeBytes,
+                MimeType: mimeType,
+                Name: name,
+                DurationMs: durationMs,
+                Width: width,
+                Height: height),
+            cancellationToken: cancellationToken);
 
     /// <summary>Upload one part of a multipart upload. Parts may be sent in any order, and resent.</summary>
     /// <param name="jobId">The upload session, from <see cref="StartUploadAsync"/>.</param>
@@ -194,15 +182,13 @@ public sealed class VideoClient
     /// needs a <c>Content-Length</c>.
     /// </param>
     public Task<UploadPartResponse> UploadPartAsync(
-        string jobId, int partNumber, Stream data, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("jobId", jobId)
-            .Add("partNumber", partNumber);
-
-        return _xrpc.UploadAsync<UploadPartResponse>(
-            "app.bsky.video.uploadPart", data, OctetStream, parameters, cancellationToken: cancellationToken);
-    }
+        string jobId, int partNumber, Stream data, CancellationToken cancellationToken = default) =>
+        _xrpc.UploadAsync<UploadPartResponse>(
+            "app.bsky.video.uploadPart", data, OctetStream,
+            new XrpcParams()
+                .Add("jobId", jobId)
+                .Add("partNumber", partNumber),
+            cancellationToken: cancellationToken);
 
     /// <summary>Finish a multipart upload and hand the video to a processing job. Safe to retry.</summary>
     /// <param name="jobId">The upload session.</param>
@@ -211,32 +197,24 @@ public sealed class VideoClient
     /// itself fails later, as a <see cref="JobState.Failed"/> job.
     /// </returns>
     public Task<FinishUploadResponse> FinishUploadAsync(
-        string jobId, CancellationToken cancellationToken = default)
-    {
-        var request = new JobIdRequest(jobId);
-        return _xrpc.ProcedureAsync<FinishUploadResponse>(
-            "app.bsky.video.finishUpload", request, cancellationToken: cancellationToken);
-    }
+        string jobId, CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<FinishUploadResponse>(
+            "app.bsky.video.finishUpload", new JobIdRequest(jobId), cancellationToken: cancellationToken);
 
     /// <summary>Get the state of a multipart upload session, including the parts stored so far.</summary>
     /// <param name="jobId">The upload session.</param>
     public Task<GetUploadStatusResponse> GetUploadStatusAsync(
-        string jobId, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("jobId", jobId);
-        return _xrpc.QueryAsync<GetUploadStatusResponse>(
-            "app.bsky.video.getUploadStatus", parameters, cancellationToken: cancellationToken);
-    }
+        string jobId, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetUploadStatusResponse>(
+            "app.bsky.video.getUploadStatus",
+            new XrpcParams().Add("jobId", jobId), cancellationToken: cancellationToken);
 
     /// <summary>Abort a multipart upload session that is still open, releasing its share of the daily quota. A session that already ended keeps, and reports, its outcome.</summary>
     /// <param name="jobId">The upload session.</param>
     public Task<AbortUploadResponse> AbortUploadAsync(
-        string jobId, CancellationToken cancellationToken = default)
-    {
-        var request = new JobIdRequest(jobId);
-        return _xrpc.ProcedureAsync<AbortUploadResponse>(
-            "app.bsky.video.abortUpload", request, cancellationToken: cancellationToken);
-    }
+        string jobId, CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<AbortUploadResponse>(
+            "app.bsky.video.abortUpload", new JobIdRequest(jobId), cancellationToken: cancellationToken);
 
     // Checks the service's plan against the declared size and returns the buffer size one part needs. The
     // size bounds the buffer, whatever part size the service names.

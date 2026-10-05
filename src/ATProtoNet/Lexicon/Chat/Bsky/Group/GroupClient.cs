@@ -24,10 +24,7 @@ public sealed class GroupClient
 
     private readonly XrpcClient _xrpc;
 
-    internal GroupClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal GroupClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     // ── Groups and membership ────────────────────────────────
 
@@ -42,10 +39,10 @@ public sealed class GroupClient
         string name, IEnumerable<Did> members,
         CancellationToken cancellationToken = default)
     {
-        var request = new CreateGroupRequest(Name: name, Members: [.. members]);
-
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
-            "chat.bsky.group.createGroup", request, options: ChatProxy,
+            "chat.bsky.group.createGroup",
+            new CreateGroupRequest(Name: name, Members: [.. members]),
+            options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
@@ -58,10 +55,8 @@ public sealed class GroupClient
         string convoId, string name,
         CancellationToken cancellationToken = default)
     {
-        var request = new EditGroupRequest(ConvoId: convoId, Name: name);
-
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
-            "chat.bsky.group.editGroup", request, options: ChatProxy,
+            "chat.bsky.group.editGroup", new EditGroupRequest(ConvoId: convoId, Name: name), options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
@@ -71,14 +66,10 @@ public sealed class GroupClient
     /// <param name="members">The accounts to add (at least one).</param>
     public Task<AddMembersResponse> AddMembersAsync(
         string convoId, IEnumerable<Did> members,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new GroupMembersRequest(convoId, [.. members]);
-
-        return _xrpc.ProcedureAsync<AddMembersResponse>(
-            "chat.bsky.group.addMembers", request, options: ChatProxy,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<AddMembersResponse>(
+            "chat.bsky.group.addMembers", new GroupMembersRequest(convoId, [.. members]), options: ChatProxy,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Removes members from a group. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
@@ -88,10 +79,8 @@ public sealed class GroupClient
         string convoId, IEnumerable<Did> members,
         CancellationToken cancellationToken = default)
     {
-        var request = new GroupMembersRequest(convoId, [.. members]);
-
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
-            "chat.bsky.group.removeMembers", request, options: ChatProxy,
+            "chat.bsky.group.removeMembers", new GroupMembersRequest(convoId, [.. members]), options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
@@ -104,16 +93,14 @@ public sealed class GroupClient
         Did subject,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("subject", subject)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListMutualGroupsResponse>(
-            "chat.bsky.group.listMutualGroups", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListMutualGroupsResponse>(
+            "chat.bsky.group.listMutualGroups",
+            new XrpcParams()
+                .Add("subject", subject)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            options: ChatProxy, cancellationToken: cancellationToken);
 
     // ── Join links ───────────────────────────────────────────
 
@@ -130,13 +117,10 @@ public sealed class GroupClient
         bool? requireApproval = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new CreateJoinLinkRequest(
-            ConvoId: convoId,
-            JoinRule: joinRule,
-            RequireApproval: requireApproval);
-
         var output = await _xrpc.ProcedureAsync<JoinLinkOutput>(
-            "chat.bsky.group.createJoinLink", request, options: ChatProxy,
+            "chat.bsky.group.createJoinLink",
+            new CreateJoinLinkRequest(ConvoId: convoId, JoinRule: joinRule, RequireApproval: requireApproval),
+            options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.JoinLink;
     }
@@ -152,10 +136,10 @@ public sealed class GroupClient
         bool? requireApproval = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new EditJoinLinkRequest(ConvoId: convoId, JoinRule: joinRule, RequireApproval: requireApproval);
-
         var output = await _xrpc.ProcedureAsync<JoinLinkOutput>(
-            "chat.bsky.group.editJoinLink", request, options: ChatProxy,
+            "chat.bsky.group.editJoinLink",
+            new EditJoinLinkRequest(ConvoId: convoId, JoinRule: joinRule, RequireApproval: requireApproval),
+            options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.JoinLink;
     }
@@ -167,10 +151,8 @@ public sealed class GroupClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new ConvoIdRequest(convoId);
-
         var output = await _xrpc.ProcedureAsync<JoinLinkOutput>(
-            "chat.bsky.group.enableJoinLink", request, options: ChatProxy,
+            "chat.bsky.group.enableJoinLink", new ConvoIdRequest(convoId), options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.JoinLink;
     }
@@ -182,10 +164,8 @@ public sealed class GroupClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new ConvoIdRequest(convoId);
-
         var output = await _xrpc.ProcedureAsync<JoinLinkOutput>(
-            "chat.bsky.group.disableJoinLink", request, options: ChatProxy,
+            "chat.bsky.group.disableJoinLink", new ConvoIdRequest(convoId), options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.JoinLink;
     }
@@ -198,14 +178,10 @@ public sealed class GroupClient
     /// </returns>
     public Task<GetJoinLinkPreviewsResponse> GetJoinLinkPreviewsAsync(
         IEnumerable<string> codes,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .AddAll("codes", codes);
-
-        return _xrpc.QueryAsync<GetJoinLinkPreviewsResponse>(
-            "chat.bsky.group.getJoinLinkPreviews", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetJoinLinkPreviewsResponse>(
+            "chat.bsky.group.getJoinLinkPreviews",
+            new XrpcParams().AddAll("codes", codes), options: ChatProxy, cancellationToken: cancellationToken);
 
     // ── Join requests ────────────────────────────────────────
 
@@ -217,27 +193,19 @@ public sealed class GroupClient
     /// </returns>
     public Task<RequestJoinResponse> RequestJoinAsync(
         string code,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new RequestJoinRequest(Code: code);
-
-        return _xrpc.ProcedureAsync<RequestJoinResponse>(
-            "chat.bsky.group.requestJoin", request, options: ChatProxy,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<RequestJoinResponse>(
+            "chat.bsky.group.requestJoin", new RequestJoinRequest(Code: code), options: ChatProxy,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Withdraws the viewer's pending request to join a group.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     public Task WithdrawJoinRequestAsync(
         string convoId,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new ConvoIdRequest(convoId);
-
-        return _xrpc.ProcedureAsync(
-            "chat.bsky.group.withdrawJoinRequest", request, options: ChatProxy,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "chat.bsky.group.withdrawJoinRequest", new ConvoIdRequest(convoId), options: ChatProxy,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Lists one page of the pending requests to join a group. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
@@ -247,16 +215,14 @@ public sealed class GroupClient
         string convoId,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("convoId", convoId)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListJoinRequestsResponse>(
-            "chat.bsky.group.listJoinRequests", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListJoinRequestsResponse>(
+            "chat.bsky.group.listJoinRequests",
+            new XrpcParams()
+                .Add("convoId", convoId)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            options: ChatProxy, cancellationToken: cancellationToken);
 
     /// <summary>Approves a request to join a group. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
@@ -266,10 +232,8 @@ public sealed class GroupClient
         string convoId, Did member,
         CancellationToken cancellationToken = default)
     {
-        var request = new GroupMemberRequest(convoId, member);
-
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
-            "chat.bsky.group.approveJoinRequest", request, options: ChatProxy,
+            "chat.bsky.group.approveJoinRequest", new GroupMemberRequest(convoId, member), options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
@@ -279,25 +243,17 @@ public sealed class GroupClient
     /// <param name="member">The account whose request to reject.</param>
     public Task RejectJoinRequestAsync(
         string convoId, Did member,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new GroupMemberRequest(convoId, member);
-
-        return _xrpc.ProcedureAsync(
-            "chat.bsky.group.rejectJoinRequest", request, options: ChatProxy,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "chat.bsky.group.rejectJoinRequest", new GroupMemberRequest(convoId, member), options: ChatProxy,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Marks all of a group's join requests read. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
     public Task UpdateJoinRequestsReadAsync(
         string convoId,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new ConvoIdRequest(convoId);
-
-        return _xrpc.ProcedureAsync(
-            "chat.bsky.group.updateJoinRequestsRead", request, options: ChatProxy,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "chat.bsky.group.updateJoinRequestsRead", new ConvoIdRequest(convoId), options: ChatProxy,
             cancellationToken: cancellationToken);
-    }
 }

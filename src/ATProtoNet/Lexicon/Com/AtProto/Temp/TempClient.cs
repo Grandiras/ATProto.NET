@@ -12,10 +12,7 @@ public sealed class TempClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal TempClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal TempClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Check whether a handle is available for signup, getting suggestions when it is not.</summary>
     /// <param name="handle">The handle to check; also the seed for suggestions.</param>
@@ -25,16 +22,14 @@ public sealed class TempClient
         Handle handle,
         string? email = null,
         AtDatetime? birthDate = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("handle", handle)
-            .Add("email", email)
-            .Add("birthDate", birthDate?.ToString());
-
-        return _xrpc.QueryAsync<CheckHandleAvailabilityResponse>(
-            "com.atproto.temp.checkHandleAvailability", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<CheckHandleAvailabilityResponse>(
+            "com.atproto.temp.checkHandleAvailability",
+            new XrpcParams()
+                .Add("handle", handle)
+                .Add("email", email)
+                .Add("birthDate", birthDate?.ToString()),
+            cancellationToken: cancellationToken);
 
     /// <summary>Check where the signed-in account is in the signup queue, on a server that queues new accounts before activating them.</summary>
     public Task<CheckSignupQueueResponse> CheckSignupQueueAsync(CancellationToken cancellationToken = default) =>
@@ -52,9 +47,11 @@ public sealed class TempClient
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(scope);
 
-        var parameters = new XrpcParams().Add("scope", scope);
         var response = await _xrpc.QueryAsync<DereferenceScopeResponse>(
-            "com.atproto.temp.dereferenceScope", parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.temp.dereferenceScope",
+            new XrpcParams()
+                .Add("scope", scope),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return response.Scope;
     }
 
@@ -64,9 +61,10 @@ public sealed class TempClient
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(phoneNumber);
 
-        var request = new RequestPhoneVerificationRequest(PhoneNumber: phoneNumber);
         await _xrpc.ProcedureAsync(
-            "com.atproto.temp.requestPhoneVerification", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.temp.requestPhoneVerification",
+            new RequestPhoneVerificationRequest(PhoneNumber: phoneNumber),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Revoke an account's sessions, password and app passwords (moderator action). The account can recover with a password reset.</summary>
@@ -75,8 +73,9 @@ public sealed class TempClient
     {
         ArgumentNullException.ThrowIfNull(account);
 
-        var request = new RevokeAccountCredentialsRequest(Account: account);
         await _xrpc.ProcedureAsync(
-            "com.atproto.temp.revokeAccountCredentials", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.temp.revokeAccountCredentials",
+            new RevokeAccountCredentialsRequest(Account: account),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 }

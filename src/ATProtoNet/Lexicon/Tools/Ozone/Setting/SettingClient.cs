@@ -9,10 +9,7 @@ public sealed class SettingClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal SettingClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal SettingClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>List one page of settings.</summary>
     /// <param name="scope">
@@ -29,17 +26,16 @@ public sealed class SettingClient
         IEnumerable<Nsid>? keys = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("limit", limit)
-            .Add("cursor", cursor)
-            .Add("scope", scope)
-            .Add("prefix", prefix)
-            .AddAll("keys", keys?.Select(key => key.Value));
-        return _xrpc.QueryAsync<ListOptionsResponse>(
-            "tools.ozone.setting.listOptions", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListOptionsResponse>(
+            "tools.ozone.setting.listOptions",
+            new XrpcParams()
+                .Add("limit", limit)
+                .Add("cursor", cursor)
+                .Add("scope", scope)
+                .Add("prefix", prefix)
+                .AddAll("keys", keys?.Select(key => key.Value)),
+            cancellationToken: cancellationToken);
 
     /// <summary>Create a setting or replace its value.</summary>
     /// <param name="key">The setting's key.</param>
@@ -53,17 +49,16 @@ public sealed class SettingClient
         JsonElement value,
         string? description = null,
         string? managerRole = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new UpsertOptionRequest(
-            Key: key,
-            Scope: scope,
-            Value: value,
-            Description: description,
-            ManagerRole: managerRole);
-        return _xrpc.ProcedureAsync<UpsertOptionResponse>(
-            "tools.ozone.setting.upsertOption", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<UpsertOptionResponse>(
+            "tools.ozone.setting.upsertOption",
+            new UpsertOptionRequest(
+                Key: key,
+                Scope: scope,
+                Value: value,
+                Description: description,
+                ManagerRole: managerRole),
+            cancellationToken: cancellationToken);
 
     /// <summary>Remove settings.</summary>
     /// <param name="keys">The keys of the settings to remove (at most 200).</param>
@@ -71,10 +66,8 @@ public sealed class SettingClient
     public Task RemoveOptionsAsync(
         IEnumerable<Nsid> keys,
         string scope,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new RemoveOptionsRequest(Keys: [.. keys], Scope: scope);
-        return _xrpc.ProcedureAsync(
-            "tools.ozone.setting.removeOptions", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "tools.ozone.setting.removeOptions",
+            new RemoveOptionsRequest(Keys: [.. keys], Scope: scope), cancellationToken: cancellationToken);
 }

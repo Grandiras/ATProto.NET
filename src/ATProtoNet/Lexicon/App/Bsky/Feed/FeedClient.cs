@@ -9,10 +9,7 @@ public sealed class FeedClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal FeedClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal FeedClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     // ── Timeline & Feeds ─────────────────────────────────────
 
@@ -24,16 +21,14 @@ public sealed class FeedClient
         string? algorithm = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("algorithm", algorithm)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<FeedResponse>(
-            "app.bsky.feed.getTimeline", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<FeedResponse>(
+            "app.bsky.feed.getTimeline",
+            new XrpcParams()
+                .Add("algorithm", algorithm)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Enumerate the authenticated user's home timeline, fetching pages as needed.</summary>
     /// <param name="algorithm">Variant of the timeline algorithm; the server's default when omitted.</param>
@@ -59,18 +54,16 @@ public sealed class FeedClient
         bool? includePins = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("actor", actor)
-            .Add("filter", filter)
-            .Add("includePins", includePins)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<FeedResponse>(
-            "app.bsky.feed.getAuthorFeed", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<FeedResponse>(
+            "app.bsky.feed.getAuthorFeed",
+            new XrpcParams()
+                .Add("actor", actor)
+                .Add("filter", filter)
+                .Add("includePins", includePins)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Enumerate an author's feed, fetching pages as needed.</summary>
     /// <param name="actor">Handle or DID of the author.</param>
@@ -96,16 +89,14 @@ public sealed class FeedClient
         AtUri feed,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("feed", feed)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<FeedResponse>(
-            "app.bsky.feed.getFeed", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<FeedResponse>(
+            "app.bsky.feed.getFeed",
+            new XrpcParams()
+                .Add("feed", feed)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get one page of a list feed (recent posts by the list's members).</summary>
     /// <param name="list">The AT-URI of the list.</param>
@@ -115,16 +106,14 @@ public sealed class FeedClient
         AtUri list,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("list", list)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<FeedResponse>(
-            "app.bsky.feed.getListFeed", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<FeedResponse>(
+            "app.bsky.feed.getListFeed",
+            new XrpcParams()
+                .Add("list", list)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get one page of the posts an actor has liked.</summary>
     /// <param name="actor">Handle or DID of the actor.</param>
@@ -134,16 +123,14 @@ public sealed class FeedClient
         AtIdentifier actor,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("actor", actor)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<FeedResponse>(
-            "app.bsky.feed.getActorLikes", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<FeedResponse>(
+            "app.bsky.feed.getActorLikes",
+            new XrpcParams()
+                .Add("actor", actor)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Enumerate the posts an actor has liked, fetching pages as needed.</summary>
     /// <param name="actor">Handle or DID of the actor.</param>
@@ -166,28 +153,22 @@ public sealed class FeedClient
         AtUri uri,
         int? depth = null,
         int? parentHeight = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("uri", uri)
-            .Add("depth", depth)
-            .Add("parentHeight", parentHeight);
-
-        return _xrpc.QueryAsync<GetPostThreadResponse>(
-            "app.bsky.feed.getPostThread", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetPostThreadResponse>(
+            "app.bsky.feed.getPostThread",
+            new XrpcParams()
+                .Add("uri", uri)
+                .Add("depth", depth)
+                .Add("parentHeight", parentHeight),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get multiple posts by AT-URI (max 25).</summary>
     /// <param name="uris">The AT-URIs of the posts.</param>
     public Task<GetPostsResponse> GetPostsAsync(
-        IEnumerable<AtUri> uris, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .AddAll("uris", uris.Select(uri => uri.Value));
-
-        return _xrpc.QueryAsync<GetPostsResponse>(
-            "app.bsky.feed.getPosts", parameters, cancellationToken: cancellationToken);
-    }
+        IEnumerable<AtUri> uris, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetPostsResponse>(
+            "app.bsky.feed.getPosts",
+            new XrpcParams().AddAll("uris", uris.Select(uri => uri.Value)), cancellationToken: cancellationToken);
 
     /// <summary>Get one page of the likes on a post (or other subject).</summary>
     /// <param name="uri">The AT-URI of the liked subject.</param>
@@ -196,17 +177,15 @@ public sealed class FeedClient
     /// <param name="cursor">Pagination cursor.</param>
     public Task<GetLikesResponse> GetLikesAsync(
         AtUri uri, Cid? cid = null, int? limit = null, string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("uri", uri)
-            .Add("cid", cid)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetLikesResponse>(
-            "app.bsky.feed.getLikes", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetLikesResponse>(
+            "app.bsky.feed.getLikes",
+            new XrpcParams()
+                .Add("uri", uri)
+                .Add("cid", cid)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get one page of the accounts that reposted a post.</summary>
     /// <param name="uri">The AT-URI of the post.</param>
@@ -215,17 +194,15 @@ public sealed class FeedClient
     /// <param name="cursor">Pagination cursor.</param>
     public Task<GetRepostedByResponse> GetRepostedByAsync(
         AtUri uri, Cid? cid = null, int? limit = null, string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("uri", uri)
-            .Add("cid", cid)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetRepostedByResponse>(
-            "app.bsky.feed.getRepostedBy", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetRepostedByResponse>(
+            "app.bsky.feed.getRepostedBy",
+            new XrpcParams()
+                .Add("uri", uri)
+                .Add("cid", cid)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get one page of the posts that quote a given post.</summary>
     /// <param name="uri">The AT-URI of the quoted post.</param>
@@ -234,41 +211,32 @@ public sealed class FeedClient
     /// <param name="cursor">Pagination cursor.</param>
     public Task<GetQuotesResponse> GetQuotesAsync(
         AtUri uri, Cid? cid = null, int? limit = null, string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("uri", uri)
-            .Add("cid", cid)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetQuotesResponse>(
-            "app.bsky.feed.getQuotes", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetQuotesResponse>(
+            "app.bsky.feed.getQuotes",
+            new XrpcParams()
+                .Add("uri", uri)
+                .Add("cid", cid)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     // ── Feed Generators ──────────────────────────────────────
 
     /// <summary>Get info about a feed generator.</summary>
     /// <param name="feed">The AT-URI of the feed generator record.</param>
     public Task<GetFeedGeneratorResponse> GetFeedGeneratorAsync(
-        AtUri feed, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("feed", feed);
-        return _xrpc.QueryAsync<GetFeedGeneratorResponse>(
-            "app.bsky.feed.getFeedGenerator", parameters, cancellationToken: cancellationToken);
-    }
+        AtUri feed, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetFeedGeneratorResponse>(
+            "app.bsky.feed.getFeedGenerator", new XrpcParams().Add("feed", feed), cancellationToken: cancellationToken);
 
     /// <summary>Get info about multiple feed generators.</summary>
     /// <param name="feeds">The AT-URIs of the feed generator records.</param>
     public Task<GetFeedGeneratorsResponse> GetFeedGeneratorsAsync(
-        IEnumerable<AtUri> feeds, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .AddAll("feeds", feeds.Select(feed => feed.Value));
-
-        return _xrpc.QueryAsync<GetFeedGeneratorsResponse>(
-            "app.bsky.feed.getFeedGenerators", parameters, cancellationToken: cancellationToken);
-    }
+        IEnumerable<AtUri> feeds, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetFeedGeneratorsResponse>(
+            "app.bsky.feed.getFeedGenerators",
+            new XrpcParams().AddAll("feeds", feeds.Select(feed => feed.Value)), cancellationToken: cancellationToken);
 
     /// <summary>Get one page of the feed generators an actor created.</summary>
     /// <param name="actor">Handle or DID of the actor.</param>
@@ -276,39 +244,30 @@ public sealed class FeedClient
     /// <param name="cursor">Pagination cursor.</param>
     public Task<GetActorFeedsResponse> GetActorFeedsAsync(
         AtIdentifier actor, int? limit = null, string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("actor", actor)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetActorFeedsResponse>(
-            "app.bsky.feed.getActorFeeds", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetActorFeedsResponse>(
+            "app.bsky.feed.getActorFeeds",
+            new XrpcParams()
+                .Add("actor", actor)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get one page of suggested feeds.</summary>
     /// <param name="limit">Max results per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
     public Task<GetSuggestedFeedsResponse> GetSuggestedFeedsAsync(
         int? limit = null, string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetSuggestedFeedsResponse>(
-            "app.bsky.feed.getSuggestedFeeds", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetSuggestedFeedsResponse>(
+            "app.bsky.feed.getSuggestedFeeds",
+            new XrpcParams().Add("limit", limit).Add("cursor", cursor), cancellationToken: cancellationToken);
 
     /// <summary>Describe the feed generator service.</summary>
     public Task<DescribeFeedGeneratorResponse> DescribeFeedGeneratorAsync(
-        CancellationToken cancellationToken = default)
-    {
-        return _xrpc.QueryAsync<DescribeFeedGeneratorResponse>(
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<DescribeFeedGeneratorResponse>(
             "app.bsky.feed.describeFeedGenerator", cancellationToken: cancellationToken);
-    }
 
     /// <summary>Get a feed skeleton (for feed generator implementations).</summary>
     /// <param name="feed">The AT-URI of the feed generator record.</param>
@@ -316,16 +275,14 @@ public sealed class FeedClient
     /// <param name="cursor">Pagination cursor.</param>
     public Task<GetFeedSkeletonResponse> GetFeedSkeletonAsync(
         AtUri feed, int? limit = null, string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("feed", feed)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetFeedSkeletonResponse>(
-            "app.bsky.feed.getFeedSkeleton", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetFeedSkeletonResponse>(
+            "app.bsky.feed.getFeedSkeleton",
+            new XrpcParams()
+                .Add("feed", feed)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     // ── Search ───────────────────────────────────────────────
 
@@ -357,25 +314,23 @@ public sealed class FeedClient
         IEnumerable<string>? tags = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("q", q)
-            .Add("sort", sort)
-            .Add("since", since)
-            .Add("until", until)
-            .Add("mentions", mentions)
-            .Add("author", author)
-            .Add("lang", lang)
-            .Add("domain", domain)
-            .Add("url", url)
-            .AddAll("tag", tags)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<SearchPostsResponse>(
-            "app.bsky.feed.searchPosts", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<SearchPostsResponse>(
+            "app.bsky.feed.searchPosts",
+            new XrpcParams()
+                .Add("q", q)
+                .Add("sort", sort)
+                .Add("since", since)
+                .Add("until", until)
+                .Add("mentions", mentions)
+                .Add("author", author)
+                .Add("lang", lang)
+                .Add("domain", domain)
+                .Add("url", url)
+                .AddAll("tag", tags)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Search posts by a query, filters, or both (<c>app.bsky.feed.searchPostsV2</c>), one page at a time.</summary>
     /// <param name="query">The search text; a query or at least one filter is required.</param>

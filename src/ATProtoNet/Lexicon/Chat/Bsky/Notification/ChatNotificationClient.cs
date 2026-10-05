@@ -16,10 +16,7 @@ public sealed class ChatNotificationClient
 
     private readonly XrpcClient _xrpc;
 
-    internal ChatNotificationClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal ChatNotificationClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Gets the viewer's chat notification preferences, or the defaults when none are set.</summary>
     public async Task<ChatNotificationPreferences> GetPreferencesAsync(
@@ -39,10 +36,10 @@ public sealed class ChatNotificationClient
         ChatPreference? chatRequest = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new PutPreferencesRequest { Chat = chat, ChatRequest = chatRequest };
-
         var output = await _xrpc.ProcedureAsync<PutPreferencesResponse>(
-            "chat.bsky.notification.putPreferences", request, options: ChatProxy,
+            "chat.bsky.notification.putPreferences",
+            new PutPreferencesRequest { Chat = chat, ChatRequest = chatRequest },
+            options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Preferences;
     }

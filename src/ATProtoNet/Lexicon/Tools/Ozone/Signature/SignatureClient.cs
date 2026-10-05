@@ -8,22 +8,16 @@ public sealed class SignatureClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal SignatureClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal SignatureClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Find signature correlations between multiple DIDs.</summary>
     /// <param name="dids">The accounts to correlate.</param>
     public Task<FindCorrelationResponse> FindCorrelationAsync(
         IEnumerable<Did> dids,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .AddAll("dids", dids.Select(did => did.Value));
-        return _xrpc.QueryAsync<FindCorrelationResponse>(
-            "tools.ozone.signature.findCorrelation", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<FindCorrelationResponse>(
+            "tools.ozone.signature.findCorrelation",
+            new XrpcParams().AddAll("dids", dids.Select(did => did.Value)), cancellationToken: cancellationToken);
 
     /// <summary>Search one page of the accounts that match any of the given threat-signature values.</summary>
     /// <param name="values">The signature values to search for (see <see cref="SigDetail.Value"/>).</param>
@@ -37,12 +31,13 @@ public sealed class SignatureClient
     {
         ArgumentNullException.ThrowIfNull(values);
 
-        var parameters = new XrpcParams()
-            .AddAll("values", values)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
         return _xrpc.QueryAsync<SearchAccountsResponse>(
-            "tools.ozone.signature.searchAccounts", parameters, cancellationToken: cancellationToken);
+            "tools.ozone.signature.searchAccounts",
+            new XrpcParams()
+                .AddAll("values", values)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Find one page of the accounts related to a given DID by shared signatures.</summary>
@@ -53,13 +48,12 @@ public sealed class SignatureClient
         Did did,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("did", did)
-            .Add("cursor", cursor)
-            .Add("limit", limit);
-        return _xrpc.QueryAsync<FindRelatedAccountsResponse>(
-            "tools.ozone.signature.findRelatedAccounts", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<FindRelatedAccountsResponse>(
+            "tools.ozone.signature.findRelatedAccounts",
+            new XrpcParams()
+                .Add("did", did)
+                .Add("cursor", cursor)
+                .Add("limit", limit),
+            cancellationToken: cancellationToken);
 }

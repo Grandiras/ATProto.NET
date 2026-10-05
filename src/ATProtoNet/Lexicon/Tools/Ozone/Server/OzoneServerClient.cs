@@ -7,10 +7,7 @@ public sealed class OzoneServerClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal OzoneServerClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal OzoneServerClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Get Ozone server configuration.</summary>
     public Task<OzoneServerConfig> GetConfigAsync(

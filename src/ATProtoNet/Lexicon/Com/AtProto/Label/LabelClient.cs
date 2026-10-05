@@ -8,10 +8,7 @@ public sealed class LabelClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal LabelClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal LabelClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Query labels by subject URIs or DIDs.</summary>
     /// <param name="uriPatterns">AT-URI patterns to match against label subjects.
@@ -25,15 +22,13 @@ public sealed class LabelClient
         IEnumerable<Did>? sources = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .AddAll("uriPatterns", uriPatterns)
-            .AddAll("sources", sources?.Select(did => did.Value))
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<QueryLabelsResponse>(
-            "com.atproto.label.queryLabels", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<QueryLabelsResponse>(
+            "com.atproto.label.queryLabels",
+            new XrpcParams()
+                .AddAll("uriPatterns", uriPatterns)
+                .AddAll("sources", sources?.Select(did => did.Value))
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 }

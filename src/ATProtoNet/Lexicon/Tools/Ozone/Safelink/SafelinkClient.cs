@@ -8,10 +8,7 @@ public sealed class SafelinkClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal SafelinkClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal SafelinkClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Add a URL safety rule.</summary>
     /// <param name="url">The URL or domain.</param>
@@ -29,18 +26,17 @@ public sealed class SafelinkClient
         string reason,
         string? comment = null,
         Did? createdBy = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new AddRuleRequest(
-            Url: url,
-            Pattern: pattern,
-            Action: action,
-            Reason: reason,
-            Comment: comment,
-            CreatedBy: createdBy);
-        return _xrpc.ProcedureAsync<SafelinkEvent>(
-            "tools.ozone.safelink.addRule", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<SafelinkEvent>(
+            "tools.ozone.safelink.addRule",
+            new AddRuleRequest(
+                Url: url,
+                Pattern: pattern,
+                Action: action,
+                Reason: reason,
+                Comment: comment,
+                CreatedBy: createdBy),
+            cancellationToken: cancellationToken);
 
     /// <summary>Change a URL safety rule's action or reason.</summary>
     /// <param name="url">The rule's URL or domain.</param>
@@ -58,18 +54,17 @@ public sealed class SafelinkClient
         string reason,
         string? comment = null,
         Did? createdBy = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new AddRuleRequest(
-            Url: url,
-            Pattern: pattern,
-            Action: action,
-            Reason: reason,
-            Comment: comment,
-            CreatedBy: createdBy);
-        return _xrpc.ProcedureAsync<SafelinkEvent>(
-            "tools.ozone.safelink.updateRule", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<SafelinkEvent>(
+            "tools.ozone.safelink.updateRule",
+            new AddRuleRequest(
+                Url: url,
+                Pattern: pattern,
+                Action: action,
+                Reason: reason,
+                Comment: comment,
+                CreatedBy: createdBy),
+            cancellationToken: cancellationToken);
 
     /// <summary>Remove a URL safety rule.</summary>
     /// <param name="url">The rule's URL or domain.</param>
@@ -83,12 +78,11 @@ public sealed class SafelinkClient
         string pattern,
         string? comment = null,
         Did? createdBy = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new RemoveRuleRequest(Url: url, Pattern: pattern, Comment: comment, CreatedBy: createdBy);
-        return _xrpc.ProcedureAsync<SafelinkEvent>(
-            "tools.ozone.safelink.removeRule", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<SafelinkEvent>(
+            "tools.ozone.safelink.removeRule",
+            new RemoveRuleRequest(Url: url, Pattern: pattern, Comment: comment, CreatedBy: createdBy),
+            cancellationToken: cancellationToken);
 
     /// <summary>Query one page of the URL safety rules.</summary>
     /// <param name="urls">Only rules on these URLs or domains.</param>
@@ -108,20 +102,19 @@ public sealed class SafelinkClient
         string? sortDirection = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new QueryRulesRequest(
-            Urls: urls is null ? null : [.. urls],
-            PatternType: patternType,
-            Actions: actions is null ? null : [.. actions],
-            Reason: reason,
-            CreatedBy: createdBy,
-            SortDirection: sortDirection,
-            Limit: limit,
-            Cursor: cursor);
-        return _xrpc.ProcedureAsync<QueryRulesResponse>(
-            "tools.ozone.safelink.queryRules", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<QueryRulesResponse>(
+            "tools.ozone.safelink.queryRules",
+            new QueryRulesRequest(
+                Urls: urls is null ? null : [.. urls],
+                PatternType: patternType,
+                Actions: actions is null ? null : [.. actions],
+                Reason: reason,
+                CreatedBy: createdBy,
+                SortDirection: sortDirection,
+                Limit: limit,
+                Cursor: cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Query one page of the URL safety audit log.</summary>
     /// <param name="urls">Only events on these URLs or domains.</param>
@@ -135,15 +128,14 @@ public sealed class SafelinkClient
         string? sortDirection = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new QueryEventsRequest(
-            Urls: urls is null ? null : [.. urls],
-            PatternType: patternType,
-            SortDirection: sortDirection,
-            Limit: limit,
-            Cursor: cursor);
-        return _xrpc.ProcedureAsync<QueryEventsResponse>(
-            "tools.ozone.safelink.queryEvents", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<QueryEventsResponse>(
+            "tools.ozone.safelink.queryEvents",
+            new QueryEventsRequest(
+                Urls: urls is null ? null : [.. urls],
+                PatternType: patternType,
+                SortDirection: sortDirection,
+                Limit: limit,
+                Cursor: cursor),
+            cancellationToken: cancellationToken);
 }

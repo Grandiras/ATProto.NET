@@ -18,10 +18,7 @@ public sealed class ConvoClient
 
     private readonly XrpcClient _xrpc;
 
-    internal ConvoClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal ConvoClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     // ── Conversation listing & retrieval ─────────────────────
 
@@ -42,19 +39,17 @@ public sealed class ConvoClient
         string? lockStatus = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("readState", readState)
-            .Add("status", status)
-            .Add("kind", kind)
-            .Add("lockStatus", lockStatus)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListConvosResponse>(
-            "chat.bsky.convo.listConvos", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListConvosResponse>(
+            "chat.bsky.convo.listConvos",
+            new XrpcParams()
+                .Add("readState", readState)
+                .Add("status", status)
+                .Add("kind", kind)
+                .Add("lockStatus", lockStatus)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            options: ChatProxy, cancellationToken: cancellationToken);
 
     /// <summary>Lists one page of the viewer's requests: incoming conversation requests, and the group join requests the viewer made.</summary>
     /// <param name="limit">Maximum number of requests (1-100, default 50).</param>
@@ -62,15 +57,13 @@ public sealed class ConvoClient
     public Task<ListConvoRequestsResponse> ListConvoRequestsAsync(
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListConvoRequestsResponse>(
-            "chat.bsky.convo.listConvoRequests", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListConvoRequestsResponse>(
+            "chat.bsky.convo.listConvoRequests",
+            new XrpcParams()
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            options: ChatProxy, cancellationToken: cancellationToken);
 
     /// <summary>Counts the unlocked, unmuted conversations with something unread.</summary>
     /// <param name="includeGroupChats">
@@ -78,53 +71,43 @@ public sealed class ConvoClient
     /// </param>
     public Task<GetUnreadCountsResponse> GetUnreadCountsAsync(
         bool? includeGroupChats = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("includeGroupChats", includeGroupChats);
-
-        return _xrpc.QueryAsync<GetUnreadCountsResponse>(
-            "chat.bsky.convo.getUnreadCounts", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetUnreadCountsResponse>(
+            "chat.bsky.convo.getUnreadCounts",
+            new XrpcParams()
+                .Add("includeGroupChats", includeGroupChats),
+            options: ChatProxy, cancellationToken: cancellationToken);
 
     /// <summary>Gets a specific conversation by ID.</summary>
     /// <param name="convoId">The conversation's identifier.</param>
     public Task<GetConvoResponse> GetConvoAsync(
         string convoId,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("convoId", convoId);
-
-        return _xrpc.QueryAsync<GetConvoResponse>(
-            "chat.bsky.convo.getConvo", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetConvoResponse>(
+            "chat.bsky.convo.getConvo",
+            new XrpcParams().Add("convoId", convoId), options: ChatProxy, cancellationToken: cancellationToken);
 
     /// <summary>Gets (or creates) a conversation for the given members.</summary>
     /// <param name="members">The DIDs of the members (at most 10).</param>
     public Task<GetConvoForMembersResponse> GetConvoForMembersAsync(
         IEnumerable<Did> members,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .AddAll("members", members.Select(did => did.Value));
-
-        return _xrpc.QueryAsync<GetConvoForMembersResponse>(
-            "chat.bsky.convo.getConvoForMembers", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetConvoForMembersResponse>(
+            "chat.bsky.convo.getConvoForMembers",
+            new XrpcParams()
+                .AddAll("members", members.Select(did => did.Value)),
+            options: ChatProxy, cancellationToken: cancellationToken);
 
     /// <summary>Checks whether a conversation can be created with specified members.</summary>
     /// <param name="members">The DIDs of the members (at most 10).</param>
     public Task<GetConvoAvailabilityResponse> GetConvoAvailabilityAsync(
         IEnumerable<Did> members,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .AddAll("members", members.Select(did => did.Value));
-
-        return _xrpc.QueryAsync<GetConvoAvailabilityResponse>(
-            "chat.bsky.convo.getConvoAvailability", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetConvoAvailabilityResponse>(
+            "chat.bsky.convo.getConvoAvailability",
+            new XrpcParams()
+                .AddAll("members", members.Select(did => did.Value)),
+            options: ChatProxy, cancellationToken: cancellationToken);
 
     /// <summary>Gets one page of a conversation's members. <see cref="ConvoView.Members"/> lists only some of a group's members.</summary>
     /// <param name="convoId">The conversation's identifier.</param>
@@ -134,16 +117,14 @@ public sealed class ConvoClient
         string convoId,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("convoId", convoId)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetConvoMembersResponse>(
-            "chat.bsky.convo.getConvoMembers", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetConvoMembersResponse>(
+            "chat.bsky.convo.getConvoMembers",
+            new XrpcParams()
+                .Add("convoId", convoId)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            options: ChatProxy, cancellationToken: cancellationToken);
 
     // ── Messages ─────────────────────────────────────────────
 
@@ -155,16 +136,14 @@ public sealed class ConvoClient
         string convoId,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("convoId", convoId)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetMessagesResponse>(
-            "chat.bsky.convo.getMessages", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetMessagesResponse>(
+            "chat.bsky.convo.getMessages",
+            new XrpcParams()
+                .Add("convoId", convoId)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            options: ChatProxy, cancellationToken: cancellationToken);
 
     /// <summary>Enumerates every message in a conversation, fetching pages as needed.</summary>
     /// <param name="convoId">The conversation's identifier.</param>
@@ -186,41 +165,31 @@ public sealed class ConvoClient
     /// <param name="message">The message to send.</param>
     public Task<MessageView> SendMessageAsync(
         string convoId, MessageInput message,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new SendMessageRequest(ConvoId: convoId, Message: message);
-
-        return _xrpc.ProcedureAsync<MessageView>(
-            "chat.bsky.convo.sendMessage", request, options: ChatProxy,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<MessageView>(
+            "chat.bsky.convo.sendMessage",
+            new SendMessageRequest(ConvoId: convoId, Message: message), options: ChatProxy,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Sends a batch of messages (potentially to different conversations).</summary>
     /// <param name="items">The messages to send (at most 100).</param>
     public Task<SendMessageBatchResponse> SendMessageBatchAsync(
         IEnumerable<BatchMessageItem> items,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new SendMessageBatchRequest(Items: [.. items]);
-
-        return _xrpc.ProcedureAsync<SendMessageBatchResponse>(
-            "chat.bsky.convo.sendMessageBatch", request, options: ChatProxy,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<SendMessageBatchResponse>(
+            "chat.bsky.convo.sendMessageBatch", new SendMessageBatchRequest(Items: [.. items]), options: ChatProxy,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Deletes a message for the authenticated user only.</summary>
     /// <param name="convoId">The conversation's identifier.</param>
     /// <param name="messageId">The message's identifier.</param>
     public Task<DeletedMessageView> DeleteMessageForSelfAsync(
         string convoId, string messageId,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new DeleteMessageForSelfRequest(ConvoId: convoId, MessageId: messageId);
-
-        return _xrpc.ProcedureAsync<DeletedMessageView>(
-            "chat.bsky.convo.deleteMessageForSelf", request, options: ChatProxy,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<DeletedMessageView>(
+            "chat.bsky.convo.deleteMessageForSelf",
+            new DeleteMessageForSelfRequest(ConvoId: convoId, MessageId: messageId), options: ChatProxy,
             cancellationToken: cancellationToken);
-    }
 
     // ── Conversation management ──────────────────────────────
 
@@ -228,14 +197,10 @@ public sealed class ConvoClient
     /// <param name="convoId">The conversation's identifier.</param>
     public Task<LeaveConvoResponse> LeaveConvoAsync(
         string convoId,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new ConvoIdRequest(convoId);
-
-        return _xrpc.ProcedureAsync<LeaveConvoResponse>(
-            "chat.bsky.convo.leaveConvo", request, options: ChatProxy,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<LeaveConvoResponse>(
+            "chat.bsky.convo.leaveConvo", new ConvoIdRequest(convoId), options: ChatProxy,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Mutes a conversation.</summary>
     /// <param name="convoId">The conversation's identifier.</param>
@@ -244,10 +209,8 @@ public sealed class ConvoClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new ConvoIdRequest(convoId);
-
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
-            "chat.bsky.convo.muteConvo", request, options: ChatProxy,
+            "chat.bsky.convo.muteConvo", new ConvoIdRequest(convoId), options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
@@ -259,10 +222,8 @@ public sealed class ConvoClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new ConvoIdRequest(convoId);
-
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
-            "chat.bsky.convo.unmuteConvo", request, options: ChatProxy,
+            "chat.bsky.convo.unmuteConvo", new ConvoIdRequest(convoId), options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
@@ -275,10 +236,10 @@ public sealed class ConvoClient
         string convoId, string? messageId = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new UpdateReadRequest(ConvoId: convoId, MessageId: messageId);
-
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
-            "chat.bsky.convo.updateRead", request, options: ChatProxy,
+            "chat.bsky.convo.updateRead",
+            new UpdateReadRequest(ConvoId: convoId, MessageId: messageId),
+            options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
@@ -293,10 +254,8 @@ public sealed class ConvoClient
         CancellationToken cancellationToken = default)
     {
         // Always a JSON body, even an empty one: the method declares an application/json input.
-        var request = new UpdateAllReadRequest(Status: status);
-
         return _xrpc.ProcedureAsync<UpdateAllReadResponse>(
-            "chat.bsky.convo.updateAllRead", request, options: ChatProxy,
+            "chat.bsky.convo.updateAllRead", new UpdateAllReadRequest(Status: status), options: ChatProxy,
             cancellationToken: cancellationToken);
     }
 
@@ -304,14 +263,10 @@ public sealed class ConvoClient
     /// <param name="convoId">The conversation's identifier.</param>
     public Task<AcceptConvoResponse> AcceptConvoAsync(
         string convoId,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new ConvoIdRequest(convoId);
-
-        return _xrpc.ProcedureAsync<AcceptConvoResponse>(
-            "chat.bsky.convo.acceptConvo", request, options: ChatProxy,
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<AcceptConvoResponse>(
+            "chat.bsky.convo.acceptConvo", new ConvoIdRequest(convoId), options: ChatProxy,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Locks a group, so members can add no more messages or reactions. Owner only.</summary>
     /// <param name="convoId">The group's conversation identifier.</param>
@@ -320,10 +275,8 @@ public sealed class ConvoClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new ConvoIdRequest(convoId);
-
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
-            "chat.bsky.convo.lockConvo", request, options: ChatProxy,
+            "chat.bsky.convo.lockConvo", new ConvoIdRequest(convoId), options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
@@ -335,10 +288,8 @@ public sealed class ConvoClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var request = new ConvoIdRequest(convoId);
-
         var output = await _xrpc.ProcedureAsync<ConvoOutput>(
-            "chat.bsky.convo.unlockConvo", request, options: ChatProxy,
+            "chat.bsky.convo.unlockConvo", new ConvoIdRequest(convoId), options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
@@ -354,10 +305,8 @@ public sealed class ConvoClient
         string convoId, string messageId, string value,
         CancellationToken cancellationToken = default)
     {
-        var request = new ConvoReactionRequest(convoId, messageId, value);
-
         var output = await _xrpc.ProcedureAsync<MessageOutput>(
-            "chat.bsky.convo.addReaction", request, options: ChatProxy,
+            "chat.bsky.convo.addReaction", new ConvoReactionRequest(convoId, messageId, value), options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Message;
     }
@@ -371,10 +320,8 @@ public sealed class ConvoClient
         string convoId, string messageId, string value,
         CancellationToken cancellationToken = default)
     {
-        var request = new ConvoReactionRequest(convoId, messageId, value);
-
         var output = await _xrpc.ProcedureAsync<MessageOutput>(
-            "chat.bsky.convo.removeReaction", request, options: ChatProxy,
+            "chat.bsky.convo.removeReaction", new ConvoReactionRequest(convoId, messageId, value), options: ChatProxy,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Message;
     }
@@ -385,12 +332,8 @@ public sealed class ConvoClient
     /// <param name="cursor">Pagination cursor from a previous response.</param>
     public Task<GetLogResponse> GetLogAsync(
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetLogResponse>(
-            "chat.bsky.convo.getLog", parameters, options: ChatProxy, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetLogResponse>(
+            "chat.bsky.convo.getLog",
+            new XrpcParams().Add("cursor", cursor), options: ChatProxy, cancellationToken: cancellationToken);
 }

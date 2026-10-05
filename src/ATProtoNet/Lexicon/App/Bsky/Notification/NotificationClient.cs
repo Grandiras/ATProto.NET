@@ -9,10 +9,7 @@ public sealed class NotificationClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal NotificationClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal NotificationClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>List one page of notifications for the authenticated user.</summary>
     /// <param name="reasons">
@@ -25,16 +22,14 @@ public sealed class NotificationClient
         IEnumerable<string>? reasons = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .AddAll("reasons", reasons)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListNotificationsResponse>(
-            "app.bsky.notification.listNotifications", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListNotificationsResponse>(
+            "app.bsky.notification.listNotifications",
+            new XrpcParams()
+                .AddAll("reasons", reasons)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Enumerate the authenticated user's notifications, fetching pages as needed.</summary>
     /// <param name="reasons">
@@ -54,31 +49,23 @@ public sealed class NotificationClient
     /// <param name="seenAt">Count notifications newer than this timestamp.</param>
     public Task<GetUnreadCountResponse> GetUnreadCountAsync(
         AtDatetime? seenAt = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("seenAt", seenAt?.ToString());
-
-        return _xrpc.QueryAsync<GetUnreadCountResponse>(
-            "app.bsky.notification.getUnreadCount", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetUnreadCountResponse>(
+            "app.bsky.notification.getUnreadCount",
+            new XrpcParams().Add("seenAt", seenAt?.ToString()), cancellationToken: cancellationToken);
 
     /// <summary>Mark notifications as seen up to the given timestamp.</summary>
     /// <param name="seenAt">When the user last viewed notifications. Pass
     /// <see cref="AtDatetime.Now"/> to mark all as read.</param>
-    public async Task UpdateSeenAsync(
-        AtDatetime seenAt, CancellationToken cancellationToken = default)
-    {
-        var request = new UpdateSeenRequest(SeenAt: seenAt);
-        await _xrpc.ProcedureAsync(
-            "app.bsky.notification.updateSeen", request, cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
+    public Task UpdateSeenAsync(
+        AtDatetime seenAt, CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "app.bsky.notification.updateSeen",
+            new UpdateSeenRequest(SeenAt: seenAt), cancellationToken: cancellationToken);
 
     /// <summary>Mark all notifications as read (convenience method).</summary>
-    public Task MarkAllReadAsync(CancellationToken cancellationToken = default)
-    {
-        return UpdateSeenAsync(AtDatetime.Now(), cancellationToken);
-    }
+    public Task MarkAllReadAsync(CancellationToken cancellationToken = default) =>
+        UpdateSeenAsync(AtDatetime.Now(), cancellationToken);
 
     /// <summary>Register a push notification token.</summary>
     public async Task RegisterPushAsync(
@@ -98,17 +85,15 @@ public sealed class NotificationClient
         string token,
         string platform,
         string appId,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new UnregisterPushRequest(
-            ServiceDid: serviceDid,
-            Token: token,
-            Platform: platform,
-            AppId: appId);
-
-        return _xrpc.ProcedureAsync(
-            "app.bsky.notification.unregisterPush", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "app.bsky.notification.unregisterPush",
+            new UnregisterPushRequest(
+                ServiceDid: serviceDid,
+                Token: token,
+                Platform: platform,
+                AppId: appId),
+            cancellationToken: cancellationToken);
 
     // ── Preferences ──────────────────────────────────────────
 
@@ -140,15 +125,10 @@ public sealed class NotificationClient
     /// <param name="limit">Max accounts per page (1-100, default 50).</param>
     /// <param name="cursor">Pagination cursor.</param>
     public Task<ListActivitySubscriptionsResponse> ListActivitySubscriptionsAsync(
-        int? limit = null, string? cursor = null, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListActivitySubscriptionsResponse>(
-            "app.bsky.notification.listActivitySubscriptions", parameters, cancellationToken: cancellationToken);
-    }
+        int? limit = null, string? cursor = null, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListActivitySubscriptionsResponse>(
+            "app.bsky.notification.listActivitySubscriptions",
+            new XrpcParams().Add("limit", limit).Add("cursor", cursor), cancellationToken: cancellationToken);
 
     /// <summary>Subscribe to an account's posts, replies, or both; with both off, unsubscribe.</summary>
     /// <param name="subject">The account.</param>
@@ -156,13 +136,11 @@ public sealed class NotificationClient
     /// <param name="reply">Whether to be notified of the account's replies.</param>
     /// <returns>The subscription as stored.</returns>
     public Task<PutActivitySubscriptionResponse> PutActivitySubscriptionAsync(
-        Did subject, bool post, bool reply, CancellationToken cancellationToken = default)
-    {
-        var request = new PutActivitySubscriptionRequest(
-            Subject: subject,
-            ActivitySubscription: new ActivitySubscription { Post = post, Reply = reply });
-
-        return _xrpc.ProcedureAsync<PutActivitySubscriptionResponse>(
-            "app.bsky.notification.putActivitySubscription", request, cancellationToken: cancellationToken);
-    }
+        Did subject, bool post, bool reply, CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<PutActivitySubscriptionResponse>(
+            "app.bsky.notification.putActivitySubscription",
+            new PutActivitySubscriptionRequest(
+                Subject: subject,
+                ActivitySubscription: new ActivitySubscription { Post = post, Reply = reply }),
+            cancellationToken: cancellationToken);
 }

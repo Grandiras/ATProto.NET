@@ -9,22 +9,16 @@ public sealed class ReportClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal ReportClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal ReportClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Get one report.</summary>
     /// <param name="id">The report's identifier.</param>
     /// <exception cref="XrpcException"><c>NotFound</c> when there is no such report.</exception>
     public Task<ReportView> GetReportAsync(
         long id,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("id", id);
-        return _xrpc.QueryAsync<ReportView>(
-            "tools.ozone.report.getReport", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ReportView>(
+            "tools.ozone.report.getReport", new XrpcParams().Add("id", id), cancellationToken: cancellationToken);
 
     /// <summary>Get the most recent report.</summary>
     /// <exception cref="XrpcException"><c>NotFound</c> when there are no reports.</exception>
@@ -43,14 +37,13 @@ public sealed class ReportClient
         ReportFilter? filter = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = (filter ?? ReportFilter.None).ToParams(status)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<QueryReportsResponse>(
-            "tools.ozone.report.queryReports", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<QueryReportsResponse>(
+            "tools.ozone.report.queryReports",
+            (filter ?? ReportFilter.None).ToParams(status)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Close every open report on a subject, without acting on the subject: for automated flows that resolve reports. Reports whose status cannot move to closed are skipped.</summary>
     /// <param name="subject">The subject: an account's DID (account reports) or a record's AT URI.</param>
@@ -62,16 +55,15 @@ public sealed class ReportClient
         IEnumerable<string>? reportTypes = null,
         string? internalNote = null,
         bool? isAutomated = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new CloseReportsRequest(
-            Subject: subject,
-            ReportTypes: reportTypes is null ? null : [.. reportTypes],
-            InternalNote: internalNote,
-            IsAutomated: isAutomated);
-        return _xrpc.ProcedureAsync<CloseReportsResponse>(
-            "tools.ozone.report.closeReports", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<CloseReportsResponse>(
+            "tools.ozone.report.closeReports",
+            new CloseReportsRequest(
+                Subject: subject,
+                ReportTypes: reportTypes is null ? null : [.. reportTypes],
+                InternalNote: internalNote,
+                IsAutomated: isAutomated),
+            cancellationToken: cancellationToken);
 
     /// <summary>Move a report to another queue, or out of every queue, recording a queue activity.</summary>
     /// <param name="reportId">The report.</param>
@@ -85,12 +77,11 @@ public sealed class ReportClient
         long reportId,
         long queueId,
         string? comment = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new ReassignQueueRequest(ReportId: reportId, QueueId: queueId, Comment: comment);
-        return _xrpc.ProcedureAsync<ReassignQueueResponse>(
-            "tools.ozone.report.reassignQueue", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<ReassignQueueResponse>(
+            "tools.ozone.report.reassignQueue",
+            new ReassignQueueRequest(ReportId: reportId, QueueId: queueId, Comment: comment),
+            cancellationToken: cancellationToken);
 
     /// <summary>Assign a report to a moderator: the caller by default; admins may assign anyone.</summary>
     /// <param name="reportId">The report.</param>
@@ -109,16 +100,15 @@ public sealed class ReportClient
         Did? did = null,
         long? queueId = null,
         bool? isPermanent = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new AssignModeratorRequest(
-            ReportId: reportId,
-            Did: did,
-            QueueId: queueId,
-            IsPermanent: isPermanent);
-        return _xrpc.ProcedureAsync<AssignmentView>(
-            "tools.ozone.report.assignModerator", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<AssignmentView>(
+            "tools.ozone.report.assignModerator",
+            new AssignModeratorRequest(
+                ReportId: reportId,
+                Did: did,
+                QueueId: queueId,
+                IsPermanent: isPermanent),
+            cancellationToken: cancellationToken);
 
     /// <summary>Remove a report's assignment.</summary>
     /// <param name="reportId">The report.</param>
@@ -126,12 +116,10 @@ public sealed class ReportClient
     /// <exception cref="XrpcException"><c>InvalidAssignment</c>.</exception>
     public Task<AssignmentView> UnassignModeratorAsync(
         long reportId,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new UnassignModeratorRequest(ReportId: reportId);
-        return _xrpc.ProcedureAsync<AssignmentView>(
-            "tools.ozone.report.unassignModerator", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<AssignmentView>(
+            "tools.ozone.report.unassignModerator",
+            new UnassignModeratorRequest(ReportId: reportId), cancellationToken: cancellationToken);
 
     /// <summary>Get one page of report assignments.</summary>
     /// <param name="reportIds">Only assignments of these reports (at most 50).</param>
@@ -145,17 +133,16 @@ public sealed class ReportClient
         bool? onlyActive = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("onlyActive", onlyActive)
-            .AddAll("reportIds", reportIds?.Select(FormatId))
-            .AddAll("dids", dids?.Select(did => did.Value))
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<GetAssignmentsResponse>(
-            "tools.ozone.report.getAssignments", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetAssignmentsResponse>(
+            "tools.ozone.report.getAssignments",
+            new XrpcParams()
+                .Add("onlyActive", onlyActive)
+                .AddAll("reportIds", reportIds?.Select(FormatId))
+                .AddAll("dids", dids?.Select(did => did.Value))
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Record an activity on a report. An activity that changes the report's status (such as a <see cref="CloseActivity"/>) checks the transition and moves the report in the same step.</summary>
     /// <param name="reportId">The report.</param>
@@ -220,15 +207,14 @@ public sealed class ReportClient
         long reportId,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("reportId", reportId)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<ListActivitiesResponse>(
-            "tools.ozone.report.listActivities", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListActivitiesResponse>(
+            "tools.ozone.report.listActivities",
+            new XrpcParams()
+                .Add("reportId", reportId)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Query one page of activities across all reports, ordered by creation time: for pollers that follow report activity. For one report's history use <see cref="ListActivitiesAsync"/>.</summary>
     /// <param name="activityTypes">
@@ -246,18 +232,17 @@ public sealed class ReportClient
         string? sortDirection = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .AddAll("activityTypes", activityTypes)
-            .Add("createdAfter", createdAfter?.ToString())
-            .Add("createdBefore", createdBefore?.ToString())
-            .Add("sortDirection", sortDirection)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<QueryActivitiesResponse>(
-            "tools.ozone.report.queryActivities", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<QueryActivitiesResponse>(
+            "tools.ozone.report.queryActivities",
+            new XrpcParams()
+                .AddAll("activityTypes", activityTypes)
+                .Add("createdAfter", createdAfter?.ToString())
+                .Add("createdBefore", createdBefore?.ToString())
+                .Add("sortDirection", sortDirection)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get report statistics for the current day. Leave every filter out for the totals.</summary>
     /// <param name="queueId">Only reports in this queue; <c>-1</c> for reports in no queue.</param>
@@ -267,15 +252,14 @@ public sealed class ReportClient
         long? queueId = null,
         Did? moderatorDid = null,
         IEnumerable<string>? reportTypes = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("queueId", queueId)
-            .Add("moderatorDid", moderatorDid)
-            .AddAll("reportTypes", reportTypes);
-        return _xrpc.QueryAsync<GetLiveStatsResponse>(
-            "tools.ozone.report.getLiveStats", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetLiveStatsResponse>(
+            "tools.ozone.report.getLiveStats",
+            new XrpcParams()
+                .Add("queueId", queueId)
+                .Add("moderatorDid", moderatorDid)
+                .AddAll("reportTypes", reportTypes),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get one page of daily report statistics, newest first.</summary>
     /// <param name="queueId">Only reports in this queue; <c>-1</c> for reports in no queue.</param>
@@ -293,19 +277,18 @@ public sealed class ReportClient
         AtDatetime? endDate = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("queueId", queueId)
-            .Add("moderatorDid", moderatorDid)
-            .AddAll("reportTypes", reportTypes)
-            .Add("startDate", startDate?.ToString())
-            .Add("endDate", endDate?.ToString())
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<GetHistoricalStatsResponse>(
-            "tools.ozone.report.getHistoricalStats", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetHistoricalStatsResponse>(
+            "tools.ozone.report.getHistoricalStats",
+            new XrpcParams()
+                .Add("queueId", queueId)
+                .Add("moderatorDid", moderatorDid)
+                .AddAll("reportTypes", reportTypes)
+                .Add("startDate", startDate?.ToString())
+                .Add("endDate", endDate?.ToString())
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Recompute the daily report statistics for a range of days, to backfill after a failure or a data correction.</summary>
     /// <param name="startDate">The first day to recompute.</param>
@@ -315,15 +298,14 @@ public sealed class ReportClient
         DateOnly startDate,
         DateOnly endDate,
         IEnumerable<long>? queueIds = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new RefreshStatsRequest(
-            StartDate: startDate,
-            EndDate: endDate,
-            QueueIds: queueIds is null ? null : [.. queueIds]);
-        return _xrpc.ProcedureAsync(
-            "tools.ozone.report.refreshStats", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "tools.ozone.report.refreshStats",
+            new RefreshStatsRequest(
+                StartDate: startDate,
+                EndDate: endDate,
+                QueueIds: queueIds is null ? null : [.. queueIds]),
+            cancellationToken: cancellationToken);
 
     private static string FormatId(long id) => id.ToString(CultureInfo.InvariantCulture);
 }

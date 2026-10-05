@@ -121,9 +121,7 @@ public static class AtProtoPdsHostingExtensions
         // The hostname fixes the server's did:web identity and its handle domain, so
         // "localhost" is only ever right for a local run. A deployment supplies its own.
         if (builder.ExecutionContext.IsPublishMode)
-        {
             resource.Hostname = builder.AddParameter($"{name}-hostname").Resource;
-        }
 
         var pds = builder.AddResource(resource)
             .WithImage("ghcr.io/bluesky-social/pds", tag ?? DefaultTag)
@@ -147,9 +145,7 @@ public static class AtProtoPdsHostingExtensions
         // Dev mode relaxes the checks a real deployment needs, so it is a local-run
         // convenience only. Left unset when publishing, the container defaults it off.
         if (builder.ExecutionContext.IsRunMode)
-        {
             pds = pds.WithEnvironment("PDS_DEV_MODE", "true");
-        }
 
         return pds;
     }
@@ -167,9 +163,7 @@ public static class AtProtoPdsHostingExtensions
         int byteCount)
     {
         if (builder.ExecutionContext.IsPublishMode)
-        {
             return builder.AddParameter(name, secret: true).Resource;
-        }
 
         return builder
             .AddParameter(name, new HexSecretParameterDefault(byteCount), secret: true, persist: true)
@@ -237,9 +231,7 @@ public static class AtProtoPdsHostingExtensions
             .WithEnvironment(context => writeAdminConfiguration(pds.Resource, context.EnvironmentVariables));
 
         if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
-        {
             builder = builder.WithEnvironment(AllowInsecureHttpConfigurationKey, "true");
-        }
 
         return waitForHealthy ? builder.WaitFor(pds) : builder;
     }
@@ -330,9 +322,7 @@ public static class AtProtoPdsHostingExtensions
             .ToList();
 
         foreach (var mount in existing)
-        {
             builder.Resource.Annotations.Remove(mount);
-        }
 
         return isBindMount ? builder.WithBindMount(source, target) : builder.WithVolume(source, target);
     }
@@ -442,9 +432,7 @@ public static class AtProtoPdsHostingExtensions
         builder = builder.WithEnvironment("PDS_BSKY_APP_VIEW_URL", appViewUrl);
 
         if (appViewDid is not null)
-        {
             builder = builder.WithEnvironment("PDS_BSKY_APP_VIEW_DID", appViewDid);
-        }
 
         return builder;
     }
@@ -462,10 +450,8 @@ public static class AtProtoPdsHostingExtensions
     /// <param name="builder">The PDS resource builder.</param>
     /// <returns>The resource builder for chaining.</returns>
     public static IResourceBuilder<AtProtoPdsContainerResource> WithProductionMode(
-        this IResourceBuilder<AtProtoPdsContainerResource> builder)
-    {
-        return builder.WithEnvironment("PDS_DEV_MODE", "false");
-    }
+        this IResourceBuilder<AtProtoPdsContainerResource> builder) =>
+        builder.WithEnvironment("PDS_DEV_MODE", "false");
 
     /// <summary>
     /// Requires an invite code for signups. On the reference PDS,
@@ -522,10 +508,8 @@ public static class AtProtoPdsHostingExtensions
     public static IResourceBuilder<AtProtoPdsContainerResource> WithEmail(
         this IResourceBuilder<AtProtoPdsContainerResource> builder,
         string smtpUrl,
-        string fromAddress)
-    {
-        return builder
+        string fromAddress) =>
+        builder
             .WithEnvironment("PDS_EMAIL_SMTP_URL", smtpUrl)
             .WithEnvironment("PDS_EMAIL_FROM_ADDRESS", fromAddress);
-    }
 }

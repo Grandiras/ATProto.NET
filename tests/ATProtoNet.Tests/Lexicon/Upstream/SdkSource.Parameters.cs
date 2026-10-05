@@ -6,8 +6,9 @@ namespace ATProtoNet.Tests.Lexicon.Upstream;
 /// Reads the query-parameter keys each XRPC call site sends, by walking the source around it.
 /// </summary>
 /// <remarks>
-/// Every call builds its <c>XrpcParams</c> with a <c>var parameters = new XrpcParams()…;</c>
-/// statement (or, for the two Ozone filter objects, <c>var parameters = filter.ToParams(…)…;</c>)
+/// Most calls pass an <c>XrpcParams</c> built inline (<c>new XrpcParams().Add(…)</c>, or for the
+/// Ozone filter objects <c>filter.ToParams(…)</c>); the rest build it with a
+/// <c>var parameters = new XrpcParams()…;</c> statement
 /// immediately before the call that uses it — occasionally with more <c>parameters.Add(…)</c>
 /// statements chained in between, such as a filter block guarded by an <c>if</c>. Rather than a
 /// full parser, this finds the declaration, then the nearest following call that mentions the
@@ -27,6 +28,9 @@ internal static partial class SdkSource
     // var parameters = new XrpcParams()… or var parameters = (filter ?? Foo.None).ToParams(…)…
     [GeneratedRegex(@"^\s*var\s+(?<var>\w+)\s*=\s*(?:new XrpcParams\(\)|.*\.ToParams\()")]
     private static partial Regex ParamBuilderDeclPattern();
+
+    [GeneratedRegex(@"new XrpcParams\(\)|\.ToParams\(")]
+    private static partial Regex InlineBuilderPattern();
 
     [GeneratedRegex(@"\.(?:Add|AddAll)\(\s*""(?<key>[^""]+)""")]
     private static partial Regex AddKeyPattern();
@@ -58,6 +62,27 @@ internal static partial class SdkSource
             var calls = callsByFile[path].OrderBy(c => c.Line).ToList();
             if (calls.Count == 0)
                 continue;
+
+            foreach (var (line, nsid) in calls)
+            {
+                // The builder passed inline: the statement the call sits in, up to its ';'.
+                var end = line - 1;
+                while (end < lines.Length - 1 && !lines[end].TrimEnd().EndsWith(';'))
+                    end++;
+                var inline = string.Join('\n', lines[(line - 1)..(end + 1)]);
+                if (!InlineBuilderPattern().IsMatch(inline))
+                    continue;
+
+                var keys = new List<string>();
+                var typeMatch = ToParamsDefaultPattern().Match(inline);
+                if (typeMatch.Success && helperKeys.TryGetValue(typeMatch.Groups["type"].Value, out var hk))
+                    keys.AddRange(hk);
+                foreach (Match m in AddKeyPattern().Matches(inline))
+                    keys.Add(m.Groups["key"].Value);
+
+                if (keys.Count > 0)
+                    result.Add(new ParamCall(nsid, [.. keys.Distinct(StringComparer.Ordinal)], $"{path}:{line}"));
+            }
 
             for (var i = 0; i < lines.Length; i++)
             {

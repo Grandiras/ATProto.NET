@@ -9,10 +9,7 @@ public sealed class ChatActorClient
 
     private readonly XrpcClient _xrpc;
 
-    internal ChatActorClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal ChatActorClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Gets the viewer's chat status: whether chat is disabled for the account, whether it may create groups, and how many members a group may have.</summary>
     public Task<GetStatusResponse> GetStatusAsync(CancellationToken cancellationToken = default) =>

@@ -8,10 +8,7 @@ public sealed class LabelerClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal LabelerClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal LabelerClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Fetches information about labeler services.</summary>
     /// <param name="dids">The DIDs of the labeler services to query.</param>
@@ -20,13 +17,11 @@ public sealed class LabelerClient
     public Task<GetLabelerServicesResponse> GetServicesAsync(
         IEnumerable<Did> dids,
         bool? detailed = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .AddAll("dids", dids.Select(did => did.Value))
-            .Add("detailed", detailed);
-
-        return _xrpc.QueryAsync<GetLabelerServicesResponse>(
-            "app.bsky.labeler.getServices", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetLabelerServicesResponse>(
+            "app.bsky.labeler.getServices",
+            new XrpcParams()
+                .AddAll("dids", dids.Select(did => did.Value))
+                .Add("detailed", detailed),
+            cancellationToken: cancellationToken);
 }

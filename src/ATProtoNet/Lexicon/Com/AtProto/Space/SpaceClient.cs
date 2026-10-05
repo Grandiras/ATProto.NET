@@ -33,10 +33,7 @@ public sealed class SpaceClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal SpaceClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal SpaceClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     // ── Credentials ──────────────────────────────────────────
 
@@ -54,9 +51,11 @@ public sealed class SpaceClient
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var parameters = new XrpcParams().Add("space", space);
         return _xrpc.QueryAsync<GetDelegationTokenResponse>(
-            "com.atproto.space.getDelegationToken", parameters, cancellationToken: cancellationToken);
+            "com.atproto.space.getDelegationToken",
+            new XrpcParams()
+                .Add("space", space),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Exchanges a delegation token for a space credential. Called on the space authority.</summary>
@@ -80,9 +79,10 @@ public sealed class SpaceClient
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var request = new GetSpaceCredentialRequest { Space = space, ClientAttestation = clientAttestation };
         return _xrpc.ProcedureAsync<GetSpaceCredentialResponse>(
-            "com.atproto.space.getSpaceCredential", request, cancellationToken: cancellationToken);
+            "com.atproto.space.getSpaceCredential",
+            new GetSpaceCredentialRequest { Space = space, ClientAttestation = clientAttestation },
+            cancellationToken: cancellationToken);
     }
 
     // ── Discovery ────────────────────────────────────────────
@@ -103,17 +103,15 @@ public sealed class SpaceClient
         Did? did = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("type", type)
-            .Add("did", did)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListSpacesResponse>(
-            "com.atproto.space.listSpaces", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListSpacesResponse>(
+            "com.atproto.space.listSpaces",
+            new XrpcParams()
+                .Add("type", type)
+                .Add("did", did)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Lists one page of the repos that hold data in a space — the writer set. Served by the space host.</summary>
     /// <param name="limit">Maximum number of results per page (1–1000, default 100).</param>
@@ -136,13 +134,13 @@ public sealed class SpaceClient
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var parameters = new XrpcParams()
-            .Add("space", space)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
         return _xrpc.QueryAsync<ListSpaceReposResponse>(
-            "com.atproto.space.listRepos", parameters, cancellationToken: cancellationToken);
+            "com.atproto.space.listRepos",
+            new XrpcParams()
+                .Add("space", space)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Enumerates a space's whole writer set, fetching pages as needed.</summary>
@@ -177,14 +175,14 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(rkey);
 
-        var parameters = new XrpcParams()
-            .Add("space", space)
-            .Add("repo", repo)
-            .Add("collection", collection)
-            .Add("rkey", rkey);
-
         return _xrpc.QueryAsync<GetSpaceRecordResponse>(
-            "com.atproto.space.getRecord", parameters, cancellationToken: cancellationToken);
+            "com.atproto.space.getRecord",
+            new XrpcParams()
+                .Add("space", space)
+                .Add("repo", repo)
+                .Add("collection", collection)
+                .Add("rkey", rkey),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Gets the record a space record URI names.</summary>
@@ -220,17 +218,17 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(repo);
 
-        var parameters = new XrpcParams()
-            .Add("space", space)
-            .Add("repo", repo)
-            .Add("collection", collection)
-            .Add("reverse", reverse)
-            .Add("excludeValues", excludeValues)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
         return _xrpc.QueryAsync<ListSpaceRecordsResponse>(
-            "com.atproto.space.listRecords", parameters, cancellationToken: cancellationToken);
+            "com.atproto.space.listRecords",
+            new XrpcParams()
+                .Add("space", space)
+                .Add("repo", repo)
+                .Add("collection", collection)
+                .Add("reverse", reverse)
+                .Add("excludeValues", excludeValues)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Enumerates every record in an account's repo within a space, fetching pages as needed.</summary>
@@ -268,12 +266,12 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(repo);
 
-        var parameters = new XrpcParams()
-            .Add("space", space)
-            .Add("repo", repo);
-
         return _xrpc.QueryAsync<GetSpaceLatestCommitResponse>(
-            "com.atproto.space.getLatestCommit", parameters, cancellationToken: cancellationToken);
+            "com.atproto.space.getLatestCommit",
+            new XrpcParams()
+                .Add("space", space)
+                .Add("repo", repo),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Downloads an account's whole permissioned repo as a CAR file, for full-state recovery.</summary>
@@ -292,13 +290,13 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(repo);
 
-        var parameters = new XrpcParams()
-            .Add("space", space)
-            .Add("repo", repo)
-            .Add("excludeValues", excludeValues);
-
         return _xrpc.DownloadAsync(
-            "com.atproto.space.getRepo", parameters, cancellationToken: cancellationToken);
+            "com.atproto.space.getRepo",
+            new XrpcParams()
+                .Add("space", space)
+                .Add("repo", repo)
+                .Add("excludeValues", excludeValues),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Lists an account's operation log for a space, the primary incremental sync mechanism.</summary>
@@ -328,16 +326,16 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(repo);
 
-        var parameters = new XrpcParams()
-            .Add("space", space)
-            .Add("repo", repo)
-            .Add("since", since)
-            .Add("excludeValues", excludeValues)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
         return _xrpc.QueryAsync<ListSpaceRepoOpsResponse>(
-            "com.atproto.space.listRepoOps", parameters, cancellationToken: cancellationToken);
+            "com.atproto.space.listRepoOps",
+            new XrpcParams()
+                .Add("space", space)
+                .Add("repo", repo)
+                .Add("since", since)
+                .Add("excludeValues", excludeValues)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Downloads a blob referenced from a record in a permissioned space.</summary>
@@ -356,13 +354,13 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(repo);
         ArgumentNullException.ThrowIfNull(cid);
 
-        var parameters = new XrpcParams()
-            .Add("space", space)
-            .Add("repo", repo)
-            .Add("cid", cid);
-
         return _xrpc.DownloadAsync(
-            "com.atproto.space.getBlob", parameters, cancellationToken: cancellationToken);
+            "com.atproto.space.getBlob",
+            new XrpcParams()
+                .Add("space", space)
+                .Add("repo", repo)
+                .Add("cid", cid),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Lists one page of the CIDs of blobs referenced by an account's records within a space.</summary>
@@ -385,15 +383,15 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(space);
         ArgumentNullException.ThrowIfNull(repo);
 
-        var parameters = new XrpcParams()
-            .Add("space", space)
-            .Add("repo", repo)
-            .Add("since", since)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
         return _xrpc.QueryAsync<ListSpaceBlobsResponse>(
-            "com.atproto.space.listBlobs", parameters, cancellationToken: cancellationToken);
+            "com.atproto.space.listBlobs",
+            new XrpcParams()
+                .Add("space", space)
+                .Add("repo", repo)
+                .Add("since", since)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
     }
 
     // ── Writes ───────────────────────────────────────────────
@@ -419,16 +417,16 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(record);
 
-        var request = new CreateSpaceRecordRequest(
-            Space: space,
-            Repo: repo,
-            Collection: collection,
-            Rkey: rkey,
-            Validate: validate,
-            Record: record);
-
         return _xrpc.ProcedureAsync<SpaceWriteResult>(
-            "com.atproto.space.createRecord", request, cancellationToken: cancellationToken);
+            "com.atproto.space.createRecord",
+            new CreateSpaceRecordRequest(
+                Space: space,
+                Repo: repo,
+                Collection: collection,
+                Rkey: rkey,
+                Validate: validate,
+                Record: record),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Creates or updates a record in the caller's permissioned repo for a space.</summary>
@@ -452,16 +450,16 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(rkey);
         ArgumentNullException.ThrowIfNull(record);
 
-        var request = new PutSpaceRecordRequest(
-            Space: space,
-            Repo: repo,
-            Collection: collection,
-            Rkey: rkey,
-            Validate: validate,
-            Record: record);
-
         return _xrpc.ProcedureAsync<SpaceWriteResult>(
-            "com.atproto.space.putRecord", request, cancellationToken: cancellationToken);
+            "com.atproto.space.putRecord",
+            new PutSpaceRecordRequest(
+                Space: space,
+                Repo: repo,
+                Collection: collection,
+                Rkey: rkey,
+                Validate: validate,
+                Record: record),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Deletes a record from the caller's permissioned repo, or ensures it does not exist. Succeeds whether or not the record was present.</summary>
@@ -480,10 +478,10 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(rkey);
 
-        var request = new DeleteSpaceRecordRequest(Space: space, Repo: repo, Collection: collection, Rkey: rkey);
-
         await _xrpc.ProcedureAsync(
-            "com.atproto.space.deleteRecord", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.space.deleteRecord",
+            new DeleteSpaceRecordRequest(Space: space, Repo: repo, Collection: collection, Rkey: rkey),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Deletes the record a space record URI names from the caller's permissioned repo, or ensures it does not exist.</summary>
@@ -513,10 +511,10 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(repo);
         ArgumentNullException.ThrowIfNull(writes);
 
-        var request = new ApplySpaceWritesRequest(Space: space, Repo: repo, Validate: validate, Writes: [.. writes]);
-
         return _xrpc.ProcedureAsync<ApplySpaceWritesResponse>(
-            "com.atproto.space.applyWrites", request, cancellationToken: cancellationToken);
+            "com.atproto.space.applyWrites",
+            new ApplySpaceWritesRequest(Space: space, Repo: repo, Validate: validate, Writes: [.. writes]),
+            cancellationToken: cancellationToken);
     }
 
     // ── Write notifications ──────────────────────────────────
@@ -542,9 +540,10 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(space);
         ArgumentException.ThrowIfNullOrWhiteSpace(service);
 
-        var request = new RegisterNotifyRequest { Space = space, Service = service };
         return _xrpc.ProcedureAsync<RegisterNotifyResponse>(
-            "com.atproto.space.registerNotify", request, cancellationToken: cancellationToken);
+            "com.atproto.space.registerNotify",
+            new RegisterNotifyRequest { Space = space, Service = service },
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Withdraws a write-notification registration. Idempotent.</summary>
@@ -555,9 +554,10 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(space);
         ArgumentException.ThrowIfNullOrWhiteSpace(service);
 
-        var request = new UnregisterNotifyRequest { Space = space, Service = service };
         await _xrpc.ProcedureAsync(
-            "com.atproto.space.unregisterNotify", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.space.unregisterNotify",
+            new UnregisterNotifyRequest { Space = space, Service = service },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Notifies that a repo in a space advanced to a new revision.</summary>
@@ -580,9 +580,10 @@ public sealed class SpaceClient
         ArgumentNullException.ThrowIfNull(rev);
         ArgumentNullException.ThrowIfNull(hash);
 
-        var request = new NotifyWriteRequest { Space = space, Repo = repo, Rev = rev, Hash = hash };
         await _xrpc.ProcedureAsync(
-            "com.atproto.space.notifyWrite", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.space.notifyWrite",
+            new NotifyWriteRequest { Space = space, Repo = repo, Rev = rev, Hash = hash },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Notifies a syncing service that a space was deleted and its data should be dropped.</summary>
@@ -597,8 +598,9 @@ public sealed class SpaceClient
     {
         ArgumentNullException.ThrowIfNull(space);
 
-        var request = new NotifySpaceDeletedRequest(Space: space);
         await _xrpc.ProcedureAsync(
-            "com.atproto.space.notifySpaceDeleted", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.space.notifySpaceDeleted",
+            new NotifySpaceDeletedRequest(Space: space),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 }

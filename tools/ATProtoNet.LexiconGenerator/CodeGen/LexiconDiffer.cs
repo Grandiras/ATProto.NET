@@ -31,25 +31,21 @@ public sealed class LexiconDiffer
 
         // Detect removed schemas (breaking)
         foreach (var id in baselineMap.Keys)
-        {
             if (!currentMap.ContainsKey(id))
             {
                 changes.Add(new SchemaChange(
                     id, null, ChangeKind.SchemaRemoved, "Schema removed",
                     IsBreaking: true));
             }
-        }
 
         // Detect added schemas (non-breaking)
         foreach (var id in currentMap.Keys)
-        {
             if (!baselineMap.ContainsKey(id))
             {
                 changes.Add(new SchemaChange(
                     id, null, ChangeKind.SchemaAdded, "Schema added",
                     IsBreaking: false));
             }
-        }
 
         // Detect changes within shared schemas
         foreach (var (id, baseDoc) in baselineMap)
@@ -88,7 +84,6 @@ public sealed class LexiconDiffer
         }
 
         foreach (var defName in curDefs.Keys)
-        {
             if (!baseDefs.ContainsKey(defName))
             {
                 changes.Add(new SchemaChange(
@@ -96,7 +91,6 @@ public sealed class LexiconDiffer
                     $"Definition '{defName}' added",
                     IsBreaking: false));
             }
-        }
     }
 
     private void CompareDefinition(
@@ -257,7 +251,6 @@ public sealed class LexiconDiffer
 
         // Removed properties (breaking)
         foreach (var (propName, _) in baseProps)
-        {
             if (!curProps.ContainsKey(propName))
             {
                 changes.Add(new SchemaChange(
@@ -265,11 +258,9 @@ public sealed class LexiconDiffer
                     $"Property '{propName}' removed",
                     IsBreaking: true));
             }
-        }
 
         // Added properties
         foreach (var (propName, _) in curProps)
-        {
             if (!baseProps.ContainsKey(propName))
             {
                 var isRequired = curRequired.Contains(propName);
@@ -278,7 +269,6 @@ public sealed class LexiconDiffer
                     $"Property '{propName}' added{(isRequired ? " (required — BREAKING)" : " (optional)")}",
                     IsBreaking: isRequired));
             }
-        }
 
         // Changed properties
         foreach (var (propName, baseProp) in baseProps)

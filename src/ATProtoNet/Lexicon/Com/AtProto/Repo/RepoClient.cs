@@ -10,10 +10,7 @@ public sealed class RepoClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal RepoClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal RepoClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Create a new record in a repository collection.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
@@ -32,16 +29,16 @@ public sealed class RepoClient
         Cid? swapCommit = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new CreateRecordRequest(
-            Repo: repo,
-            Collection: collection,
-            Record: record,
-            Rkey: rkey,
-            Validate: validate,
-            SwapCommit: swapCommit);
-
         var response = await _xrpc.ProcedureAsync<RecordWriteResponse>(
-            "com.atproto.repo.createRecord", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.repo.createRecord",
+            new CreateRecordRequest(
+                Repo: repo,
+                Collection: collection,
+                Record: record,
+                Rkey: rkey,
+                Validate: validate,
+                SwapCommit: swapCommit),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         return ToRecordRef(CreateRecordNsid, response);
     }
@@ -140,17 +137,17 @@ public sealed class RepoClient
         Cid? swapCommit = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new PutRecordRequest(
-            Repo: repo,
-            Collection: collection,
-            Rkey: rkey,
-            Record: record,
-            Validate: validate,
-            SwapRecord: swapRecord,
-            SwapCommit: swapCommit);
-
         var response = await _xrpc.ProcedureAsync<RecordWriteResponse>(
-            "com.atproto.repo.putRecord", request, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "com.atproto.repo.putRecord",
+            new PutRecordRequest(
+                Repo: repo,
+                Collection: collection,
+                Rkey: rkey,
+                Record: record,
+                Validate: validate,
+                SwapRecord: swapRecord,
+                SwapCommit: swapCommit),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         return ToRecordRef(PutRecordNsid, response);
     }
@@ -167,18 +164,16 @@ public sealed class RepoClient
         RecordKey rkey,
         Cid? swapRecord = null,
         Cid? swapCommit = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new DeleteRecordRequest(
-            Repo: repo,
-            Collection: collection,
-            Rkey: rkey,
-            SwapRecord: swapRecord,
-            SwapCommit: swapCommit);
-
-        return _xrpc.ProcedureAsync<DeleteRecordResponse>(
-            "com.atproto.repo.deleteRecord", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<DeleteRecordResponse>(
+            "com.atproto.repo.deleteRecord",
+            new DeleteRecordRequest(
+                Repo: repo,
+                Collection: collection,
+                Rkey: rkey,
+                SwapRecord: swapRecord,
+                SwapCommit: swapCommit),
+            cancellationToken: cancellationToken);
 
     /// <summary>Delete the record an AT URI names.</summary>
     /// <param name="uri">The record's AT URI: it must name a collection and a record key.</param>
@@ -207,18 +202,16 @@ public sealed class RepoClient
         bool? reverse = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("repo", repo)
-            .Add("collection", collection)
-            .Add("limit", limit)
-            .Add("cursor", cursor)
-            .Add("reverse", reverse);
-
-        return _xrpc.QueryAsync<ListRecordsResponse>(
-            "com.atproto.repo.listRecords", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListRecordsResponse>(
+            "com.atproto.repo.listRecords",
+            new XrpcParams()
+                .Add("repo", repo)
+                .Add("collection", collection)
+                .Add("limit", limit)
+                .Add("cursor", cursor)
+                .Add("reverse", reverse),
+            cancellationToken: cancellationToken);
 
     // ListRecordsAsync(AtIdentifier, Nsid, bool?, int?, string?, CancellationToken) with each value
     // deserialized straight into T; a record that is not one fails the page with
@@ -277,12 +270,9 @@ public sealed class RepoClient
     /// <summary>Get information about a repository.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
     public Task<DescribeRepoResponse> DescribeRepoAsync(
-        AtIdentifier repo, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("repo", repo);
-        return _xrpc.QueryAsync<DescribeRepoResponse>(
-            "com.atproto.repo.describeRepo", parameters, cancellationToken: cancellationToken);
-    }
+        AtIdentifier repo, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<DescribeRepoResponse>(
+            "com.atproto.repo.describeRepo", new XrpcParams().Add("repo", repo), cancellationToken: cancellationToken);
 
     /// <summary>Upload a blob (binary data) to the server. Returns a BlobRef that can be included in record data.</summary>
     /// <param name="data">The blob data stream.</param>
@@ -346,17 +336,15 @@ public sealed class RepoClient
         IEnumerable<ApplyWriteOperation> writes,
         bool? validate = null,
         Cid? swapCommit = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new ApplyWritesRequest(
-            Repo: repo,
-            Writes: [.. writes],
-            Validate: validate,
-            SwapCommit: swapCommit);
-
-        return _xrpc.ProcedureAsync<ApplyWritesResponse>(
-            "com.atproto.repo.applyWrites", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<ApplyWritesResponse>(
+            "com.atproto.repo.applyWrites",
+            new ApplyWritesRequest(
+                Repo: repo,
+                Writes: [.. writes],
+                Validate: validate,
+                SwapCommit: swapCommit),
+            cancellationToken: cancellationToken);
 
     /// <summary>List one page of the blobs the account's records reference but that were never uploaded, for example after a repository import.</summary>
     /// <param name="limit">Maximum number of results (1-1000, default 500).</param>
@@ -364,15 +352,10 @@ public sealed class RepoClient
     public Task<ListMissingBlobsResponse> ListMissingBlobsAsync(
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListMissingBlobsResponse>(
-            "com.atproto.repo.listMissingBlobs", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListMissingBlobsResponse>(
+            "com.atproto.repo.listMissingBlobs",
+            new XrpcParams().Add("limit", limit).Add("cursor", cursor), cancellationToken: cancellationToken);
 
     private const string CreateRecordNsid = "com.atproto.repo.createRecord";
     private const string PutRecordNsid = "com.atproto.repo.putRecord";

@@ -8,10 +8,7 @@ public sealed class EmbedClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal EmbedClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal EmbedClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Resolve the records behind a web page, such as a <c>site.standard.document</c> and its publication, into an enhanced external embed.</summary>
     /// <param name="url">The page's canonical URL, typically the one pasted into the composer.</param>
@@ -25,11 +22,11 @@ public sealed class EmbedClient
     {
         ArgumentNullException.ThrowIfNull(uris);
 
-        var parameters = new XrpcParams()
-            .Add("url", url)
-            .AddAll("uris", uris.Select(uri => uri.Value));
-
         return _xrpc.QueryAsync<GetEmbedExternalViewResponse>(
-            "app.bsky.embed.getEmbedExternalView", parameters, cancellationToken: cancellationToken);
+            "app.bsky.embed.getEmbedExternalView",
+            new XrpcParams()
+                .Add("url", url)
+                .AddAll("uris", uris.Select(uri => uri.Value)),
+            cancellationToken: cancellationToken);
     }
 }

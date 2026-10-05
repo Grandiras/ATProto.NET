@@ -19,23 +19,16 @@ public sealed class ChatModerationClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal ChatModerationClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal ChatModerationClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Gets an account's chat activity over the last day, the last month and all time.</summary>
     /// <param name="actor">The account.</param>
     public Task<GetActorMetadataResponse> GetActorMetadataAsync(
         Did actor,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("actor", actor);
-
-        return _xrpc.QueryAsync<GetActorMetadataResponse>(
-            "chat.bsky.moderation.getActorMetadata", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetActorMetadataResponse>(
+            "chat.bsky.moderation.getActorMetadata",
+            new XrpcParams().Add("actor", actor), cancellationToken: cancellationToken);
 
     /// <summary>Gets a message with the messages around it, for reviewing a report.</summary>
     /// <param name="messageId">The message's identifier.</param>
@@ -60,18 +53,16 @@ public sealed class ChatModerationClient
         int? before = null,
         int? after = null,
         int? maxInterleavedSystemMessages = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("convoId", convoId)
-            .Add("messageId", messageId)
-            .Add("before", before)
-            .Add("after", after)
-            .Add("maxInterleavedSystemMessages", maxInterleavedSystemMessages);
-
-        return _xrpc.QueryAsync<GetMessageContextResponse>(
-            "chat.bsky.moderation.getMessageContext", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetMessageContextResponse>(
+            "chat.bsky.moderation.getMessageContext",
+            new XrpcParams()
+                .Add("convoId", convoId)
+                .Add("messageId", messageId)
+                .Add("before", before)
+                .Add("after", after)
+                .Add("maxInterleavedSystemMessages", maxInterleavedSystemMessages),
+            cancellationToken: cancellationToken);
 
     /// <summary>Gets a conversation the moderator need not be a member of.</summary>
     /// <param name="convoId">The conversation's identifier.</param>
@@ -79,11 +70,11 @@ public sealed class ChatModerationClient
         string convoId,
         CancellationToken cancellationToken = default)
     {
-        var parameters = new XrpcParams()
-            .Add("convoId", convoId);
-
         var output = await _xrpc.QueryAsync<GetConvoResponse>(
-            "chat.bsky.moderation.getConvo", parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
+            "chat.bsky.moderation.getConvo",
+            new XrpcParams()
+                .Add("convoId", convoId),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         return output.Convo;
     }
 
@@ -91,14 +82,10 @@ public sealed class ChatModerationClient
     /// <param name="convoIds">The conversations' identifiers (1-100); unknown ones are left out.</param>
     public Task<GetConvosResponse> GetConvosAsync(
         IEnumerable<string> convoIds,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .AddAll("convoIds", convoIds);
-
-        return _xrpc.QueryAsync<GetConvosResponse>(
-            "chat.bsky.moderation.getConvos", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetConvosResponse>(
+            "chat.bsky.moderation.getConvos",
+            new XrpcParams().AddAll("convoIds", convoIds), cancellationToken: cancellationToken);
 
     /// <summary>Gets one page of a conversation's members; the moderator need not be a member.</summary>
     /// <param name="convoId">The conversation's identifier.</param>
@@ -108,16 +95,14 @@ public sealed class ChatModerationClient
         string convoId,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("convoId", convoId)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<GetConvoMembersResponse>(
-            "chat.bsky.moderation.getConvoMembers", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetConvoMembersResponse>(
+            "chat.bsky.moderation.getConvoMembers",
+            new XrpcParams()
+                .Add("convoId", convoId)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Allows or revokes an account's access to chat.</summary>
     /// <param name="actor">The account.</param>
@@ -129,11 +114,9 @@ public sealed class ChatModerationClient
     public Task UpdateActorAccessAsync(
         Did actor, bool allowAccess,
         string? reference = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new UpdateActorAccessRequest(Actor: actor, AllowAccess: allowAccess, Ref: reference);
-
-        return _xrpc.ProcedureAsync(
-            "chat.bsky.moderation.updateActorAccess", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "chat.bsky.moderation.updateActorAccess",
+            new UpdateActorAccessRequest(Actor: actor, AllowAccess: allowAccess, Ref: reference),
+            cancellationToken: cancellationToken);
 }

@@ -14,10 +14,7 @@ public sealed class ServerClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal ServerClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal ServerClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Create an authentication session (sign in). The request carries no credentials, and the tokens returned are not installed on the client; <see cref="AtProtoClient.LoginAsync"/> does both.</summary>
     /// <param name="identifier">The account's handle, DID or email address.</param>
@@ -33,12 +30,12 @@ public sealed class ServerClient
     {
         // AllowTakendown is sent only when asked for, so the request stays what a server
         // predating the field expects.
-        var request = new CreateSessionRequest(
-            Identifier: identifier, Password: password, AuthFactorToken: authFactorToken,
-            AllowTakendown: allowTakendown ? true : null);
-
         return _xrpc.ProcedureWithTokenAsync<SessionResponse>(
-            "com.atproto.server.createSession", request, bearerToken: null, cancellationToken);
+            "com.atproto.server.createSession",
+            new CreateSessionRequest(
+                Identifier: identifier, Password: password, AuthFactorToken: authFactorToken,
+                AllowTakendown: allowTakendown ? true : null),
+            bearerToken: null, cancellationToken);
     }
 
     /// <summary>Exchange a refresh JWT for new session tokens. The refresh JWT is single-use: after this call only the one returned is valid.</summary>
@@ -134,14 +131,9 @@ public sealed class ServerClient
     /// <param name="lxm">The XRPC method to bind the token to, if any.</param>
     /// <param name="exp">When the token expires, in Unix epoch seconds.</param>
     public Task<GetServiceAuthResponse> GetServiceAuthAsync(string aud, Nsid? lxm = null,
-        int? exp = null, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("aud", aud)
-            .Add("lxm", lxm)
-            .Add("exp", exp);
-        return _xrpc.QueryAsync<GetServiceAuthResponse>("com.atproto.server.getServiceAuth", parameters, cancellationToken: cancellationToken);
-    }
+        int? exp = null, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetServiceAuthResponse>("com.atproto.server.getServiceAuth",
+        new XrpcParams().Add("aud", aud).Add("lxm", lxm).Add("exp", exp), cancellationToken: cancellationToken);
 
     /// <summary>Create an invite code.</summary>
     /// <param name="useCount">How many accounts the code may create.</param>
@@ -161,14 +153,13 @@ public sealed class ServerClient
     /// <summary>Get invite codes for the current account.</summary>
     public Task<GetAccountInviteCodesResponse> GetAccountInviteCodesAsync(
         bool? includeUsed = null, bool? createAvailable = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("includeUsed", includeUsed)
-            .Add("createAvailable", createAvailable);
-        return _xrpc.QueryAsync<GetAccountInviteCodesResponse>(
-            "com.atproto.server.getAccountInviteCodes", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetAccountInviteCodesResponse>(
+            "com.atproto.server.getAccountInviteCodes",
+            new XrpcParams()
+                .Add("includeUsed", includeUsed)
+                .Add("createAvailable", createAvailable),
+            cancellationToken: cancellationToken);
 
     /// <summary>Request a deletion token for account deletion.</summary>
     public Task RequestAccountDeleteAsync(CancellationToken cancellationToken = default) =>

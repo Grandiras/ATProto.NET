@@ -17,10 +17,7 @@ public sealed class StandardSiteClient
 
     private readonly RepoClient _repo;
 
-    internal StandardSiteClient(RepoClient repo)
-    {
-        _repo = repo;
-    }
+    internal StandardSiteClient(RepoClient repo) => _repo = repo;
 
     // ── Publications ─────────────────────────────────────────
 
@@ -32,11 +29,9 @@ public sealed class StandardSiteClient
         AtIdentifier repo,
         PublicationRecord record,
         RecordKey? rkey = null,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.CreateRecordAsync(repo, PublicationCollection, record, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.CreateRecordAsync(repo, PublicationCollection, record, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Get a publication record.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
@@ -44,11 +39,9 @@ public sealed class StandardSiteClient
     public Task<RecordView<PublicationRecord>> GetPublicationAsync(
         AtIdentifier repo,
         RecordKey rkey,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.GetRecordAsync<PublicationRecord>(repo, PublicationCollection, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.GetRecordAsync<PublicationRecord>(repo, PublicationCollection, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Get the publication record an AT URI names, such as a <see cref="SubscriptionRecord.Publication"/>.</summary>
     /// <param name="uri">The publication's AT URI.</param>
@@ -71,11 +64,9 @@ public sealed class StandardSiteClient
         RecordKey rkey,
         PublicationRecord record,
         Cid? swapRecord = null,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.PutRecordAsync(repo, PublicationCollection, rkey, record,
+        CancellationToken cancellationToken = default) =>
+        _repo.PutRecordAsync(repo, PublicationCollection, rkey, record,
             swapRecord: swapRecord, cancellationToken: cancellationToken);
-    }
 
     /// <summary>Delete a publication record.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
@@ -83,11 +74,9 @@ public sealed class StandardSiteClient
     public Task<DeleteRecordResponse> DeletePublicationAsync(
         AtIdentifier repo,
         RecordKey rkey,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.DeleteRecordAsync(repo, PublicationCollection, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.DeleteRecordAsync(repo, PublicationCollection, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>List one page of the publication records in a repository.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
@@ -97,10 +86,8 @@ public sealed class StandardSiteClient
         AtIdentifier repo,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        return ListAsync<PublicationRecord>(repo, PublicationCollection, limit, cursor, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        ListAsync<PublicationRecord>(repo, PublicationCollection, limit, cursor, cancellationToken);
 
     // ── Documents ────────────────────────────────────────────
 
@@ -112,11 +99,9 @@ public sealed class StandardSiteClient
         AtIdentifier repo,
         DocumentRecord record,
         RecordKey? rkey = null,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.CreateRecordAsync(repo, DocumentCollection, record, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.CreateRecordAsync(repo, DocumentCollection, record, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Get a document record.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
@@ -124,11 +109,9 @@ public sealed class StandardSiteClient
     public Task<RecordView<DocumentRecord>> GetDocumentAsync(
         AtIdentifier repo,
         RecordKey rkey,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.GetRecordAsync<DocumentRecord>(repo, DocumentCollection, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.GetRecordAsync<DocumentRecord>(repo, DocumentCollection, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Get the document record an AT URI names.</summary>
     /// <param name="uri">The document's AT URI.</param>
@@ -151,11 +134,9 @@ public sealed class StandardSiteClient
         RecordKey rkey,
         DocumentRecord record,
         Cid? swapRecord = null,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.PutRecordAsync(repo, DocumentCollection, rkey, record,
+        CancellationToken cancellationToken = default) =>
+        _repo.PutRecordAsync(repo, DocumentCollection, rkey, record,
             swapRecord: swapRecord, cancellationToken: cancellationToken);
-    }
 
     /// <summary>Delete a document record.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
@@ -163,11 +144,9 @@ public sealed class StandardSiteClient
     public Task<DeleteRecordResponse> DeleteDocumentAsync(
         AtIdentifier repo,
         RecordKey rkey,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.DeleteRecordAsync(repo, DocumentCollection, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.DeleteRecordAsync(repo, DocumentCollection, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>List one page of the document records in a repository.</summary>
     /// <param name="repo">The DID or handle of the repo owner.</param>
@@ -177,10 +156,8 @@ public sealed class StandardSiteClient
         AtIdentifier repo,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        return ListAsync<DocumentRecord>(repo, DocumentCollection, limit, cursor, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        ListAsync<DocumentRecord>(repo, DocumentCollection, limit, cursor, cancellationToken);
 
     // ── Subscriptions ────────────────────────────────────────
 
@@ -192,11 +169,9 @@ public sealed class StandardSiteClient
         AtIdentifier repo,
         SubscriptionRecord record,
         RecordKey? rkey = null,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.CreateRecordAsync(repo, SubscriptionCollection, record, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.CreateRecordAsync(repo, SubscriptionCollection, record, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Get a subscription record.</summary>
     /// <param name="repo">The DID or handle of the subscriber.</param>
@@ -204,11 +179,9 @@ public sealed class StandardSiteClient
     public Task<RecordView<SubscriptionRecord>> GetSubscriptionAsync(
         AtIdentifier repo,
         RecordKey rkey,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.GetRecordAsync<SubscriptionRecord>(repo, SubscriptionCollection, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.GetRecordAsync<SubscriptionRecord>(repo, SubscriptionCollection, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Get the subscription record an AT URI names.</summary>
     /// <param name="uri">The subscription's AT URI.</param>
@@ -227,11 +200,9 @@ public sealed class StandardSiteClient
     public Task<DeleteRecordResponse> DeleteSubscriptionAsync(
         AtIdentifier repo,
         RecordKey rkey,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.DeleteRecordAsync(repo, SubscriptionCollection, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.DeleteRecordAsync(repo, SubscriptionCollection, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>List one page of the subscription records in a repository.</summary>
     /// <param name="repo">The DID or handle of the subscriber.</param>
@@ -241,10 +212,8 @@ public sealed class StandardSiteClient
         AtIdentifier repo,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        return ListAsync<SubscriptionRecord>(repo, SubscriptionCollection, limit, cursor, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        ListAsync<SubscriptionRecord>(repo, SubscriptionCollection, limit, cursor, cancellationToken);
 
     // ── Recommendations ──────────────────────────────────────
 
@@ -256,11 +225,9 @@ public sealed class StandardSiteClient
         AtIdentifier repo,
         RecommendRecord record,
         RecordKey? rkey = null,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.CreateRecordAsync(repo, RecommendCollection, record, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.CreateRecordAsync(repo, RecommendCollection, record, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Get a recommendation record.</summary>
     /// <param name="repo">The DID or handle of the recommending account.</param>
@@ -268,11 +235,9 @@ public sealed class StandardSiteClient
     public Task<RecordView<RecommendRecord>> GetRecommendationAsync(
         AtIdentifier repo,
         RecordKey rkey,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.GetRecordAsync<RecommendRecord>(repo, RecommendCollection, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.GetRecordAsync<RecommendRecord>(repo, RecommendCollection, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Get the recommendation record an AT URI names.</summary>
     /// <param name="uri">The recommendation's AT URI.</param>
@@ -291,11 +256,9 @@ public sealed class StandardSiteClient
     public Task<DeleteRecordResponse> DeleteRecommendationAsync(
         AtIdentifier repo,
         RecordKey rkey,
-        CancellationToken cancellationToken = default)
-    {
-        return _repo.DeleteRecordAsync(repo, RecommendCollection, rkey,
+        CancellationToken cancellationToken = default) =>
+        _repo.DeleteRecordAsync(repo, RecommendCollection, rkey,
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>List one page of the recommendation records in a repository.</summary>
     /// <param name="repo">The DID or handle of the recommending account.</param>
@@ -305,10 +268,8 @@ public sealed class StandardSiteClient
         AtIdentifier repo,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        return ListAsync<RecommendRecord>(repo, RecommendCollection, limit, cursor, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        ListAsync<RecommendRecord>(repo, RecommendCollection, limit, cursor, cancellationToken);
 
     private Task<RecordPage<T>> ListAsync<T>(
         AtIdentifier repo, Nsid collection, int? limit, string? cursor, CancellationToken cancellationToken)

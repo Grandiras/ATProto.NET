@@ -7,10 +7,7 @@ public sealed class SetClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal SetClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal SetClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Create or update a named set.</summary>
     /// <param name="request">The set's name and description.</param>
@@ -22,40 +19,32 @@ public sealed class SetClient
 
     /// <summary>Delete a named set.</summary>
     /// <param name="name">The set's name.</param>
-    public async Task DeleteSetAsync(
+    public Task DeleteSetAsync(
         string name,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new DeleteSetRequest(Name: name);
-        await _xrpc.ProcedureAsync(
-            "tools.ozone.set.deleteSet", request, cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "tools.ozone.set.deleteSet", new DeleteSetRequest(Name: name), cancellationToken: cancellationToken);
 
     /// <summary>Add values to a named set.</summary>
     /// <param name="name">The set's name.</param>
     /// <param name="values">The values to add (at most 1000).</param>
-    public async Task AddValuesAsync(
+    public Task AddValuesAsync(
         string name,
         IEnumerable<string> values,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new SetValuesRequest(name, [.. values]);
-        await _xrpc.ProcedureAsync(
-            "tools.ozone.set.addValues", request, cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "tools.ozone.set.addValues", new SetValuesRequest(name, [.. values]), cancellationToken: cancellationToken);
 
     /// <summary>Delete values from a named set.</summary>
     /// <param name="name">The set's name.</param>
     /// <param name="values">The values to remove.</param>
-    public async Task DeleteValuesAsync(
+    public Task DeleteValuesAsync(
         string name,
         IEnumerable<string> values,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new SetValuesRequest(name, [.. values]);
-        await _xrpc.ProcedureAsync(
-            "tools.ozone.set.deleteValues", request, cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "tools.ozone.set.deleteValues",
+            new SetValuesRequest(name, [.. values]), cancellationToken: cancellationToken);
 
     /// <summary>Get one page of the values in a named set.</summary>
     /// <param name="name">The set's name.</param>
@@ -65,15 +54,14 @@ public sealed class SetClient
         string name,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("name", name)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<GetValuesResponse>(
-            "tools.ozone.set.getValues", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetValuesResponse>(
+            "tools.ozone.set.getValues",
+            new XrpcParams()
+                .Add("name", name)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Query one page of sets.</summary>
     /// <param name="namePrefix">Only sets whose name starts with this prefix.</param>
@@ -87,15 +75,14 @@ public sealed class SetClient
         string? sortDirection = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("namePrefix", namePrefix)
-            .Add("sortBy", sortBy)
-            .Add("sortDirection", sortDirection)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<QuerySetsResponse>(
-            "tools.ozone.set.querySets", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<QuerySetsResponse>(
+            "tools.ozone.set.querySets",
+            new XrpcParams()
+                .Add("namePrefix", namePrefix)
+                .Add("sortBy", sortBy)
+                .Add("sortDirection", sortDirection)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 }

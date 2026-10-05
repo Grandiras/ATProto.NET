@@ -7,10 +7,7 @@ public sealed class CommunicationClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal CommunicationClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal CommunicationClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Create a new email template.</summary>
     /// <param name="request">The template.</param>
@@ -22,14 +19,12 @@ public sealed class CommunicationClient
 
     /// <summary>Delete a communication template.</summary>
     /// <param name="id">The template's identifier.</param>
-    public async Task DeleteTemplateAsync(
+    public Task DeleteTemplateAsync(
         string id,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new DeleteTemplateRequest(Id: id);
-        await _xrpc.ProcedureAsync(
-            "tools.ozone.communication.deleteTemplate", request, cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "tools.ozone.communication.deleteTemplate",
+            new DeleteTemplateRequest(Id: id), cancellationToken: cancellationToken);
 
     /// <summary>List all communication templates.</summary>
     public Task<ListTemplatesResponse> ListTemplatesAsync(

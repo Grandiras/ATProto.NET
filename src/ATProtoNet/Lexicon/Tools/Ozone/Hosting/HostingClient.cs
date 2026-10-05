@@ -8,10 +8,7 @@ public sealed class HostingClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal HostingClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal HostingClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Get one page of an account's history on its host: account creation, email and handle changes, email confirmation and password changes.</summary>
     /// <param name="did">The account's DID.</param>
@@ -23,14 +20,13 @@ public sealed class HostingClient
         IEnumerable<string>? events = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("did", did)
-            .AddAll("events", events)
-            .Add("cursor", cursor)
-            .Add("limit", limit);
-        return _xrpc.QueryAsync<GetAccountHistoryResponse>(
-            "tools.ozone.hosting.getAccountHistory", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetAccountHistoryResponse>(
+            "tools.ozone.hosting.getAccountHistory",
+            new XrpcParams()
+                .Add("did", did)
+                .AddAll("events", events)
+                .Add("cursor", cursor)
+                .Add("limit", limit),
+            cancellationToken: cancellationToken);
 }

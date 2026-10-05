@@ -9,10 +9,7 @@ public sealed class QueueClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal QueueClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal QueueClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Create a moderation queue. The queue router fills a queue with the reports that match its criteria; a queue without criteria only gets reports sent to it by hand, through <c>modTool.meta.queueId</c> on an emitted event or with <see cref="Report.ReportClient.ReassignQueueAsync"/>.</summary>
     /// <param name="name">The queue's display name, unique among queues.</param>
@@ -34,18 +31,17 @@ public sealed class QueueClient
         IEnumerable<string>? reportTypes = null,
         string? description = null,
         IEnumerable<string>? recommendedPolicies = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new CreateQueueRequest(
-            Name: name,
-            SubjectTypes: subjectTypes is null ? null : [.. subjectTypes],
-            Collection: collection,
-            ReportTypes: reportTypes is null ? null : [.. reportTypes],
-            Description: description,
-            RecommendedPolicies: recommendedPolicies is null ? null : [.. recommendedPolicies]);
-        return _xrpc.ProcedureAsync<CreateQueueResponse>(
-            "tools.ozone.queue.createQueue", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<CreateQueueResponse>(
+            "tools.ozone.queue.createQueue",
+            new CreateQueueRequest(
+                Name: name,
+                SubjectTypes: subjectTypes is null ? null : [.. subjectTypes],
+                Collection: collection,
+                ReportTypes: reportTypes is null ? null : [.. reportTypes],
+                Description: description,
+                RecommendedPolicies: recommendedPolicies is null ? null : [.. recommendedPolicies]),
+            cancellationToken: cancellationToken);
 
     /// <summary>Change a queue's name, description, recommended policies or whether it is active.</summary>
     /// <param name="queueId">The queue.</param>
@@ -60,17 +56,16 @@ public sealed class QueueClient
         bool? enabled = null,
         string? description = null,
         IEnumerable<string>? recommendedPolicies = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new UpdateQueueRequest(
-            QueueId: queueId,
-            Name: name,
-            Enabled: enabled,
-            Description: description,
-            RecommendedPolicies: recommendedPolicies is null ? null : [.. recommendedPolicies]);
-        return _xrpc.ProcedureAsync<UpdateQueueResponse>(
-            "tools.ozone.queue.updateQueue", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<UpdateQueueResponse>(
+            "tools.ozone.queue.updateQueue",
+            new UpdateQueueRequest(
+                QueueId: queueId,
+                Name: name,
+                Enabled: enabled,
+                Description: description,
+                RecommendedPolicies: recommendedPolicies is null ? null : [.. recommendedPolicies]),
+            cancellationToken: cancellationToken);
 
     /// <summary>Delete a queue, moving its reports to another queue or to none.</summary>
     /// <param name="queueId">The queue.</param>
@@ -80,12 +75,11 @@ public sealed class QueueClient
     public Task<DeleteQueueResponse> DeleteQueueAsync(
         long queueId,
         long? migrateToQueueId = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new DeleteQueueRequest(QueueId: queueId, MigrateToQueueId: migrateToQueueId);
-        return _xrpc.ProcedureAsync<DeleteQueueResponse>(
-            "tools.ozone.queue.deleteQueue", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<DeleteQueueResponse>(
+            "tools.ozone.queue.deleteQueue",
+            new DeleteQueueRequest(QueueId: queueId, MigrateToQueueId: migrateToQueueId),
+            cancellationToken: cancellationToken);
 
     /// <summary>List one page of the queues, with their statistics.</summary>
     /// <param name="enabled">Only active (or only inactive) queues; <see langword="null"/> for all.</param>
@@ -101,18 +95,17 @@ public sealed class QueueClient
         IEnumerable<string>? reportTypes = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("enabled", enabled)
-            .Add("subjectType", subjectType)
-            .Add("collection", collection)
-            .AddAll("reportTypes", reportTypes)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<ListQueuesResponse>(
-            "tools.ozone.queue.listQueues", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListQueuesResponse>(
+            "tools.ozone.queue.listQueues",
+            new XrpcParams()
+                .Add("enabled", enabled)
+                .Add("subjectType", subjectType)
+                .Add("collection", collection)
+                .AddAll("reportTypes", reportTypes)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Route the reports in a range of identifiers to the queues that match them.</summary>
     /// <param name="startReportId">The first report to route.</param>
@@ -121,12 +114,11 @@ public sealed class QueueClient
     public Task<RouteReportsResponse> RouteReportsAsync(
         long startReportId,
         long endReportId,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new RouteReportsRequest(StartReportId: startReportId, EndReportId: endReportId);
-        return _xrpc.ProcedureAsync<RouteReportsResponse>(
-            "tools.ozone.queue.routeReports", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<RouteReportsResponse>(
+            "tools.ozone.queue.routeReports",
+            new RouteReportsRequest(StartReportId: startReportId, EndReportId: endReportId),
+            cancellationToken: cancellationToken);
 
     /// <summary>Assign a moderator to a queue.</summary>
     /// <param name="queueId">The queue.</param>
@@ -135,12 +127,10 @@ public sealed class QueueClient
     public Task<AssignmentView> AssignModeratorAsync(
         long queueId,
         Did did,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new QueueModeratorRequest(queueId, did);
-        return _xrpc.ProcedureAsync<AssignmentView>(
-            "tools.ozone.queue.assignModerator", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<AssignmentView>(
+            "tools.ozone.queue.assignModerator",
+            new QueueModeratorRequest(queueId, did), cancellationToken: cancellationToken);
 
     /// <summary>Remove a moderator's assignment to a queue.</summary>
     /// <param name="queueId">The queue.</param>
@@ -149,12 +139,10 @@ public sealed class QueueClient
     public Task UnassignModeratorAsync(
         long queueId,
         Did did,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new QueueModeratorRequest(queueId, did);
-        return _xrpc.ProcedureAsync(
-            "tools.ozone.queue.unassignModerator", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "tools.ozone.queue.unassignModerator",
+            new QueueModeratorRequest(queueId, did), cancellationToken: cancellationToken);
 
     /// <summary>Get one page of moderators' queue assignments.</summary>
     /// <param name="queueIds">Only assignments to these queues.</param>
@@ -168,17 +156,16 @@ public sealed class QueueClient
         bool? onlyActive = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("onlyActive", onlyActive)
-            .AddAll("queueIds", queueIds?.Select(FormatId))
-            .AddAll("dids", dids?.Select(did => did.Value))
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<GetAssignmentsResponse>(
-            "tools.ozone.queue.getAssignments", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetAssignmentsResponse>(
+            "tools.ozone.queue.getAssignments",
+            new XrpcParams()
+                .Add("onlyActive", onlyActive)
+                .AddAll("queueIds", queueIds?.Select(FormatId))
+                .AddAll("dids", dids?.Select(did => did.Value))
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     private static string FormatId(long id) => id.ToString(CultureInfo.InvariantCulture);
 }

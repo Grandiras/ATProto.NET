@@ -8,22 +8,17 @@ public sealed class VerificationClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal VerificationClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal VerificationClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Verify several accounts at once.</summary>
     /// <param name="verifications">The accounts to verify (at most 100).</param>
     /// <returns>The verifications created, and the accounts that failed.</returns>
     public Task<GrantVerificationsResponse> GrantVerificationsAsync(
         IEnumerable<VerificationInput> verifications,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new GrantVerificationsRequest(Verifications: [.. verifications]);
-        return _xrpc.ProcedureAsync<GrantVerificationsResponse>(
-            "tools.ozone.verification.grantVerifications", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<GrantVerificationsResponse>(
+            "tools.ozone.verification.grantVerifications",
+            new GrantVerificationsRequest(Verifications: [.. verifications]), cancellationToken: cancellationToken);
 
     /// <summary>Revoke several verifications at once.</summary>
     /// <param name="uris">The verification records to revoke (at most 100).</param>
@@ -32,12 +27,11 @@ public sealed class VerificationClient
     public Task<RevokeVerificationsResponse> RevokeVerificationsAsync(
         IEnumerable<AtUri> uris,
         string? revokeReason = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new RevokeVerificationsRequest(Uris: [.. uris], RevokeReason: revokeReason);
-        return _xrpc.ProcedureAsync<RevokeVerificationsResponse>(
-            "tools.ozone.verification.revokeVerifications", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<RevokeVerificationsResponse>(
+            "tools.ozone.verification.revokeVerifications",
+            new RevokeVerificationsRequest(Uris: [.. uris], RevokeReason: revokeReason),
+            cancellationToken: cancellationToken);
 
     /// <summary>List one page of verifications.</summary>
     /// <param name="subjects">Only verifications of these accounts (at most 100).</param>
@@ -57,18 +51,17 @@ public sealed class VerificationClient
         string? sortDirection = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("cursor", cursor)
-            .Add("limit", limit)
-            .Add("createdAfter", createdAfter?.ToString())
-            .Add("createdBefore", createdBefore?.ToString())
-            .AddAll("issuers", issuers?.Select(did => did.Value))
-            .AddAll("subjects", subjects?.Select(did => did.Value))
-            .Add("sortDirection", sortDirection)
-            .Add("isRevoked", isRevoked);
-        return _xrpc.QueryAsync<ListVerificationsResponse>(
-            "tools.ozone.verification.listVerifications", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListVerificationsResponse>(
+            "tools.ozone.verification.listVerifications",
+            new XrpcParams()
+                .Add("cursor", cursor)
+                .Add("limit", limit)
+                .Add("createdAfter", createdAfter?.ToString())
+                .Add("createdBefore", createdBefore?.ToString())
+                .AddAll("issuers", issuers?.Select(did => did.Value))
+                .AddAll("subjects", subjects?.Select(did => did.Value))
+                .Add("sortDirection", sortDirection)
+                .Add("isRevoked", isRevoked),
+            cancellationToken: cancellationToken);
 }

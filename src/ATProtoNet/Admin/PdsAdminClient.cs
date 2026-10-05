@@ -127,9 +127,7 @@ public sealed class PdsAdminClient : IDisposable
         _publicXrpc = new XrpcClient(_httpClient, PdsUrl, _logger);
 
         if (Authentication == PdsAdminAuthentication.AdminPassword)
-        {
             _adminXrpc.SetAdminCredentials(options.AdminPassword, options.AdminUser);
-        }
 
         Admin = new AdminClient(_adminXrpc);
         Server = new ServerClient(_adminXrpc);
@@ -174,18 +172,14 @@ public sealed class PdsAdminClient : IDisposable
     public async Task EnsureAdminSessionAsync(CancellationToken cancellationToken = default)
     {
         if (Authentication != PdsAdminAuthentication.AdminAccount || _hasAdminSession)
-        {
             return;
-        }
 
         await _sessionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
             if (_hasAdminSession)
-            {
                 return;
-            }
 
             var session = await Server.CreateSessionAsync(
                 _adminIdentifier, _adminPassword, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -485,8 +479,6 @@ public sealed class PdsAdminClient : IDisposable
         _sessionLock.Dispose();
 
         if (_ownsHttpClient)
-        {
             _httpClient.Dispose();
-        }
     }
 }

@@ -8,20 +8,15 @@ public sealed class IdentityClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal IdentityClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal IdentityClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Resolve a handle (domain name) to a DID.</summary>
     /// <param name="handle">The handle to resolve.</param>
     public Task<ResolveHandleResponse> ResolveHandleAsync(
-        Handle handle, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("handle", handle);
-        return _xrpc.QueryAsync<ResolveHandleResponse>(
-            "com.atproto.identity.resolveHandle", parameters, cancellationToken: cancellationToken);
-    }
+        Handle handle, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ResolveHandleResponse>(
+            "com.atproto.identity.resolveHandle",
+            new XrpcParams().Add("handle", handle), cancellationToken: cancellationToken);
 
     /// <summary>Resolves a DID or a handle to a full identity: the DID document and the bidirectionally verified handle, as the service resolved them (<c>com.atproto.identity.resolveIdentity</c>).</summary>
     /// <param name="identifier">The DID or handle to resolve.</param>
@@ -39,9 +34,11 @@ public sealed class IdentityClient
     {
         ArgumentNullException.ThrowIfNull(identifier);
 
-        var parameters = new XrpcParams().Add("identifier", identifier);
         return _xrpc.QueryAsync<IdentityInfo>(
-            "com.atproto.identity.resolveIdentity", parameters, cancellationToken: cancellationToken);
+            "com.atproto.identity.resolveIdentity",
+            new XrpcParams()
+                .Add("identifier", identifier),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Resolves a DID to its DID document, without verifying the handle (<c>com.atproto.identity.resolveDid</c>).</summary>
@@ -55,9 +52,8 @@ public sealed class IdentityClient
     {
         ArgumentNullException.ThrowIfNull(did);
 
-        var parameters = new XrpcParams().Add("did", did);
         return _xrpc.QueryAsync<ResolveDidResponse>(
-            "com.atproto.identity.resolveDid", parameters, cancellationToken: cancellationToken);
+            "com.atproto.identity.resolveDid", new XrpcParams().Add("did", did), cancellationToken: cancellationToken);
     }
 
     /// <summary>Asks the service to re-resolve an identity, dropping what it cached (<c>com.atproto.identity.refreshIdentity</c>). The service may ignore the request or require authentication, depending on its role and policy.</summary>
@@ -72,29 +68,26 @@ public sealed class IdentityClient
     {
         ArgumentNullException.ThrowIfNull(identifier);
 
-        var request = new RefreshIdentityRequest(Identifier: identifier);
         return _xrpc.ProcedureAsync<IdentityInfo>(
-            "com.atproto.identity.refreshIdentity", request, cancellationToken: cancellationToken);
+            "com.atproto.identity.refreshIdentity",
+            new RefreshIdentityRequest(Identifier: identifier),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Update the handle for the currently authenticated account.</summary>
     /// <param name="handle">The new handle.</param>
-    public async Task UpdateHandleAsync(
-        Handle handle, CancellationToken cancellationToken = default)
-    {
-        var request = new UpdateHandleRequest(Handle: handle);
-        await _xrpc.ProcedureAsync(
-            "com.atproto.identity.updateHandle", request, cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
+    public Task UpdateHandleAsync(
+        Handle handle, CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "com.atproto.identity.updateHandle",
+            new UpdateHandleRequest(Handle: handle), cancellationToken: cancellationToken);
 
     /// <summary>Get recommended DID credentials for account migration.</summary>
     public Task<GetRecommendedDidCredentialsResponse> GetRecommendedDidCredentialsAsync(
-        CancellationToken cancellationToken = default)
-    {
-        return _xrpc.QueryAsync<GetRecommendedDidCredentialsResponse>(
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetRecommendedDidCredentialsResponse>(
             "com.atproto.identity.getRecommendedDidCredentials",
             cancellationToken: cancellationToken);
-    }
 
     /// <summary>Request an email token for signing a PLC operation.</summary>
     public async Task RequestPlcOperationSignatureAsync(
@@ -107,11 +100,9 @@ public sealed class IdentityClient
 
     /// <summary>Sign a PLC operation with the server's rotation key.</summary>
     public Task<SignPlcOperationResponse> SignPlcOperationAsync(
-        SignPlcOperationRequest request, CancellationToken cancellationToken = default)
-    {
-        return _xrpc.ProcedureAsync<SignPlcOperationResponse>(
+        SignPlcOperationRequest request, CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<SignPlcOperationResponse>(
             "com.atproto.identity.signPlcOperation", request, cancellationToken: cancellationToken);
-    }
 
     /// <summary>Submit a signed PLC operation to the PLC directory.</summary>
     public async Task SubmitPlcOperationAsync(

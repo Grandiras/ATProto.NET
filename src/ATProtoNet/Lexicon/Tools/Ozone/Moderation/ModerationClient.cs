@@ -8,10 +8,7 @@ public sealed class ModerationClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal ModerationClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal ModerationClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Emit a moderation event (takedown, label, acknowledge, escalate, etc.).</summary>
     /// <param name="request">The event, its subject and the moderator emitting it.</param>
@@ -25,12 +22,10 @@ public sealed class ModerationClient
     /// <param name="id">The event's identifier.</param>
     public Task<ModEventViewDetail> GetEventAsync(
         long id,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("id", id.ToString());
-        return _xrpc.QueryAsync<ModEventViewDetail>(
-            "tools.ozone.moderation.getEvent", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ModEventViewDetail>(
+            "tools.ozone.moderation.getEvent",
+            new XrpcParams().Add("id", id.ToString()), cancellationToken: cancellationToken);
 
     /// <summary>Get a record with moderation context.</summary>
     /// <param name="uri">The record's AT URI.</param>
@@ -38,25 +33,18 @@ public sealed class ModerationClient
     public Task<RecordViewDetail> GetRecordAsync(
         AtUri uri,
         Cid? cid = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("uri", uri)
-            .Add("cid", cid);
-        return _xrpc.QueryAsync<RecordViewDetail>(
-            "tools.ozone.moderation.getRecord", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<RecordViewDetail>(
+            "tools.ozone.moderation.getRecord",
+            new XrpcParams().Add("uri", uri).Add("cid", cid), cancellationToken: cancellationToken);
 
     /// <summary>Get a repo/account with moderation context.</summary>
     /// <param name="did">The account's DID.</param>
     public Task<RepoViewDetail> GetRepoAsync(
         Did did,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("did", did);
-        return _xrpc.QueryAsync<RepoViewDetail>(
-            "tools.ozone.moderation.getRepo", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<RepoViewDetail>(
+            "tools.ozone.moderation.getRepo", new XrpcParams().Add("did", did), cancellationToken: cancellationToken);
 
     /// <summary>Search/filter one page of moderation events.</summary>
     /// <param name="subject">
@@ -113,35 +101,34 @@ public sealed class ModerationClient
         bool? withStrike = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("subject", subject)
-            .Add("createdBy", createdBy)
-            .Add("sortDirection", sortDirection)
-            .Add("createdAfter", createdAfter?.ToString())
-            .Add("createdBefore", createdBefore?.ToString())
-            .Add("hasComment", hasComment)
-            .Add("comment", comment)
-            .AddAll("addedLabels", addedLabels)
-            .AddAll("removedLabels", removedLabels)
-            .AddAll("addedTags", addedTags)
-            .AddAll("removedTags", removedTags)
-            .AddAll("reportTypes", reportTypes)
-            .AddAll("types", types)
-            .AddAll("collections", collections?.Select(collection => collection.Value))
-            .Add("subjectType", subjectType)
-            .Add("includeAllUserRecords", includeAllUserRecords)
-            .AddAll("policies", policies)
-            .AddAll("modTool", modTool)
-            .Add("batchId", batchId)
-            .Add("ageAssuranceState", ageAssuranceState)
-            .Add("withStrike", withStrike)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<QueryEventsResponse>(
-            "tools.ozone.moderation.queryEvents", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<QueryEventsResponse>(
+            "tools.ozone.moderation.queryEvents",
+            new XrpcParams()
+                .Add("subject", subject)
+                .Add("createdBy", createdBy)
+                .Add("sortDirection", sortDirection)
+                .Add("createdAfter", createdAfter?.ToString())
+                .Add("createdBefore", createdBefore?.ToString())
+                .Add("hasComment", hasComment)
+                .Add("comment", comment)
+                .AddAll("addedLabels", addedLabels)
+                .AddAll("removedLabels", removedLabels)
+                .AddAll("addedTags", addedTags)
+                .AddAll("removedTags", removedTags)
+                .AddAll("reportTypes", reportTypes)
+                .AddAll("types", types)
+                .AddAll("collections", collections?.Select(collection => collection.Value))
+                .Add("subjectType", subjectType)
+                .Add("includeAllUserRecords", includeAllUserRecords)
+                .AddAll("policies", policies)
+                .AddAll("modTool", modTool)
+                .Add("batchId", batchId)
+                .Add("ageAssuranceState", ageAssuranceState)
+                .Add("withStrike", withStrike)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get one page of the subjects' moderation statuses: the review queue.</summary>
     /// <param name="filter">Which subjects to return and in what order; <see langword="null"/> for the defaults.</param>
@@ -151,14 +138,13 @@ public sealed class ModerationClient
         SubjectStatusFilter? filter = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = (filter ?? SubjectStatusFilter.None).ToParams()
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<QueryStatusesResponse>(
-            "tools.ozone.moderation.queryStatuses", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<QueryStatusesResponse>(
+            "tools.ozone.moderation.queryStatuses",
+            (filter ?? SubjectStatusFilter.None).ToParams()
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Search one page of repos with moderation context.</summary>
     /// <param name="q">The search term; <see langword="null"/> matches every repo.</param>
@@ -168,26 +154,23 @@ public sealed class ModerationClient
         string? q = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("q", q)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-        return _xrpc.QueryAsync<SearchReposResponse>(
-            "tools.ozone.moderation.searchRepos", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<SearchReposResponse>(
+            "tools.ozone.moderation.searchRepos",
+            new XrpcParams()
+                .Add("q", q)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get an account's private app preferences. Needs moderator or admin auth.</summary>
     /// <param name="did">The account's DID.</param>
     public Task<GetAccountPreferencesResponse> GetAccountPreferencesAsync(
         Did did,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("did", did);
-        return _xrpc.QueryAsync<GetAccountPreferencesResponse>(
-            "tools.ozone.moderation.getAccountPreferences", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetAccountPreferencesResponse>(
+            "tools.ozone.moderation.getAccountPreferences",
+            new XrpcParams().Add("did", did), cancellationToken: cancellationToken);
 
     /// <summary>Get several accounts with moderation context at once.</summary>
     /// <param name="dids">The accounts' DIDs (at most 100).</param>
@@ -196,12 +179,10 @@ public sealed class ModerationClient
     /// </returns>
     public Task<GetReposResponse> GetReposAsync(
         IEnumerable<Did> dids,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().AddAll("dids", dids.Select(did => did.Value));
-        return _xrpc.QueryAsync<GetReposResponse>(
-            "tools.ozone.moderation.getRepos", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetReposResponse>(
+            "tools.ozone.moderation.getRepos",
+            new XrpcParams().AddAll("dids", dids.Select(did => did.Value)), cancellationToken: cancellationToken);
 
     /// <summary>Get several records with moderation context at once.</summary>
     /// <param name="uris">The records' AT URIs (at most 100).</param>
@@ -210,46 +191,38 @@ public sealed class ModerationClient
     /// </returns>
     public Task<GetRecordsResponse> GetRecordsAsync(
         IEnumerable<AtUri> uris,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().AddAll("uris", uris.Select(uri => uri.Value));
-        return _xrpc.QueryAsync<GetRecordsResponse>(
-            "tools.ozone.moderation.getRecords", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetRecordsResponse>(
+            "tools.ozone.moderation.getRecords",
+            new XrpcParams().AddAll("uris", uris.Select(uri => uri.Value)), cancellationToken: cancellationToken);
 
     /// <summary>Get everything Ozone knows about several subjects: status, account, profile and record.</summary>
     /// <param name="subjects">The subjects (at most 100): account DIDs or record AT URIs.</param>
     public Task<GetSubjectsResponse> GetSubjectsAsync(
         IEnumerable<string> subjects,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().AddAll("subjects", subjects);
-        return _xrpc.QueryAsync<GetSubjectsResponse>(
-            "tools.ozone.moderation.getSubjects", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetSubjectsResponse>(
+            "tools.ozone.moderation.getSubjects",
+            new XrpcParams().AddAll("subjects", subjects), cancellationToken: cancellationToken);
 
     /// <summary>Get an account's history, day by day: moderation events, account changes and PLC operations.</summary>
     /// <param name="did">The account's DID.</param>
     /// <exception cref="XrpcException"><c>RepoNotFound</c> when Ozone does not know the account.</exception>
     public Task<GetAccountTimelineResponse> GetAccountTimelineAsync(
         Did did,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("did", did);
-        return _xrpc.QueryAsync<GetAccountTimelineResponse>(
-            "tools.ozone.moderation.getAccountTimeline", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetAccountTimelineResponse>(
+            "tools.ozone.moderation.getAccountTimeline",
+            new XrpcParams().Add("did", did), cancellationToken: cancellationToken);
 
     /// <summary>Get how several accounts' reports turned out: how many they filed, and how many led to a takedown or a label.</summary>
     /// <param name="dids">The reporters' DIDs (at most 100).</param>
     public Task<GetReporterStatsResponse> GetReporterStatsAsync(
         IEnumerable<Did> dids,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().AddAll("dids", dids.Select(did => did.Value));
-        return _xrpc.QueryAsync<GetReporterStatsResponse>(
-            "tools.ozone.moderation.getReporterStats", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetReporterStatsResponse>(
+            "tools.ozone.moderation.getReporterStats",
+            new XrpcParams().AddAll("dids", dids.Select(did => did.Value)), cancellationToken: cancellationToken);
 
     /// <summary>Schedule a moderation action to run later on several accounts.</summary>
     /// <param name="subjects">The accounts (at most 100).</param>
@@ -264,17 +237,16 @@ public sealed class ModerationClient
         SchedulingConfig scheduling,
         Did createdBy,
         ModTool? modTool = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new ScheduleActionRequest(
-            Action: action,
-            Subjects: [.. subjects],
-            CreatedBy: createdBy,
-            Scheduling: scheduling,
-            ModTool: modTool);
-        return _xrpc.ProcedureAsync<ScheduledActionResults>(
-            "tools.ozone.moderation.scheduleAction", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<ScheduledActionResults>(
+            "tools.ozone.moderation.scheduleAction",
+            new ScheduleActionRequest(
+                Action: action,
+                Subjects: [.. subjects],
+                CreatedBy: createdBy,
+                Scheduling: scheduling,
+                ModTool: modTool),
+            cancellationToken: cancellationToken);
 
     /// <summary>List one page of scheduled moderation actions.</summary>
     /// <param name="statuses">Only actions in these statuses (see <see cref="ScheduledActionStatus"/>).</param>
@@ -290,18 +262,17 @@ public sealed class ModerationClient
         AtDatetime? endsBefore = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new ListScheduledActionsRequest(
-            Statuses: [.. statuses],
-            Subjects: subjects is null ? null : [.. subjects],
-            StartsAfter: startsAfter,
-            EndsBefore: endsBefore,
-            Limit: limit,
-            Cursor: cursor);
-        return _xrpc.ProcedureAsync<ListScheduledActionsResponse>(
-            "tools.ozone.moderation.listScheduledActions", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<ListScheduledActionsResponse>(
+            "tools.ozone.moderation.listScheduledActions",
+            new ListScheduledActionsRequest(
+                Statuses: [.. statuses],
+                Subjects: subjects is null ? null : [.. subjects],
+                StartsAfter: startsAfter,
+                EndsBefore: endsBefore,
+                Limit: limit,
+                Cursor: cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>Cancel every pending scheduled action on several accounts.</summary>
     /// <param name="subjects">The accounts (at most 100).</param>
@@ -310,10 +281,9 @@ public sealed class ModerationClient
     public Task<CancellationResults> CancelScheduledActionsAsync(
         IEnumerable<Did> subjects,
         string? comment = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new CancelScheduledActionsRequest(Subjects: [.. subjects], Comment: comment);
-        return _xrpc.ProcedureAsync<CancellationResults>(
-            "tools.ozone.moderation.cancelScheduledActions", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<CancellationResults>(
+            "tools.ozone.moderation.cancelScheduledActions",
+            new CancelScheduledActionsRequest(Subjects: [.. subjects], Comment: comment),
+            cancellationToken: cancellationToken);
 }

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Leaner Lexicon clients** — the generated-style XRPC clients, the PDS admin client, the Aspire hosting extensions and the Lexicon tool build their requests as single expressions, with no change to the public API or behaviour. About 650 fewer lines (#196)
+
 ## [0.7.0] - 2026-09-28
 
 A large, deliberately breaking release. Identifiers are typed everywhere; sessions, session stores and errors each have one model; Lexicon unions are open and keep data the SDK does not model; the stream consumers share one core with Sync 1.1 verification; the OAuth client is hardened and its hosted login moved into `ATProtoNet.Server`; and inbound service auth replaces the bearer handler. The SDK also catches up with the protocol: the Spaces read/write split, group chats, Ozone reports and queues, label signing, Lexicon resolution and the current `app.bsky` surface.

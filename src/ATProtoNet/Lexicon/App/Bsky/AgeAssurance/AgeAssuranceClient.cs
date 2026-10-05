@@ -7,10 +7,7 @@ public sealed class AgeAssuranceClient
 {
     private readonly XrpcClient _xrpc;
 
-    internal AgeAssuranceClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal AgeAssuranceClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Start age assurance for the authenticated account. The provider emails the instructions.</summary>
     /// <param name="email">The address to send the instructions to.</param>
@@ -26,36 +23,30 @@ public sealed class AgeAssuranceClient
         string language,
         string countryCode,
         string? regionCode = null,
-        CancellationToken cancellationToken = default)
-    {
-        var request = new BeginRequest(
-            Email: email,
-            Language: language,
-            CountryCode: countryCode,
-            RegionCode: regionCode);
-
-        return _xrpc.ProcedureAsync<AgeAssuranceState>(
-            "app.bsky.ageassurance.begin", request, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync<AgeAssuranceState>(
+            "app.bsky.ageassurance.begin",
+            new BeginRequest(
+                Email: email,
+                Language: language,
+                CountryCode: countryCode,
+                RegionCode: regionCode),
+            cancellationToken: cancellationToken);
 
     /// <summary>Get the age assurance configuration: per region, the minimum age and the rules that decide an account's access.</summary>
-    public Task<AgeAssuranceConfig> GetConfigAsync(CancellationToken cancellationToken = default)
-    {
-        return _xrpc.QueryAsync<AgeAssuranceConfig>(
+    public Task<AgeAssuranceConfig> GetConfigAsync(CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<AgeAssuranceConfig>(
             "app.bsky.ageassurance.getConfig", cancellationToken: cancellationToken);
-    }
 
     /// <summary>Get the authenticated account's age assurance state, and what a client needs to compute it itself.</summary>
     /// <param name="countryCode">The ISO 3166-1 alpha-2 code of the user's country.</param>
     /// <param name="regionCode">The ISO 3166-2 code of the user's region, if any.</param>
     public Task<GetStateResponse> GetStateAsync(
-        string countryCode, string? regionCode = null, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("countryCode", countryCode)
-            .Add("regionCode", regionCode);
-
-        return _xrpc.QueryAsync<GetStateResponse>(
-            "app.bsky.ageassurance.getState", parameters, cancellationToken: cancellationToken);
-    }
+        string countryCode, string? regionCode = null, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetStateResponse>(
+            "app.bsky.ageassurance.getState",
+            new XrpcParams()
+                .Add("countryCode", countryCode)
+                .Add("regionCode", regionCode),
+            cancellationToken: cancellationToken);
 }

@@ -15,10 +15,7 @@ public sealed class LexiconClient : ILexiconResolver
 {
     private readonly XrpcClient _xrpc;
 
-    internal LexiconClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal LexiconClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Asks the service to resolve an NSID to its published schema (<c>com.atproto.lexicon.resolveLexicon</c>).</summary>
     /// <param name="nsid">The NSID of the schema.</param>
@@ -30,9 +27,11 @@ public sealed class LexiconClient : ILexiconResolver
     {
         ArgumentNullException.ThrowIfNull(nsid);
 
-        var parameters = new XrpcParams().Add("nsid", nsid);
         return _xrpc.QueryAsync<ResolvedLexicon>(
-            "com.atproto.lexicon.resolveLexicon", parameters, cancellationToken: cancellationToken);
+            "com.atproto.lexicon.resolveLexicon",
+            new XrpcParams()
+                .Add("nsid", nsid),
+            cancellationToken: cancellationToken);
     }
 
     // Calls ResolveLexiconAsync, reporting XrpcErrors.LexiconNotFound as

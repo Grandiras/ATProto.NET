@@ -13,35 +13,27 @@ public sealed class SyncClient
 
     private readonly XrpcClient _xrpc;
 
-    internal SyncClient(XrpcClient xrpc)
-    {
-        _xrpc = xrpc;
-    }
+    internal SyncClient(XrpcClient xrpc) => _xrpc = xrpc;
 
     /// <summary>Get the latest commit CID and revision for a repository.</summary>
     /// <param name="did">The DID of the repository.</param>
     public Task<GetLatestCommitResponse> GetLatestCommitAsync(
-        Did did, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("did", did);
-        return _xrpc.QueryAsync<GetLatestCommitResponse>(
-            "com.atproto.sync.getLatestCommit", parameters, cancellationToken: cancellationToken);
-    }
+        Did did, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetLatestCommitResponse>(
+            "com.atproto.sync.getLatestCommit", new XrpcParams().Add("did", did), cancellationToken: cancellationToken);
 
     /// <summary>Download a blob by DID and CID.</summary>
     /// <param name="did">The DID of the repository containing the blob.</param>
     /// <param name="cid">The CID of the blob to download.</param>
     /// <returns>The blob's bytes and declared media type. Dispose it once read.</returns>
     public Task<XrpcStreamResponse> GetBlobAsync(
-        Did did, Cid cid, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("did", did)
-            .Add("cid", cid);
-
-        return _xrpc.DownloadAsync(
-            "com.atproto.sync.getBlob", parameters, cancellationToken: cancellationToken);
-    }
+        Did did, Cid cid, CancellationToken cancellationToken = default) =>
+        _xrpc.DownloadAsync(
+            "com.atproto.sync.getBlob",
+            new XrpcParams()
+                .Add("did", did)
+                .Add("cid", cid),
+            cancellationToken: cancellationToken);
 
     /// <summary>Download the blocks that prove a record's presence or absence in the current version of a repository, as a CAR file: the signed commit, the tree nodes on the path to the record, and the record itself when it exists.</summary>
     /// <remarks>
@@ -54,16 +46,14 @@ public sealed class SyncClient
     /// <param name="rkey">The record key.</param>
     /// <returns>The CAR stream. Dispose it once read.</returns>
     public Task<XrpcStreamResponse> GetRecordAsync(
-        Did did, Nsid collection, RecordKey rkey, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("did", did)
-            .Add("collection", collection)
-            .Add("rkey", rkey);
-
-        return _xrpc.DownloadAsync(
-            "com.atproto.sync.getRecord", parameters, cancellationToken: cancellationToken);
-    }
+        Did did, Nsid collection, RecordKey rkey, CancellationToken cancellationToken = default) =>
+        _xrpc.DownloadAsync(
+            "com.atproto.sync.getRecord",
+            new XrpcParams()
+                .Add("did", did)
+                .Add("collection", collection)
+                .Add("rkey", rkey),
+            cancellationToken: cancellationToken);
 
     /// <summary>Download a record together with its proof, and verify the proof against the repository's signed commit: the record is then known to be what the account committed, whichever server delivered it.</summary>
     /// <remarks>
@@ -121,12 +111,12 @@ public sealed class SyncClient
     {
         ArgumentNullException.ThrowIfNull(cids);
 
-        var parameters = new XrpcParams()
-            .Add("did", did)
-            .AddAll("cids", cids.Select(cid => cid.Value));
-
         return _xrpc.DownloadAsync(
-            "com.atproto.sync.getBlocks", parameters, cancellationToken: cancellationToken);
+            "com.atproto.sync.getBlocks",
+            new XrpcParams()
+                .Add("did", did)
+                .AddAll("cids", cids.Select(cid => cid.Value)),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Download an entire repository as a CAR file.</summary>
@@ -134,15 +124,13 @@ public sealed class SyncClient
     /// <param name="since">Optional revision of the last seen commit, for an incremental export.</param>
     /// <returns>The CAR stream. Dispose it once read.</returns>
     public Task<XrpcStreamResponse> GetRepoAsync(
-        Did did, Tid? since = null, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("did", did)
-            .Add("since", since);
-
-        return _xrpc.DownloadAsync(
-            "com.atproto.sync.getRepo", parameters, cancellationToken: cancellationToken);
-    }
+        Did did, Tid? since = null, CancellationToken cancellationToken = default) =>
+        _xrpc.DownloadAsync(
+            "com.atproto.sync.getRepo",
+            new XrpcParams()
+                .Add("did", did)
+                .Add("since", since),
+            cancellationToken: cancellationToken);
 
     /// <summary>List one page of the blob CIDs held by a repository.</summary>
     /// <param name="did">The DID of the repository.</param>
@@ -154,17 +142,15 @@ public sealed class SyncClient
         Tid? since = null,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("did", did)
-            .Add("since", since)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListBlobsResponse>(
-            "com.atproto.sync.listBlobs", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListBlobsResponse>(
+            "com.atproto.sync.listBlobs",
+            new XrpcParams()
+                .Add("did", did)
+                .Add("since", since)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 
     /// <summary>List one page of the repositories hosted on a PDS.</summary>
     /// <param name="limit">Maximum number of results per page (1-1000, default 500).</param>
@@ -172,44 +158,30 @@ public sealed class SyncClient
     public Task<ListReposResponse> ListReposAsync(
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListReposResponse>(
-            "com.atproto.sync.listRepos", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListReposResponse>(
+            "com.atproto.sync.listRepos",
+            new XrpcParams().Add("limit", limit).Add("cursor", cursor), cancellationToken: cancellationToken);
 
     /// <summary>Notify a relay/crawler that this PDS has new data.</summary>
     [Obsolete("Deprecated upstream: use RequestCrawlAsync.")]
-    public async Task NotifyOfUpdateAsync(
-        string hostname, CancellationToken cancellationToken = default)
-    {
-        var request = new HostnameRequest(hostname);
-        await _xrpc.ProcedureAsync(
-            "com.atproto.sync.notifyOfUpdate", request, cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
+    public Task NotifyOfUpdateAsync(
+        string hostname, CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "com.atproto.sync.notifyOfUpdate", new HostnameRequest(hostname), cancellationToken: cancellationToken);
 
     /// <summary>Request a crawl from a relay/crawler.</summary>
-    public async Task RequestCrawlAsync(
-        string hostname, CancellationToken cancellationToken = default)
-    {
-        var request = new HostnameRequest(hostname);
-        await _xrpc.ProcedureAsync(
-            "com.atproto.sync.requestCrawl", request, cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
+    public Task RequestCrawlAsync(
+        string hostname, CancellationToken cancellationToken = default) =>
+        _xrpc.ProcedureAsync(
+            "com.atproto.sync.requestCrawl", new HostnameRequest(hostname), cancellationToken: cancellationToken);
 
     /// <summary>Get the hosting status for a repository on this server. Expected to be implemented by PDS and Relay.</summary>
     /// <param name="did">The DID of the repo.</param>
     public Task<GetRepoStatusResponse> GetRepoStatusAsync(
-        Did did, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("did", did);
-        return _xrpc.QueryAsync<GetRepoStatusResponse>(
-            "com.atproto.sync.getRepoStatus", parameters, cancellationToken: cancellationToken);
-    }
+        Did did, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetRepoStatusResponse>(
+            "com.atproto.sync.getRepoStatus", new XrpcParams().Add("did", did), cancellationToken: cancellationToken);
 
     /// <summary>List one page of the upstream hosts (PDS or relay instances) that this service consumes from. Implemented by relays.</summary>
     /// <param name="limit">Maximum number of results per page (default 200, max 1000).</param>
@@ -217,25 +189,18 @@ public sealed class SyncClient
     public Task<ListHostsResponse> ListHostsAsync(
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListHostsResponse>(
-            "com.atproto.sync.listHosts", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListHostsResponse>(
+            "com.atproto.sync.listHosts",
+            new XrpcParams().Add("limit", limit).Add("cursor", cursor), cancellationToken: cancellationToken);
 
     /// <summary>Get information about a specified upstream host. Implemented by relays.</summary>
     /// <param name="hostname">Hostname of the host (e.g., PDS or relay) being queried.</param>
     public Task<GetHostStatusResponse> GetHostStatusAsync(
-        string hostname, CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams().Add("hostname", hostname);
-        return _xrpc.QueryAsync<GetHostStatusResponse>(
-            "com.atproto.sync.getHostStatus", parameters, cancellationToken: cancellationToken);
-    }
+        string hostname, CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<GetHostStatusResponse>(
+            "com.atproto.sync.getHostStatus",
+            new XrpcParams().Add("hostname", hostname), cancellationToken: cancellationToken);
 
     /// <summary>List one page of the DIDs which have records in the given collection. Useful for efficient backfill of specific record types. New in Sync v1.1.</summary>
     /// <param name="collection">The collection NSID to filter by.</param>
@@ -245,14 +210,12 @@ public sealed class SyncClient
         Nsid collection,
         int? limit = null,
         string? cursor = null,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = new XrpcParams()
-            .Add("collection", collection)
-            .Add("limit", limit)
-            .Add("cursor", cursor);
-
-        return _xrpc.QueryAsync<ListReposByCollectionResponse>(
-            "com.atproto.sync.listReposByCollection", parameters, cancellationToken: cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        _xrpc.QueryAsync<ListReposByCollectionResponse>(
+            "com.atproto.sync.listReposByCollection",
+            new XrpcParams()
+                .Add("collection", collection)
+                .Add("limit", limit)
+                .Add("cursor", cursor),
+            cancellationToken: cancellationToken);
 }
