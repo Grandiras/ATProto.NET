@@ -127,9 +127,7 @@ internal static class XrpcResponseReader
         }
 
         if (delay is null && GetInt64(response, "RateLimit-Reset") is { } reset)
-        {
             delay = DateTimeOffset.FromUnixTimeSeconds(reset) - now;
-        }
 
         return delay is { Ticks: < 0 } ? TimeSpan.Zero : delay;
     }

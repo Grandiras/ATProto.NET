@@ -58,18 +58,6 @@ public class XrpcClientAdminAuthTests : IDisposable
     }
 
     [Fact]
-    public async Task ClearAdminCredentials_RemovesAuthorizationHeader()
-    {
-        _stub.On("com.atproto.server.describeServer", "{}");
-        _xrpc.SetAdminCredentials("hunter2");
-        _xrpc.ClearAdminCredentials();
-
-        await _xrpc.QueryAsync<object>("com.atproto.server.describeServer");
-
-        Assert.Null(Assert.Single(_stub.Requests).Headers.Authorization);
-    }
-
-    [Fact]
     public async Task WithoutAdminCredentials_SendsNoAuthorizationHeader()
     {
         _stub.On("com.atproto.server.describeServer", "{}");
@@ -77,18 +65,6 @@ public class XrpcClientAdminAuthTests : IDisposable
         await _xrpc.QueryAsync<object>("com.atproto.server.describeServer");
 
         Assert.Null(Assert.Single(_stub.Requests).Headers.Authorization);
-    }
-
-    [Fact]
-    public void HasAdminCredentials_ReflectsCredentialState()
-    {
-        Assert.False(_xrpc.HasAdminCredentials);
-
-        _xrpc.SetAdminCredentials("hunter2");
-        Assert.True(_xrpc.HasAdminCredentials);
-
-        _xrpc.ClearAdminCredentials();
-        Assert.False(_xrpc.HasAdminCredentials);
     }
 
     [Fact]

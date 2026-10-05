@@ -27,13 +27,14 @@ internal static class DPoP
     // normalization section 4.3 asks for, so a proof is not rejected over casing.
     //
     // url: The request URL.
-    public static string? NormalizeHtu(string url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || string.IsNullOrEmpty(uri.Host))
-            return null;
+    public static string? NormalizeHtu(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) ? NormalizeHtu(uri) : null;
 
-        return uri.GetComponents(UriComponents.SchemeAndServer | UriComponents.Path, UriFormat.UriEscaped);
-    }
+    // NormalizeHtu for a URL already parsed.
+    public static string? NormalizeHtu(Uri uri) =>
+        uri.IsAbsoluteUri && !string.IsNullOrEmpty(uri.Host)
+            ? uri.GetComponents(UriComponents.SchemeAndServer | UriComponents.Path, UriFormat.UriEscaped)
+            : null;
 
     // Computes the ath claim: the base64url SHA-256 hash of an access token.
     //

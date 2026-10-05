@@ -67,24 +67,6 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
 
     public TimeProvider TimeProvider { get; init; } = TimeProvider.System;
 
-    // Errors: invalid_handle, invalid_did, handle_resolution_failed, handle_resolution_conflict,
-    // unsupported_did_method, did_resolution_failed, pds_not_found, or the PDS metadata's.
-    public async Task<(string PdsUrl, AuthorizationServerMetadata Metadata, string Did)>
-        ResolveFromIdentifierAsync(string identifier, CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Resolving identity for OAuth: {Identifier}", identifier);
-
-        var identity = await ResolveIdentityAsync(ParseIdentifier(identifier), cancellationToken).ConfigureAwait(false);
-        var pds = identity.PdsEndpoint
-            ?? throw new OAuthException(
-                $"DID document for '{identity.Did}' does not contain an atproto PDS service.", "pds_not_found");
-
-        _logger.LogDebug("Resolved {Identifier} to {Did} at PDS {PdsUrl}", identifier, identity.Did, pds);
-
-        var metadata = await ResolveAuthorizationServerAsync(pds.OriginalString, cancellationToken).ConfigureAwait(false);
-        return (pds.OriginalString, metadata, identity.Did.Value);
-    }
-
     // Resolves an identity, reporting failure as the OAuthException the OAuth flow raises.
     internal Task<ResolvedIdentity> ResolveIdentityAsync(AtIdentifier identifier, CancellationToken cancellationToken) =>
         MapFailureAsync(IdentityResolver.ResolveAsync(identifier, cancellationToken));
@@ -261,17 +243,9 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
         return (resourceMetadata.Resource!, issuer);
     }
 
-    // Unvalidated fetches. Errors: invalid_server_url (refused URL), metadata_fetch_failed,
-    // invalid_metadata (not metadata).
-    public Task<ProtectedResourceMetadata> FetchProtectedResourceMetadataAsync(
-        string pdsUrl, CancellationToken cancellationToken = default) =>
-        FetchMetadataAsync<ProtectedResourceMetadata>(pdsUrl, ".well-known/oauth-protected-resource", bypassCache: false, cancellationToken);
-
-    public Task<AuthorizationServerMetadata> FetchAuthorizationServerMetadataAsync(
-        string authServerUrl, CancellationToken cancellationToken = default) =>
-        FetchMetadataAsync<AuthorizationServerMetadata>(authServerUrl, ".well-known/oauth-authorization-server", bypassCache: false, cancellationToken);
-
-    private async Task<T> FetchMetadataAsync<T>(string serverUrl, string wellKnown, bool bypassCache, CancellationToken cancellationToken)
+    // Unvalidated fetch. Errors: invalid_server_url (refused URL), metadata_fetch_failed, invalid_metadata
+    // (not metadata).
+    internal async Task<T> FetchMetadataAsync<T>(string serverUrl, string wellKnown, bool bypassCache, CancellationToken cancellationToken)
         where T : class
     {
         Uri baseUrl;
@@ -427,9 +401,7 @@ internal sealed class AuthorizationServerDiscovery : IDisposable
     {
         // A bare host gets https; a URL with another scheme is left for the URL rules to refuse.
         if (!url.Contains("://", StringComparison.Ordinal))
-        {
             url = "https://" + url;
-        }
         return url.TrimEnd('/');
     }
 

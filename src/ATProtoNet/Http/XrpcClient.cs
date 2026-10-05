@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ATProtoNet.Auth.OAuth;
@@ -88,9 +87,6 @@ internal sealed class XrpcClient : IXrpcTransport
     // The latest RateLimit-* headers received, updated after every response that carries them.
     internal RateLimitInfo? LatestRateLimitInfo => _latestRateLimitInfo;
 
-    // Whether PDS admin credentials are set.
-    internal bool HasAdminCredentials => _adminCredential is not null;
-
     // Keeps the session's credentials fresh: consulted by every call authenticated with them.
     internal IXrpcSessionHandler? SessionHandler { get; set; }
 
@@ -145,9 +141,6 @@ internal sealed class XrpcClient : IXrpcTransport
         ArgumentException.ThrowIfNullOrEmpty(password);
         _adminCredential = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{user}:{password}"));
     }
-
-    // Clears the PDS admin credentials.
-    internal void ClearAdminCredentials() => _adminCredential = null;
 
     // Sets the client-wide atproto-proxy header.
     internal void SetProxy(string proxyHeader)
@@ -405,7 +398,8 @@ internal sealed class XrpcClient : IXrpcTransport
         var target = _target;
         var uri = BuildUri(target.ServiceUrl, request.Nsid, request.Parameters);
 
-        _logger.LogDebug("XRPC {Method} {Uri}", request.Method.Method, uri);
+        if (_logger.IsEnabled(LogLevel.Debug))
+            _logger.LogDebug("XRPC {Method} {Uri}", request.Method.Method, uri);
 
         while (true)
         {
@@ -493,22 +487,10 @@ internal sealed class XrpcClient : IXrpcTransport
     private static bool IsRejectedCredential(HttpResponseMessage response, XrpcException exception) =>
         exception.Is(XrpcErrors.ExpiredToken) || HasInvalidTokenChallenge(response);
 
-    private static bool HasInvalidTokenChallenge(HttpResponseMessage response)
-    {
-        if (response.StatusCode != HttpStatusCode.Unauthorized ||
-            !response.Headers.TryGetValues("WWW-Authenticate", out var challenges))
-        {
-            return false;
-        }
-
-        foreach (var challenge in challenges)
-        {
-            if (challenge.Contains("error=\"invalid_token\"", StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        return false;
-    }
+    private static bool HasInvalidTokenChallenge(HttpResponseMessage response) =>
+        response.StatusCode == HttpStatusCode.Unauthorized &&
+        response.Headers.TryGetValues("WWW-Authenticate", out var challenges) &&
+        challenges.Any(static challenge => challenge.Contains("error=\"invalid_token\"", StringComparison.OrdinalIgnoreCase));
 
     // How long to wait before retrying a 429, or null when the service asks for longer than
     // XrpcRateLimitOptions.MaxDelay — the call then fails with XrpcRateLimitException instead of holding
@@ -575,8 +557,18 @@ internal sealed class XrpcClient : IXrpcTransport
         }
     }
 
-    private Func<HttpContent>? JsonBody(object? body) =>
-        body is null ? null : () => JsonContent.Create(body, body.GetType(), JsonMediaType, JsonOptions);
+    // Serialized on first use and resent as is, so the request has a Content-Length rather than going out chunked.
+    private Func<HttpContent>? JsonBody(object? body)
+    {
+        if (body is null)
+            return null;
+
+        byte[]? json = null;
+        return () => new ByteArrayContent(json ??= JsonSerializer.SerializeToUtf8Bytes(body, body.GetType(), JsonOptions))
+        {
+            Headers = { ContentType = JsonMediaType },
+        };
+    }
 
     private static Uri BuildUri(Uri serviceUrl, string nsid, XrpcParams? parameters)
     {
@@ -589,7 +581,13 @@ internal sealed class XrpcClient : IXrpcTransport
     private HttpRequestMessage CreateMessage(
         XrpcRequest request, Uri uri, XrpcTarget target, string nsid, out XrpcCredentials? credentials)
     {
-        var message = new HttpRequestMessage(request.Method, uri) { Content = request.Content?.Invoke() };
+        // HTTP/2 multiplexes concurrent calls over one connection; a service or handler without it gets 1.1.
+        var message = new HttpRequestMessage(request.Method, uri)
+        {
+            Content = request.Content?.Invoke(),
+            Version = HttpVersion.Version20,
+            VersionPolicy = HttpVersionPolicy.RequestVersionOrLower,
+        };
         var headers = message.Headers;
 
         if (UserAgent is not null)
@@ -672,11 +670,10 @@ internal sealed class XrpcClient : IXrpcTransport
 
         if (credentials.DPoP is { } dpop)
         {
+            var uri = message.RequestUri!;
             message.Headers.Authorization = new AuthenticationHeaderValue("DPoP", credentials.AccessToken);
             message.Headers.TryAddWithoutValidation(
-                "DPoP",
-                dpop.GenerateProofWithAccessToken(
-                    message.Method.Method, message.RequestUri!.ToString(), NonceCache.Get(message.RequestUri), credentials.AccessToken));
+                "DPoP", dpop.GenerateProofWithAccessToken(message.Method.Method, uri, NonceCache.Get(uri), credentials.AccessToken));
             return credentials;
         }
 

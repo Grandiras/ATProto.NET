@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Leaner Lexicon clients** — the generated-style XRPC clients, the PDS admin client, the Aspire hosting extensions and the Lexicon tool build their requests as single expressions, with no change to the public API or behaviour. About 650 fewer lines (#196)
 - **Identity fetches use HTTP/2** — DID document, PLC, well-known and DNS-over-HTTPS requests ask for HTTP/2 and fall back to 1.1, so concurrent lookups against one host share a connection; a burst of PLC lookups resolves about 40% faster (#197)
+- **Leaner request path** — XRPC calls offer HTTP/2 (falling back to 1.1), send JSON bodies with a `Content-Length` instead of chunked, and allocate less per DPoP-signed request (#194)
 
 ## [0.7.0] - 2026-09-28
 

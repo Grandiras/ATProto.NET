@@ -665,9 +665,7 @@ public static class AtProtoScopes
         foreach (var scope in scopes)
         {
             foreach (var part in scope.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-            {
                 unique.Add(part);
-            }
         }
 
         return string.Join(' ', unique);

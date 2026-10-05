@@ -104,10 +104,8 @@ public sealed class DPoPProofGenerator : IDisposable
     /// <param name="nonce">The server-provided DPoP nonce, or null if not yet known.</param>
     /// <returns>The signed DPoP proof JWT string.</returns>
     /// <exception cref="ArgumentException"><paramref name="url"/> is not an absolute URL naming a host.</exception>
-    public string GenerateProof(string httpMethod, string url, string? nonce = null)
-    {
-        return GenerateProof(httpMethod, url, nonce, accessTokenHash: null);
-    }
+    public string GenerateProof(string httpMethod, string url, string? nonce = null) =>
+        GenerateProof(httpMethod, DPoP.NormalizeHtu(url ?? throw new ArgumentNullException(nameof(url))), nonce, accessTokenHash: null);
 
     /// <summary>
     /// Generates a DPoP proof JWT for an authorized request to the Resource Server (PDS).
@@ -119,7 +117,14 @@ public sealed class DPoPProofGenerator : IDisposable
     /// <param name="accessToken">The access token to include a hash of.</param>
     /// <returns>The signed DPoP proof JWT string.</returns>
     /// <exception cref="ArgumentException"><paramref name="url"/> is not an absolute URL naming a host.</exception>
-    public string GenerateProofWithAccessToken(string httpMethod, string url, string? nonce, string accessToken)
+    public string GenerateProofWithAccessToken(string httpMethod, string url, string? nonce, string accessToken) =>
+        ProveWithAccessToken(httpMethod, DPoP.NormalizeHtu(url ?? throw new ArgumentNullException(nameof(url))), nonce, accessToken);
+
+    // GenerateProofWithAccessToken for a request URI already parsed, which saves rendering and parsing it again.
+    internal string GenerateProofWithAccessToken(string httpMethod, Uri url, string? nonce, string accessToken) =>
+        ProveWithAccessToken(httpMethod, DPoP.NormalizeHtu(url), nonce, accessToken);
+
+    private string ProveWithAccessToken(string httpMethod, string? htu, string? nonce, string accessToken)
     {
         ArgumentNullException.ThrowIfNull(accessToken);
 
@@ -127,19 +132,18 @@ public sealed class DPoPProofGenerator : IDisposable
         if (cached is null || !string.Equals(cached.Token, accessToken, StringComparison.Ordinal))
             _lastAccessToken = cached = new CachedAth(accessToken, DPoP.AccessTokenHash(accessToken));
 
-        return GenerateProof(httpMethod, url, nonce, cached.Hash);
+        return GenerateProof(httpMethod, htu, nonce, cached.Hash);
     }
 
-    private string GenerateProof(string httpMethod, string url, string? nonce, string? accessTokenHash)
+    private string GenerateProof(string httpMethod, string? htu, string? nonce, string? accessTokenHash)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(httpMethod);
-        ArgumentNullException.ThrowIfNull(url);
 
         // A proof naming anything but an absolute URL matches no request, so it is refused here
         // rather than sent to fail at the server.
-        var htu = DPoP.NormalizeHtu(url)
-            ?? throw new ArgumentException($"'{url}' is not an absolute URL naming a host.", nameof(url));
+        if (htu is null)
+            throw new ArgumentException("The URL is not an absolute URL naming a host.", "url");
 
         var payload = new ArrayBufferWriter<byte>(384);
         using (var writer = new Utf8JsonWriter(payload))

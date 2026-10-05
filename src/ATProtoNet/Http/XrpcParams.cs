@@ -73,12 +73,8 @@ public sealed class XrpcParams : IEnumerable<KeyValuePair<string, string>>
     /// <summary>Appends one parameter per element, all sharing <paramref name="key"/>. A null or empty sequence contributes nothing.</summary>
     public XrpcParams AddAll(string key, IEnumerable<string>? values)
     {
-        if (values is not null)
-        {
-            foreach (var value in values)
-                Add(key, value);
-        }
-
+        foreach (var value in values ?? [])
+            Add(key, value);
         return this;
     }
 
