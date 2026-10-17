@@ -44,7 +44,7 @@ builder.Services.AddAtProto(o => o.ServiceUrl = new Uri("https://bsky.social")) 
     .UseCursorStore<MyCursorStore>()
     .AddIdentity(o => o.Cache.DocumentTtl = TimeSpan.FromHours(1))
     .AddPdsAdmin()                                        // binds "AtProto:Pds"
-    .AddStreamWorker<FirehoseEvent, MyFirehoseHandler>(o => o.StreamId = "firehose")
+    .AddStreamWorker<FirehoseItem, MyFirehoseHandler>(o => o.StreamId = "firehose")   // TEvent: the stream's union
     .AddHealthChecks()                                    // atproto-pds
     .ConfigureHttpClients((name, http) => http.AddHttpMessageHandler<MyLoggingHandler>());
 
@@ -219,7 +219,9 @@ applies to the SDK's DI builder, not to AppHost resource builders.
 
 - **HST-20** (MUST) `AddStreamWorker<TEvent, THandler>()` registers a `StreamWorker<TEvent>`
   hosted service that enumerates the configured stream ([streaming.md](streaming.md)) and calls
-  `THandler` (resolved in a new scope per event) for each event, so the cursor commit rule
+  `THandler` (resolved in a new scope per event) for each item. `TEvent` is the stream's item
+  union (`FirehoseItem`, `JetstreamItem`, …, STR-26), so a handler sees notices as well as events
+  and can `switch` over them exhaustively. The cursor commit rule
   (event *n* committed when *n+1* is pulled) means "committed after the handler returned".
   *Source:* [D-07](../06-decisions.md#d-07-one-consumption-model-for-every-event-stream)
 - **HST-21** (MUST) A handler exception stops the worker by default (the event is not

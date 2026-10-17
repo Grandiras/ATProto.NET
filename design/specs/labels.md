@@ -70,7 +70,7 @@ public sealed record LabelVerificationResult(Label Label, LabelVerificationStatu
     public bool IsValid => Status == LabelVerificationStatus.Valid;
 }
 
-public abstract record LabelStreamMessage;                                      // closed
+public closed record LabelStreamMessage;                                        // closed (AG-6a)
 public sealed record LabelsMessage(long Seq, IReadOnlyList<Label> Labels) : LabelStreamMessage;
 public sealed record LabelInfoMessage(string Name, string? Message) : LabelStreamMessage;
 public static class LabelFrameCodec

@@ -35,7 +35,7 @@ login, cookie binding, `ClaimsPrincipal` mapping and the service-auth authentica
 ```csharp
 namespace ATProtoNet.Auth;
 
-public abstract class AtProtoSession : IXrpcHandler, IAsyncDisposable, IDisposable   // closed hierarchy
+public closed class AtProtoSession : IXrpcHandler, IAsyncDisposable, IDisposable     // closed (AG-6a): PasswordSession, OAuthSession
 {
     public Did Did { get; }
     public Handle Handle { get; }                       // Handle.Invalid when not bidirectionally verified
@@ -76,7 +76,7 @@ public sealed record SessionOptions
     public ILoggerFactory? LoggerFactory { get; init; }
 }
 
-public abstract record SessionData { public required Did Did { get; init; } /* + version, see AUT-12 */ }
+public closed record SessionData { public required Did Did { get; init; } /* + version, see AUT-12 */ }
 public sealed record PasswordSessionData : SessionData { /* accessJwt, refreshJwt, handle, service, … */ }
 public sealed record OAuthSessionData : SessionData { /* tokens, expiry, scope, grant (issuer, endpoints, DPoP key, client key id) */ }
 
@@ -108,7 +108,7 @@ public sealed record OAuthClientOptions
     public TimeProvider TimeProvider { get; init; } = TimeProvider.System;
 }
 
-public abstract record OAuthLoginHint { /* Account(AtIdentifier) | Server(Uri) */ }
+public closed record OAuthLoginHint { /* Account(AtIdentifier) | Server(Uri) */ }
 public sealed record OAuthCallback(string Code, string State, string? Issuer);
 public sealed class OAuthClientKey : IDisposable { /* ES256 P-256 private key + kid */ }
 
@@ -118,7 +118,7 @@ public sealed class ScopeSet : IReadOnlyCollection<Scope>      // parse, format,
     public bool Permits(Scope requested);
     public bool IsSubsetOf(ScopeSet other);
 }
-public abstract record Scope { /* Atproto, Transition, Repo, Rpc, Blob, Account, Identity, Include */ }
+public closed record Scope { /* Atproto, Transition, Repo, Rpc, Blob, Account, Identity, Include */ }
 
 // A published permission set (Lexicon `permission-set` def), generated as a static value per set
 // (lexicon.md); Include(aud) yields the `include:` scope for one audience.

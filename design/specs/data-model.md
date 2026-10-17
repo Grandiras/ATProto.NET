@@ -76,7 +76,7 @@ public sealed class DrislWriter                                  // output is al
     // … arrays, Int64, String, Bytes, Link(Cid), Boolean, Null
 }
 
-public abstract record DataModelValue                            // closed hierarchy (AG-6)
+public closed record DataModelValue                              // closed hierarchy (C# 15 `closed`, AG-6a)
 {
     public static DataModelValue FromDrisl(ReadOnlyMemory<byte> cbor, DrislReaderOptions? options = null);
     public static DataModelValue FromJson(ReadOnlySpan<byte> utf8Json);

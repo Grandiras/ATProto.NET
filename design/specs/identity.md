@@ -140,7 +140,7 @@ public sealed class PlcClient(UntrustedHttp http, Uri? directory = null) : IDidR
     public Task<PlcExportPage> ExportAsync(long after = 0, int count = 1000, CancellationToken ct = default);
     public Task<bool> IsHealthyAsync(CancellationToken ct = default);
 }
-public abstract record PlcOperation { public Cid? Prev { get; init; } }                      // closed hierarchy
+public closed record PlcOperation { public Cid? Prev { get; init; } }                        // closed (AG-6a)
 public sealed record PlcUpdate : PlcOperation                                                // type "plc_operation" (genesis when Prev is null)
 {
     public required IReadOnlyList<DidKey> RotationKeys { get; init; }

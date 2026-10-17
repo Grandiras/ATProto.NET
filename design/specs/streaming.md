@@ -31,19 +31,18 @@ durable store implementations ([stores](stores.md)); label signing and verificat
 namespace ATProtoNet.Streaming;
 
 // ── Items: protocol events and in-band notices (D-23) ──────────────────────
-public interface IStreamItem;                                   // marker for everything a stream yields
-
-public abstract record StreamNotice : IStreamItem;             // unsequenced, never moves the cursor
-public sealed record StreamInfo(string Name, string? Message) : StreamNotice,
-    IFirehoseItem, ILabelStreamItem, IJetstreamItem, IPlcExportItem
+// Each stream yields one C# 15 union of its protocol events and the notices that can occur on it,
+// flattened so one exhaustive switch covers everything (STR-26). Notices form a closed hierarchy
+// (AG-6a), so `case StreamNotice n:` handles every notice at once.
+public closed record StreamNotice;                              // unsequenced, never moves the cursor
+public sealed record StreamInfo(string Name, string? Message) : StreamNotice
 {
     public const string OutdatedCursor = "OutdatedCursor";
     public bool IsOutdatedCursor => Name == OutdatedCursor;
 }
-public sealed record EventDropped(DropReason Reason, string? Cursor, string? Detail) : StreamNotice,
-    IFirehoseItem, ILabelStreamItem, IJetstreamItem, ITapItem, IPlcExportItem;   // opt-in
-public sealed record RepoDesynchronized(Did Did, Tid? Rev, string Reason) : StreamNotice, IFirehoseItem;
-public sealed record RepoResynced(Did Did, RepoSnapshot Snapshot) : StreamNotice, IFirehoseItem;
+public sealed record EventDropped(DropReason Reason, string? Cursor, string? Detail) : StreamNotice;   // opt-in
+public sealed record RepoDesynchronized(Did Did, Tid? Rev, string Reason) : StreamNotice;
+public sealed record RepoResynced(Did Did, RepoSnapshot Snapshot) : StreamNotice;
 
 // Open set (AG-9): Malformed, UnknownType, Stale, VerificationFailed, Unreadable, ResyncOverflow
 public readonly record struct DropReason(string Value);
@@ -68,7 +67,7 @@ public sealed record StreamTransportOptions(HttpMessageInvoker? Invoker = null, 
     IReadOnlyDictionary<string, string>? Headers = null, string? UserAgent = null);
 
 // Where to start. null on ReadAsync means "stored cursor, else live".
-public abstract record StreamStart { public static StreamStart Live { get; } public static StreamStart Stored { get; }
+public closed record StreamStart { public static StreamStart Live { get; } public static StreamStart Stored { get; }
     public static StreamStart At(string cursor); }              // cursor is opaque, stream-specific
 
 public sealed class StreamException : AtProtoException
@@ -83,14 +82,17 @@ public sealed class StreamException : AtProtoException
 // ── Firehose ───────────────────────────────────────────────────────────────
 namespace ATProtoNet.Streaming.Firehose;
 
-public interface IFirehoseItem : IStreamItem;
-public abstract record FirehoseEvent(long Seq, DateTimeOffset Time) : IFirehoseItem;
+public closed record FirehoseEvent(long Seq, DateTimeOffset Time);
 public sealed record CommitEvent : FirehoseEvent { /* repo, commit, rev, since, blocks, ops, prevData, … */
     public IEnumerable<FirehoseRecordEvent> GetRecordEvents(); }
 public sealed record SyncEvent : FirehoseEvent;
 public sealed record IdentityEvent : FirehoseEvent;
 public sealed record AccountEvent : FirehoseEvent;
 public readonly record struct RepoOpAction(string Value);       // knownValues: create, update, delete
+
+// #info is a StreamInfo notice, not an event (STR-26)
+public union FirehoseItem(CommitEvent, SyncEvent, IdentityEvent, AccountEvent,
+    StreamInfo, EventDropped, RepoDesynchronized, RepoResynced);
 
 public sealed record FirehoseOptions : StreamOptions
 {
@@ -101,7 +103,7 @@ public sealed record FirehoseOptions : StreamOptions
 }
 public sealed class FirehoseStream(FirehoseOptions options, ILoggerFactory? loggerFactory = null)
 {
-    public IAsyncEnumerable<IFirehoseItem> ReadAsync(StreamStart? start = null, CancellationToken cancellationToken = default);
+    public IAsyncEnumerable<FirehoseItem> ReadAsync(StreamStart? start = null, CancellationToken cancellationToken = default);
 }
 
 public sealed class RepoSyncVerifier(IIdentityResolver identity, IRepoSyncStateStore state,
@@ -113,26 +115,30 @@ public sealed class RepoResync(RepoResyncOptions? options = null, HttpClient? ht
 public interface IRecordEvent;
 
 // ── Labels, Jetstream, Tap, PLC ────────────────────────────────────────────
-public sealed class LabelStream(LabelStreamOptions options, ILoggerFactory? loggerFactory = null);      // IAsyncEnumerable<ILabelStreamItem>
-public sealed class JetstreamStream(JetstreamOptions options, ILoggerFactory? loggerFactory = null);    // IAsyncEnumerable<IJetstreamItem>
+public union LabelStreamItem(LabelsEvent, StreamInfo, EventDropped);
+public union JetstreamItem(JetstreamCommitEvent, JetstreamIdentityEvent, JetstreamAccountEvent,
+    JetstreamSyncEvent, StreamInfo, EventDropped);                                                     // sync: v2 only
+public closed record TapEvent(long Id);                                                                 // acknowledgement ID
+public union TapItem(TapRecordEvent, TapIdentityEvent, TapAccountEvent, EventDropped);                 // the three derive from TapEvent
+public union PlcExportItem(PlcExportEvent, StreamInfo, EventDropped);
+
+public sealed class LabelStream(LabelStreamOptions options, ILoggerFactory? loggerFactory = null);      // IAsyncEnumerable<LabelStreamItem>
+public sealed class JetstreamStream(JetstreamOptions options, ILoggerFactory? loggerFactory = null);    // IAsyncEnumerable<JetstreamItem>
 public sealed class JetstreamArchive(JetstreamArchiveOptions options, HttpClient? httpClient = null);  // plan, list, download, read segments
 public static class JetstreamReplay                                                                    // backfill then live
 {
-    public static IAsyncEnumerable<IJetstreamItem> ReadAsync(JetstreamArchive archive, JetstreamOptions live,
+    public static IAsyncEnumerable<JetstreamItem> ReadAsync(JetstreamArchive archive, JetstreamOptions live,
         JetstreamReplayOptions? options = null, StreamStart? start = null, CancellationToken cancellationToken = default);
 }
-public sealed class TapStream(TapStreamOptions options, ILoggerFactory? loggerFactory = null)           // IAsyncEnumerable<ITapItem>
+public sealed class TapStream(TapStreamOptions options, ILoggerFactory? loggerFactory = null)           // IAsyncEnumerable<TapItem>
 {
     public ValueTask AckAsync(TapEvent evt, CancellationToken cancellationToken = default);            // TapAckMode.Manual only
 }
 public sealed class TapClient(Uri tapUrl, string? adminPassword, HttpClient? httpClient = null);       // admin endpoints
-public sealed class PlcExportStream(PlcExportOptions options, ILoggerFactory? loggerFactory = null);   // IAsyncEnumerable<IPlcExportItem>
+public sealed class PlcExportStream(PlcExportOptions options, ILoggerFactory? loggerFactory = null);   // IAsyncEnumerable<PlcExportItem>
 
-public interface IZstdDecompressor                                // one seam for live frames and archive blocks
-{
-    int Decompress(ReadOnlySpan<byte> source, Span<byte> destination, ReadOnlySpan<byte> dictionary);
-    int GetDecompressedSize(ReadOnlySpan<byte> source);           // frame content size, or -1 if absent
-}
+// Compression: the built-in System.IO.Compression.ZstandardDecoder with a ZstandardDictionary
+// (.NET 11) for live frames and archive blocks; no SDK decompressor seam (STR-69).
 
 // ── Stores (durable implementations: stores.md) ───────────────────────────
 public interface ICursorStore
@@ -152,19 +158,19 @@ public enum RepoSyncStatus { Synchronized, Desynchronized, Resynchronizing }   /
 // ── The runtime, for streams defined in other namespaces or in user code ────
 namespace ATProtoNet.Streaming.Advanced;
 
-public interface IStreamCodec<TItem> where TItem : class
+// TItem is the stream's union (FirehoseItem, a user subscription's union, …).
+public interface IStreamCodec<TItem>
 {
     ValueTask<Uri> GetEndpointAsync(string? resumeCursor, CancellationToken cancellationToken);   // may fetch credentials
     ValueTask<StreamFrameResult<TItem>> DecodeAsync(ReadOnlyMemory<byte> frame, CancellationToken cancellationToken);
     ICursorCodec Cursor { get; }                                // inclusive-replay, dedupe and reconnect rules
-    TItem WrapNotice(StreamNotice notice);                      // for item types outside ATProtoNet.Streaming
+    TItem FromNotice(StreamNotice notice);                      // usually `notice switch { StreamInfo i => i, … }` (STR-7)
 }
 public sealed class StreamLoop<TItem>(IStreamCodec<TItem> codec, StreamOptions options, ILogger logger, TimeProvider? time = null)
-    where TItem : class
 {
     public IAsyncEnumerable<TItem> RunAsync(StreamStart? start, CancellationToken cancellationToken);
 }
-public sealed class StreamCutover<TItem> where TItem : class;   // backfill-then-live combinator (STR rules below)
+public sealed class StreamCutover<TItem>;                       // backfill-then-live combinator (STR rules below)
 ```
 
 Usage:
@@ -234,8 +240,9 @@ await foreach (var item in firehose.ReadAsync(cancellationToken: ct))
 - **STR-7** (MUST) `StreamLoop<TItem>`, `IStreamCodec<TItem>` and
   `ICursorCodec` are public (`ATProtoNet.Streaming.Advanced`), so streams in other namespaces
   (`ATProtoNet.Bluesky`) and in user code (subscriptions of users' own Lexicons) use the runtime
-  through its public surface. A codec for an item type outside `ATProtoNet.Streaming` maps notices
-  into its item type through `WrapNotice`.
+  through its public surface. Every codec's item type is a union that includes the notices the
+  stream can carry. Union cases convert implicitly, but the generic loop cannot call a union's
+  conversions, so each codec maps notices into its union with `FromNotice` (a one-line `switch`).
   *Source:* **Decision** architecture rule 3 (public seams are the real seams; no
   `InternalsVisibleTo` to non-test assemblies)
 
@@ -343,8 +350,14 @@ Applies to the firehose, label stream and chat moderation stream.
 - **STR-26** (MUST) Side information is yielded as `StreamNotice` items in the
   same enumeration: `StreamInfo` (protocol `#info` messages, including `OutdatedCursor`),
   `RepoDesynchronized`, `RepoResynced` and, when `IncludeDroppedEvents` is set, `EventDropped`.
-  There are no callbacks for any of these.
-  *Source:* **Decision** [D-23](../06-decisions.md#d-23-stream-side-information-is-delivered-in-band) ·
+  There are no callbacks for any of these. Each stream's item type is a C# 15 `union` of its
+  protocol events and exactly the notices that can occur on it (`FirehoseItem`,
+  `LabelStreamItem`, `JetstreamItem`, `TapItem`, `PlcExportItem`; the chat moderation stream
+  declares its own), flattened so one `switch` covers every case and the compiler flags a
+  `switch` expression that misses one. `StreamNotice` is a `closed` hierarchy, so
+  `case StreamNotice n:` handles all notices at once. There are no marker interfaces.
+  *Source:* **Decision** [D-23](../06-decisions.md#d-23-stream-side-information-is-delivered-in-band),
+  [D-25](../06-decisions.md#d-25-target-net-11-and-c-15) (C# 15 unions and `closed`) ·
   0.8 `OnStreamError`, `OnEventDropped`, `OnInfo`, `OnDesynchronized`
 - **STR-27** (MUST) Notices never move the position and are never persisted.
   Requesting the item after a notice records the position of the last sequenced item, as usual.
@@ -592,17 +605,22 @@ of `FirehoseStream`, also usable on its own.
   `…TimestampCursor_IsNotADedupFloorForSequenceNumbers`, `…StoredV1Cursor_MigratesToSequenceNumbers`
 - **STR-68** (MUST) Options are validated at construction: at most
   `MaxJetstreamCollections` collections and `MaxJetstreamDids` DIDs; kinds and a dictionary ID
-  are v2-only; collections combined with kinds that exclude `commit` are rejected; on v2 a
-  decompressor and a dictionary ID are set together or not at all; `MaxMessageSizeBytes` is at
-  most `MaxJetstreamMessageSizeBytes`.
+  are v2-only; collections combined with kinds that exclude `commit` are rejected; on v2
+  compression is requested only together with a dictionary ID, and only where Zstandard is
+  supported (STR-69); `MaxMessageSizeBytes` is at most `MaxJetstreamMessageSizeBytes`.
   *Source:* 0.8 `JetstreamModels.cs:19-21` and `Validate`
-- **STR-69** (MUST) Compression goes through one `IZstdDecompressor` seam (the SDK ships no
-  zstd implementation). v1 sends `compress=true` and uses the unversioned dictionary; v2 sends
-  `zstdDictionary={id}`, where the ID is read from the dictionary's own header (magic
-  `0xEC30A437` little-endian at bytes 0–3, ID at bytes 4–7, little-endian). The dictionary is
-  fetched with `JetstreamArchive.GetZstdDictionaryAsync` without the API key.
-  *Source:* 0.8 `JetstreamArchiveClient.cs:123,411-416` · 0.8 has two identically shaped
-  interfaces (`IJetstreamDecompressor`, `IJetstreamBlockDecompressor`)
+- **STR-69** (MUST) Live frames and archive blocks are decompressed with the built-in
+  `System.IO.Compression.ZstandardDecoder` and a `ZstandardDictionary` (.NET 11); the SDK has no
+  decompressor seam and no third-party zstd dependency. v1 sends `compress=true` and uses the
+  unversioned dictionary; v2 sends `zstdDictionary={id}`, where the ID is read from the
+  dictionary's own header (magic `0xEC30A437` little-endian at bytes 0–3, ID at bytes 4–7,
+  little-endian). The dictionary is fetched with `JetstreamArchive.GetZstdDictionaryAsync` without
+  the API key. Where Zstandard is not supported (browser, WASI), `JetstreamStream` does not
+  request compression, and constructing a `JetstreamArchive` throws
+  `PlatformNotSupportedException` (archive blocks are always compressed).
+  *Source:* [D-25](../06-decisions.md#d-25-target-net-11-and-c-15) · .NET 11 `System.IO.Compression`
+  Zstandard APIs · 0.8 `JetstreamArchiveClient.cs:123,411-416` · 0.8 has two identically shaped
+  seams (`IJetstreamDecompressor`, `IJetstreamBlockDecompressor`) and ships no implementation
 - **STR-70** (MUST) Frames are decompressed at the connection level: a frame that
   fails to decompress fails the connection (and reconnects), it is not skipped as one event. A
   retired dictionary answers `400 UnknownZstdDictionary`, which is not retryable.
@@ -736,7 +754,9 @@ of `FirehoseStream`, also usable on its own.
   `StreamLoop` codec in the `ATProtoNet.Bluesky` namespace. It obtains a fresh `Authorization` header from its
   `IXrpcHandler` (or a supplied token source) on every connection, prefixes frame types with the
   NSID to bind the generated union, and uses opaque `rev` cursors starting at `"2222222222222"`
-  (the beginning) when asked. It supports a cursor store, which 0.8 did not.
+  (the beginning) when asked. It supports a cursor store, which 0.8 did not. Its item type is a
+  `ChatModerationItem` union of the generated message types plus `StreamInfo` and `EventDropped`
+  (STR-26).
   *Source:* 0.8 `ChatModerationEventConsumer.cs:62,98-124` · **Decision** STR-25
 
 ### Stores
@@ -857,7 +877,8 @@ verification.
 | Tap auto-acknowledgement mode (default) | same at-least-once model as cursors; manual mode kept |
 | Replay owns a single cursor tracker | 0.8 runs two trackers on one key |
 | PLC export reconnects and catches up on `OutdatedCursor` | 0.8 ends silently on a drop and throws on every close reason |
-| One `IZstdDecompressor` | 0.8 has two identical interfaces |
+| Zstandard is built in (.NET 11 `ZstandardDecoder`); no decompressor seam | 0.8 has two identical seams and no implementation, so users had to bring their own zstd library |
+| Each stream yields a C# 15 union (`FirehoseItem`, `JetstreamItem`, …) instead of a marker interface | one exhaustive `switch` per stream; the compiler flags unhandled cases |
 | Jetstream options split into live (`JetstreamOptions`) and archive (`JetstreamArchiveOptions`) | 0.8 carries 22 properties with cross-field validation in one object |
 | Stream objects hold no per-enumeration state | 0.8 Jetstream cannot be enumerated twice concurrently |
 | Transport seam public | users could not set proxies or headers |
@@ -871,8 +892,8 @@ verification.
    verifier records `#account` status in `RepoSyncState` (new `Active` field) and drops
    `#commit`/`#sync` for inactive accounts as `VerificationFailed`; host binding is deferred until
    someone subscribes to PDSes directly.
-2. **zstd in the BCL.** If a future .NET ships Zstandard in `System.IO.Compression`, provide a
-   default `IZstdDecompressor` over it. *Proposed default:* keep the seam, ship no default in 0.9.
+2. ~~**zstd in the BCL.**~~ Resolved: .NET 11 ships Zstandard with dictionary support in
+   `System.IO.Compression`; STR-69 uses it and the seam is gone.
 3. **PLC catch-up.** Automatic catch-up through paged `/export` on `OutdatedCursor`
    (STR-90) assumes the directory's paged export accepts the stream's `seq` as `after`.
    *Proposed default:* verify against plc.directory in phase 7; if unsupported, yield the notice
@@ -880,7 +901,6 @@ verification.
 4. **Tap admin error shape.** Tap answers admin failures with a status and a small body. *Proposed
    default:* `StreamException` with `StatusCode` and the body (bounded) as `Message`; revisit if
    Tap adopts the XRPC `{error,message}` envelope.
-5. **Notice interfaces.** Notice records implement the item interface of each
-   `ATProtoNet.Streaming` stream they can occur on; codecs elsewhere (`ATProtoNet.Bluesky`, user
-   code) wrap them. *Proposed default:* keep; revisit if C# gains
-   union types.
+5. ~~**Notice interfaces.**~~ Resolved by C# 15 unions: each stream's item type is a union that
+   lists its events and notices (STR-26); codecs elsewhere declare their own union and map notices
+   with `FromNotice` (STR-7).

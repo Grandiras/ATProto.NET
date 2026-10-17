@@ -247,7 +247,8 @@ package.
   the JSON path. *Source:* **Decision** (upstream servers validate inputs); see Open points for
   the per-endpoint opt-out.
 - **SRV-22** (MUST) JSON output is written with the descriptor's source-generated contracts;
-  union-typed values serialize through their generated converters. A method with no output
+  Lexicon union values (C# 15 `union` types) serialize exactly as on the client, through the
+  generated union contracts ([lexicon](lexicon.md)). A method with no output
   answers 200 with an empty body. A binary output streams the body with its `Content-Type` and,
   when known, `Content-Length`, and the stream is disposed afterwards. *Source:* 0.8
   `XrpcEndpointRegistration.cs:249-250` · tests `ProcedureVoid_Returns200WithNoBody`,
@@ -286,7 +287,7 @@ package.
 - **SRV-30** (MUST) A subscription endpoint accepts a WebSocket upgrade on `GET /xrpc/{nsid}`,
   binds query parameters as for queries, and then writes one binary WebSocket message per frame:
   a DRISL-CBOR header `{op: 1, t: "#<def>"}` followed by the DRISL-CBOR body, where `t` is the
-  short name of the message's union variant as the descriptor maps it.
+  short name of the active case of the subscription's message union, as the descriptor maps it.
   *Source:* [Event Stream spec](https://atproto.com/specs/event-stream) · **Decision** (0.8 cannot
   serve subscriptions; `docs/labeler.md:384` hand-writes `subscribeLabels`)
 - **SRV-31** (MUST) A `GET` without a WebSocket upgrade on a subscription endpoint is a 400

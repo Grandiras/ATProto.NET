@@ -202,11 +202,13 @@ public static class Pagination
   `ManyClientsOnOneHttpClient_SendOneUserAgentEachAndLeaveTheClientUntouched`,
   `SetServiceUrl_AfterARequestOnASharedClient_TakesEffect`
 - **XRC-13** (MUST) When the SDK creates its own `HttpClient`, it uses one process-wide
-  `SocketsHttpHandler` with automatic decompression, a 5-minute `PooledConnectionLifetime` and a
+  `SocketsHttpHandler` with automatic decompression (`DecompressionMethods.All`, which on .NET 11
+  includes Zstandard), a 5-minute `PooledConnectionLifetime` and a
   10-second `ConnectTimeout`, falling back to `HttpClientHandler` where `SocketsHttpHandler` is
   unsupported (browser/WASM). Disposing an SDK-owned `HttpClient` MUST NOT dispose the shared
   handler. The handler is immutable configuration, not a cache, so it does not violate AG-10.
-  *Source:* 0.8 `AtProtoHttp.cs:131-147` · test `AtProtoHttpTests`
+  *Source:* 0.8 `AtProtoHttp.cs:131-147` · test `AtProtoHttpTests` ·
+  [D-25](../06-decisions.md#d-25-target-net-11-and-c-15) (.NET 11 HTTP Zstandard decompression)
 - **XRC-14** (MUST) Requests ask for HTTP/2 with `HttpVersionPolicy.RequestVersionOrLower`.
   *Source:* 0.8 `XrpcClient.cs:604-609` (#201)
 - **XRC-15** (MUST) The `User-Agent` header is `XrpcInvokerOptions.UserAgent`, default
