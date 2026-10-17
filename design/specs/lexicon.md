@@ -683,16 +683,16 @@ public static class BlueskyClientExtensions
   ~~A union is a generated `partial interface` that each variant implements; a user assembly
   generates a derived record `{Union}{Variant}` for SDK types in its unions, which requires
   unsealed generated types.~~ Superseded by C# 15 unions
-  ([D-18](../06-decisions.md#d-18-unions-are-interfaces), revised): interfaces could not span
+  ([D-18](../06-decisions.md#d-18-lexicon-unions-are-c-15-union-types), revised): interfaces could not span
   assemblies, and derived records cost the sealedness of every generated type.
-  *Source:* [D-18](../06-decisions.md#d-18-unions-are-interfaces) ·
+  *Source:* [D-18](../06-decisions.md#d-18-lexicon-unions-are-c-15-union-types) ·
   [C# 15 union types](https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/union) ·
   Lexicon survey (cross-family union members: Ozone→core 10, Bluesky→core 6, Ozone→Bluesky 4,
   StandardSite→core 2)
 - **LEX-50** (MUST) Open unions have the shared `LexiconUnknown` case (`Type` = the `$type` as
   received, `Raw` = a detached copy of the object), which writes back its raw JSON unchanged.
   Closed unions have no unknown case.
-  *Source:* [D-18](../06-decisions.md#d-18-unions-are-interfaces) · 0.8
+  *Source:* [D-18](../06-decisions.md#d-18-lexicon-unions-are-c-15-union-types) · 0.8
   `OpenUnionTests.Deserialize_UnknownVariant_ReadsAsUnknownAndWritesBackByteForByte`,
   `UnknownVariant_Constructor_DetachesRawFromTheCallersDocument`
 - **LEX-51** (MUST) Union read (generated converter, not System.Text.Json's built-in union
@@ -753,7 +753,7 @@ public static class BlueskyClientExtensions
   arm or a discard. A Lexicon update that adds a case therefore shows up as a compiler warning at
   every exhaustive `switch` that does not handle it. A compile test over generated code checks
   these (warnings as errors).
-  *Source:* [D-18](../06-decisions.md#d-18-unions-are-interfaces) ·
+  *Source:* [D-18](../06-decisions.md#d-18-lexicon-unions-are-c-15-union-types) ·
   [What's new in C# 15](https://learn.microsoft.com/dotnet/csharp/whats-new/csharp-15)
 - **LEX-86** (MUST) A user def that extends an open union declared in a referenced assembly (for
   example a custom embed in `app.bsky.feed.post#embed`) reads as `LexiconUnknown`, and

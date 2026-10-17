@@ -210,8 +210,9 @@ converter each: read `$type` (anywhere in the object), dispatch to the case, fal
 `LexiconUnknown` for open unions, fail for closed ones; write `$type` first in union position
 only. Unknown object fields round-trip through `[JsonExtensionData]`. A union's case list is
 fixed by its Lexicon, so a third-party variant of an SDK open union arrives as `LexiconUnknown`
-and converts on demand (`unknown.As<MyEmbed>()`); writing one wraps it
-(`LexiconUnknown.From(myEmbed)`). The NSID → type mapping that conversion and `unknown` fields
+and converts on demand (`unknown.TryAs<MyEmbed>(out var embed)`); writing one wraps it
+(`LexiconUnknown.From(myEmbed)`), and generated extension members make both read like SDK cases
+([LEX-86](specs/lexicon.md#generated-clients)). The NSID → type mapping that conversion and `unknown` fields
 need comes from a `LexiconTypeRegistry` *instance* passed when building serializer options, never
 a process-global singleton.
 

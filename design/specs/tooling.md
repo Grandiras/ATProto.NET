@@ -91,8 +91,9 @@ public sealed class LexgenApp
   *Source:* LEX-8, LEX-25
 - **TOO-8** (MUST) Output is one file per Lexicon document, plus one file each for the assembly
   manifest (`{Name}Lexicons`, attributes), the `JsonSerializerContext` and the namespace clients.
-  Generated files carry the header of LEX-29 and nothing time-dependent.
-  *Source:* 0.8 `Csharp_Schemas_WritesOneFilePerDocument` · LEX-29
+  Generated files carry the header of LEX-29 and nothing time-dependent. The emitted code is
+  C# 15 and needs `net11.0` (LEX-83); the tool itself also targets `net11.0`.
+  *Source:* 0.8 `Csharp_Schemas_WritesOneFilePerDocument` · LEX-29, LEX-83
 - **TOO-9** (MUST) Before generating, the tool verifies each vendored file against its manifest
   CID (LEX-23) and fails with exit 3 on a mismatch, naming the file.
   *Source:* LEX-23 · 0.8 `Upstream/README.md` ("Do not edit the files by hand")
