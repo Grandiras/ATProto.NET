@@ -98,7 +98,8 @@ pagination helper. It stops on a null, empty or repeated cursor. No other cursor
 **AG-18 — Every event stream is consumed as `IAsyncEnumerable<TEvent>`.** Not .NET events, not
 callbacks, not `Channel<T>` in the public API. Reconnect, backoff and cursor persistence are
 handled inside the enumerator. The cursor of event *n* is committed when the consumer pulls
-event *n+1* (at-least-once delivery). Hosted-service adapters live in the ASP.NET Core package.
+event *n+1* (at-least-once delivery). Hosted-service adapters (`StreamWorker<TEvent>`) live in
+`ATProtoNet.Hosting`, so worker services need no ASP.NET Core.
 See [specs/streaming.md](specs/streaming.md).
 
 ## Errors

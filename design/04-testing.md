@@ -129,7 +129,7 @@ tests/
 - **`FakeTimeProvider`** (Microsoft.Extensions.TimeProvider.Testing) only. A convention test
   bans `Task.Delay`, `Thread.Sleep` and `Stopwatch` in test code.
 - **Store contract base classes**, one per store interface ([specs/stores.md](specs/stores.md)).
-  Every implementation (in-memory, file, distributed cache, EF) derives a test class from the
+  Every implementation (in-memory, file, distributed cache where one exists, EF) derives a test class from the
   contract.
 - **`TestKeys`**, **`TestIds`**: deterministic keys and identifiers.
 

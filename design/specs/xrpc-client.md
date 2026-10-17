@@ -68,7 +68,7 @@ public sealed class XrpcQuery<TParams, TOutput> : XrpcMethod { /* JsonTypeInfo<T
 public sealed class XrpcProcedure<TInput, TOutput> : XrpcMethod { /* JsonTypeInfo<TInput>, JsonTypeInfo<TOutput> */ }
 public sealed class XrpcProcedure<TInput> : XrpcMethod { }   // no output
 public readonly struct XrpcEmpty;                       // TParams/TInput of methods that declare none
-public sealed record XrpcBinaryContent(Stream Content, string ContentType);       // binary input
+public sealed record XrpcBinaryContent(Stream Content, string ContentType, long? ContentLength = null); // binary input (and server-side binary output)
 public sealed class XrpcBinaryResponse : IAsyncDisposable, IDisposable            // binary output; owns the response
 { public Stream Content { get; } public string? ContentType { get; } public long? ContentLength { get; } }
 

@@ -63,16 +63,25 @@ public interface IXrpcProcedureHandler<TInput, TOutput>
     ValueTask<TOutput> HandleAsync(TInput input, XrpcContext context);
 }
 
+public interface IXrpcProcedureHandler<TInput>                // procedure without output
+{
+    static abstract XrpcProcedure<TInput> Method { get; }
+    ValueTask HandleAsync(TInput input, XrpcContext context);
+}
+
 public interface IXrpcSubscriptionHandler<TParameters, TMessage>
 {
     static abstract XrpcSubscription<TParameters, TMessage> Method { get; }
     IAsyncEnumerable<TMessage> SubscribeAsync(TParameters parameters, XrpcContext context);
 }
 
-// "No parameters", "no input", "no output" and binary bodies are type arguments, not more interfaces:
-//   XrpcNoParameters, XrpcNoInput, XrpcNoOutput (unit types),
-//   XrpcBinaryInput  { Stream Body; string ContentType; long? ContentLength; }
-//   XrpcBinaryOutput { Stream Body; string ContentType; long? ContentLength; }   (disposed after writing)
+// "No parameters", "no input" and binary bodies are type arguments, not more interfaces. They are
+// the same types the client descriptors use (xrpc-client.md, lexicon.md LEX-60):
+//   XrpcEmpty                       parameters or input of a method that declares none
+//   XrpcBinaryContent               binary input (request stream, Content-Type, length) and binary
+//                                   output (written, then disposed)
+// A procedure without output uses the XrpcProcedure<TInput> descriptor and
+// IXrpcProcedureHandler<TInput>, whose HandleAsync returns ValueTask.
 
 public sealed class GetFeedSkeletonHandler(IFeedStore feeds)
     : IXrpcQueryHandler<GetFeedSkeleton.Parameters, GetFeedSkeleton.Output>
@@ -219,7 +228,7 @@ package.
   `Procedure_MalformedJson_ReturnsInvalidRequest`
 - **SRV-18** (MUST) A procedure without input accepts a request with no body and ignores any
   body sent. *Source:* 0.8 · tests `ProcedureWithoutInput_NoBody_ReturnsOutput`, `ProcedureVoidWithoutInput_NoBody_Returns200WithNoBody`
-- **SRV-19** (MUST) A procedure with binary input (`XrpcBinaryInput`) requires a `Content-Type`,
+- **SRV-19** (MUST) A procedure with binary input (`XrpcBinaryContent`) requires a `Content-Type`,
   receives the request body as an unbuffered stream with the declared content type and length,
   and checks the content type against the Lexicon's `encoding` (exact type or `*/*`).
   *Source:* 0.8 `XrpcEndpointRegistration.cs:203-206` · tests `BlobProcedure_PassesBodyContentTypeAndLength`,

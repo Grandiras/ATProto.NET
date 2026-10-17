@@ -254,7 +254,8 @@ enforces the SSRF policy. The client package depends on it. The foundation packa
 
 **Decision.** `ISessionStore`, `IOAuthStateStore`, `ICursorStore`, `IReplayStore` and
 `IRepoSyncStateStore` are defined next to their consumer. In-memory implementations ship with
-the interface. File and distributed-cache implementations go in `ATProtoNet.Hosting`. EF Core
+the interface. File implementations (and, for OAuth state, a distributed-cache one) go in
+`ATProtoNet.Hosting`. EF Core
 implementations go in `ATProtoNet.EntityFrameworkCore`. Each interface has a shared contract
 test suite that every implementation runs, **including concurrency cases** (0.8's EF session
 store races on the first write for a DID because the contract never tested it). The session
@@ -329,8 +330,10 @@ rewrite that state belongs to an instance the caller can supply.
 (`TryReplaceAsync(Did, expectedVersion, next)`). Refresh, adoption of a newer stored session,
 conditional removal on expiry and logout are expressed as CAS operations. This replaces 0.8's
 hand-built optimistic concurrency in `SessionManager` and makes multi-instance deployments
-correct without a distributed lock. All implementations (memory, file, distributed cache, EF via
-row version and upsert) pass the same concurrent contract tests.
+correct without a distributed lock. The shipped implementations (memory, file, EF via row version
+and upsert) pass the same concurrent contract tests. There is no `IDistributedCache` session store,
+because `IDistributedCache` cannot compare-and-swap; shared stores such as Redis implement the
+contract themselves, using the published contract tests.
 
 ## D-23 Stream side information is delivered in-band
 

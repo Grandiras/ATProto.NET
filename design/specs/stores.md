@@ -34,7 +34,7 @@ which are specified with their consumers.
 ```csharp
 // ── Sessions ──────────────────────────────────────────────────────────
 public readonly record struct StoreVersion(long Value);
-public sealed record StoredSession(AtProtoSession Session, StoreVersion Version);
+public sealed record StoredSession(SessionData Data, StoreVersion Version);
 
 public interface ISessionStore
 {
@@ -42,15 +42,15 @@ public interface ISessionStore
 
     // expected == null: succeed only if no session is stored. next == null: remove.
     ValueTask<StoreWriteResult> TryReplaceAsync(
-        Did account, StoreVersion? expected, AtProtoSession? next, CancellationToken cancellationToken = default);
+        Did account, StoreVersion? expected, SessionData? next, CancellationToken cancellationToken = default);
 }
 
 public readonly record struct StoreWriteResult(bool Succeeded, StoredSession? Current);
 
-public static class AtProtoSessionSerializer          // public, so custom stores need no internals
+public static class SessionDataSerializer          // public, so custom stores need no internals
 {
-    public static byte[] Serialize(AtProtoSession session);
-    public static AtProtoSession Deserialize(ReadOnlySpan<byte> utf8Json);
+    public static byte[] Serialize(SessionData data);
+    public static SessionData Deserialize(ReadOnlySpan<byte> utf8Json);
 }
 
 // ── OAuth state ───────────────────────────────────────────────────────
@@ -119,8 +119,7 @@ modelBuilder.ConfigureAtProtoSessions();      // also ConfigureAtProtoOAuthState
   `next == null`. There is no unconditional write. No `IDistributedCache` implementation ships,
   because `IDistributedCache` cannot compare-and-swap; Redis or other shared stores are
   application implementations against the contract suite. *Source:*
-  [D-22](../06-decisions.md#d-22-session-stores-support-compare-and-swap) · see Open points (D-22's
-  text lists a distributed-cache implementation)
+  [D-22](../06-decisions.md#d-22-session-stores-support-compare-and-swap)
 - **STO-6** (MUST) `TryReplaceAsync` succeeds only if the stored version equals `expected`
   (or nothing is stored and `expected` is `null`); on success the new version is strictly greater
   than every version previously stored for that account; on failure nothing changes and
@@ -131,7 +130,7 @@ modelBuilder.ConfigureAtProtoSessions();      // also ConfigureAtProtoOAuthState
   find-then-add with no `DbUpdateException` handling)
 - **STO-8** (MUST) Accounts are isolated: an operation on one DID never reads or changes
   another's entry. *Source:* 0.8 · test `SessionStoreContractTests.Accounts_AreIsolated`
-- **STO-9** (MUST) `AtProtoSessionSerializer` is public and defines the one stored format: UTF-8
+- **STO-9** (MUST) `SessionDataSerializer` is public and defines the one stored format: UTF-8
   JSON with a format version (`"v": 1`) and a session kind discriminator (`"$kind"`), carrying
   every field a session needs to resume (tokens, expiry, service endpoint, DPoP private key as
   PKCS#8, authorization-server grant data, client key ID). Unknown `v` values fail with
@@ -327,9 +326,6 @@ every implementation derives a test class from the matching contract:
   including 0.6-format payloads) and 0.8 tables (`AtProtoTokens`, `AtProtoJtiReplay`,
   `AtProtoRepoSyncStates`) and writes 1.0 entries, so signed-in users survive the upgrade. The
   alternative is keeping 0.8 purposes and table names and reading the old format forever.
-- **D-22 wording.** D-22 lists a distributed-cache session store; this spec proposes none
-  (STO-5). D-22 should be amended to "memory, file, EF; shared stores such as Redis implement the
-  contract themselves".
 - **In-memory replay store at capacity** (fail closed with `false`) vs evicting unexpired
   entries (which would reopen replay). Proposed: fail closed, as in the limits table.
 - **EF OAuth state store** is new in 1.0. Proposed: ship it, since multi-instance deployments

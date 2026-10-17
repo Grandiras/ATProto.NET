@@ -166,10 +166,12 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
   shared code.
   *Source:* Decision (0.8 `SessionManager` branches on kind in seven places)
 - **AUT-4** (MUST) `SessionData` is an immutable, serialisable snapshot of one credential
-  generation. Its JSON form keeps 0.8's `$kind`-discriminated shape so sessions stored by 0.8
-  load in 1.0; the 0.6 legacy format is not read.
-  *Source:* 0.8 `AtProtoSessionJson.cs` · Decision for dropping the 0.6 reader
-  (`AtProtoSessionJson.cs:52-91`)
+  generation. Its JSON form (`SessionDataSerializer`, [STO-9](stores.md)) keeps 0.8's
+  `$kind`-discriminated shape plus a format version, so 0.8 sessions convert without users
+  signing in again. The session hot path reads only the 1.0 format; 0.8 and 0.6 payloads are
+  read only by the one-off store migration helper ([stores.md](stores.md#open-points)).
+  *Source:* 0.8 `AtProtoSessionJson.cs` · Decision for moving the 0.6 reader
+  (`AtProtoSessionJson.cs:52-91`) out of the hot path
 - **AUT-5** (MUST) `Handle` is the verified handle, or `Handle.Invalid` when bidirectional
   verification fails or cannot complete. Verification failure never fails a sign-in.
   *Source:* 0.8 `OAuthClient.cs:345` · test
@@ -207,8 +209,9 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
   `ANonSeekableUploadRejectedAsExpired_RefreshesButIsNotResent`
 - **AUT-10** (MUST) A session **expires** only when the refresh credential itself is refused
   (password: `XrpcAuthenticationException` from `refreshSession`; OAuth: `invalid_grant`) **and**
-  the store does not hold a newer generation (AUT-14), or when OAuth issuer re-verification fails
-  (AUT-46). Transient failures (5xx, network, timeout) keep the session.
+  the store does not hold a newer generation (AUT-14), or when OAuth issuer re-verification
+  definitively names another authorization server (AUT-46). Transient failures (5xx, network,
+  timeout, including a transient failure of issuer re-verification) keep the session.
   *Source:* 0.8 `SessionManager.cs:666` · tests `RefreshSessionAsync_RefreshJwtRejected_ExpiresTheSession`,
   `RefreshSessionAsync_ServiceUnavailable_KeepsTheSession`, `RefreshSessionAsync_InvalidGrant_ExpiresTheSessionAndStoresNoToken`
 - **AUT-11** (MUST) A refresh response that is an error, or a success without a usable access
@@ -410,7 +413,9 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
   `SecurityTests.ScopeValidation_UsesExactTokenMatch`, `Complete_StartedFromAHandle_TokensForAnotherAccount_AreRefused`,
   `SignIn_ATokenThatIsNotDPoPBound_IsRejectedAndRevoked`
 - **AUT-44** (MUST) After the token response, the client resolves `sub` **bypassing every cache**
-  (DID document → PDS → protected-resource metadata → authorization server) and requires that
+  (`IIdentityResolver.ResolveAsync` with `IdentityResolveOptions { BypassCache = true }`,
+  [IDN-35](identity.md); DID document → PDS → protected-resource metadata → authorization
+  server, metadata fetched fresh too) and requires that
   authorization server to equal the issuer. It fails closed (`verification_failed`); only the
   caller's own cancellation propagates as cancellation.
   *Source:* [specs/oauth](https://atproto.com/specs/oauth) (sub/issuer binding) · 0.8
@@ -425,8 +430,11 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
 
 - **AUT-46** (MUST) Before spending a refresh token, the client re-verifies the issuer uncached
   (AUT-44). An account that now resolves to another authorization server, or does not resolve,
-  spends no refresh token; the refresh fails with `auth_server_mismatch` or `verification_failed`,
-  which end the session (the grant can no longer be used safely), after AUT-13's store check.
+  spends no refresh token. A definitive answer naming another authorization server fails with
+  `auth_server_mismatch` and **ends the session** (the grant can no longer be used safely; 0.8
+  retried it forever). A resolution that fails transiently (network error, timeout, 5xx) fails
+  with `verification_failed` and **keeps the session** for a later attempt, like any transient
+  refresh failure (AUT-10). Both happen after AUT-13's store check.
   *Source:* 0.8 `OAuthClient.cs:419` · tests `Refresh_AnAccountNowOnAnotherAuthorizationServer_SpendsNoRefreshToken`,
   `Refresh_AnUnresolvableAccount_SpendsNoRefreshToken` · Decision for ending the session (0.8
   retried `auth_server_mismatch` indefinitely)
@@ -669,7 +677,7 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
 | Service-auth issuing and verification live in `ATProtoNet` (verifier moved from `ATProtoNet.Server`) | it has no ASP.NET dependency; hosting only wires it |
 | Verifier returns a verdict instead of throwing | invalid tokens are an expected outcome |
 | `ServiceAuthIssuer` does not dispose its key | AG-26 |
-| 0.6 stored-session format no longer read (0.8 format still is) | 1.0 drops two-versions-old compatibility |
+| 0.6 and 0.8 stored sessions are read only by the one-off migration helper, not the hot path | Compatibility code stays out of the session path; users still keep their sign-ins |
 | OAuth wire DTOs internal | AUT-74 |
 | `AutoRefreshSession = false` removed | refresh is the session's job; callers who never want refresh use the generated `createSession` and an `AnonymousHandler` with their own bearer authorizer |
 
@@ -684,8 +692,8 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
 3. **Event vs. observable for `Changed`.** Default: a plain .NET event (AG-18 concerns streams,
    not state-change notifications).
 4. **Storing DPoP private keys.** Session data carries the PKCS#8 DPoP key; encryption at rest is
-   the store's job ([stores.md](stores.md)). Default: the in-memory store does not encrypt; file,
-   distributed-cache and EF stores must.
+   the store's job ([stores.md](stores.md)). Default: the in-memory store does not encrypt; file
+   and EF stores (and any custom shared store) must.
 5. **Token-response `expires_in` absent.** Default: treat the access token as expiring after
    `RefreshSkew` × 2 (forcing early refresh) rather than never; 0.8 stored `null` expiry.
 6. **`ServiceAuthHandler` audience per call.** Some callers proxy to several services. Default:
