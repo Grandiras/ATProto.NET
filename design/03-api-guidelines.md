@@ -32,7 +32,9 @@ what it *is* (`PasswordSession`, `DidDocument`, `CursorStore`), not what it *doe
 
 **AG-6 — Sealed by default.** Classes are `sealed` unless they are designed for inheritance, and a
 class designed for inheritance says so in its docs. Abstract base classes are reserved for closed
-hierarchies we own (unions, exceptions, sessions).
+hierarchies we own (exceptions, sessions). One exception: generated Lexicon object and record
+types are unsealed `partial record`s, because a downstream package derives from them to join its
+unions ([D-18](06-decisions.md#d-18-unions-are-interfaces)).
 
 **AG-7 — Immutable values.** Models and options are immutable after construction: `init`
 accessors, `required` for mandatory members, `IReadOnlyList<T>`/`IReadOnlyDictionary<K,V>` for

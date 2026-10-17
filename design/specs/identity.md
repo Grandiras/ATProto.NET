@@ -165,6 +165,8 @@ public sealed class PlcOperationRejectedException : AtProtoException { public st
 
 ## Requirements
 
+<a id="network-policy"></a>
+
 ### Untrusted fetch layer (`ATProtoNet.Net`)
 
 - **IDN-1** (MUST) Every connection made through `UntrustedHttp` checks **every** address DNS

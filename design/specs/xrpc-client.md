@@ -41,12 +41,15 @@ public sealed class AtProtoClient                       // immutable, thread-saf
         XrpcProcedure<TInput, TOutput> method, TInput input, CancellationToken cancellationToken = default);
     public Task ProcedureAsync<TInput>(
         XrpcProcedure<TInput> method, TInput input, CancellationToken cancellationToken = default);
+    public Task<TOutput> ProcedureAsync<TParams, TInput, TOutput>(
+        XrpcProcedure<TParams, TInput, TOutput> method, TParams parameters, TInput input,
+        CancellationToken cancellationToken = default);
 
     // Generated com.atproto.* namespaces: Server, Repo, Identity, Sync, Admin, Label, Moderation, Temp, Lexicon
     public RepoNamespace Repo => new(this);
 
-    public RecordCollection<T> Records<T>() where T : class, IAtProtoRecord;
-    public RecordReader<T> Records<T>(AtIdentifier repo) where T : class, IAtProtoRecord;  // read-only, any repo
+    public RecordCollection<T> Records<T>() where T : class, IAtProtoRecord<T>;
+    public RecordReader<T> Records<T>(AtIdentifier repo) where T : class, IAtProtoRecord<T>;  // read-only, any repo
 
     public static Task<AtProtoClient> LoginAsync(Uri service, AtIdentifier identifier, string password,
         CancellationToken cancellationToken = default);                                  // scripts; see auth.md
@@ -67,6 +70,7 @@ public abstract class XrpcMethod                        // generated descriptors
 public sealed class XrpcQuery<TParams, TOutput> : XrpcMethod { /* JsonTypeInfo<TOutput>, parameter writer */ }
 public sealed class XrpcProcedure<TInput, TOutput> : XrpcMethod { /* JsonTypeInfo<TInput>, JsonTypeInfo<TOutput> */ }
 public sealed class XrpcProcedure<TInput> : XrpcMethod { }   // no output
+public sealed class XrpcProcedure<TParams, TInput, TOutput> : XrpcMethod { } // query parameters + body (only app.bsky.video.uploadPart upstream)
 public readonly struct XrpcEmpty;                       // TParams/TInput of methods that declare none
 public sealed record XrpcBinaryContent(Stream Content, string ContentType, long? ContentLength = null); // binary input (and server-side binary output)
 public sealed class XrpcBinaryResponse : IAsyncDisposable, IDisposable            // binary output; owns the response

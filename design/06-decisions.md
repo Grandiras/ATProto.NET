@@ -297,6 +297,15 @@ the `$type` and raw JSON, which writes back byte for byte. Closed unions have no
 and fail on an unrecognised `$type`. Generated converters do the dispatch. Pattern matching works
 naturally: `if (post.Embed is Images images)`.
 
+A variant defined in an *upstream* package cannot implement an interface generated in a
+downstream one (22 of the 103 upstream unions have such members, for example
+`com.atproto.label.defs#selfLabels` in `app.bsky.feed.post#labels`). For those, the downstream
+package generates a derived record (`PostLabelsSelfLabels : SelfLabels, IPostLabels`) that the
+converter produces, so `post.Labels is SelfLabels labels` still works and the wire shape is
+unchanged. This requires generated named object and record types to be unsealed `partial record`s,
+a documented exception to [AG-6](03-api-guidelines.md#types). See
+[LEX-49](specs/lexicon.md#generated-clients).
+
 ## D-19 Lexicon `integer` maps to `int` when the bounds fit, otherwise `long`
 
 **Decision.** A Lexicon `integer` with `minimum` and `maximum` both inside `Int32` range maps to
@@ -380,12 +389,12 @@ alone is 56% of `ATProtoNet.Server`'s public API.
 | Q-1 | Keep a minimal Blazor package (accessor + login form) in 1.0, or drop it (D-09)? | Keep it minimal; widgets become sample code. | Phase 9 |
 | Q-2 | Keep `PdsAdminClient` and `ATProtoNet.Aspire.Hosting` in scope? The non-goals exclude implementing a PDS, but administering and orchestrating one is in scope today. | Keep both. | Phase 11 |
 | Q-3 | Accept explicit `Parse` for identifiers (D-11), or allow implicit conversion from `string` for ergonomics? | Explicit only. | Phase 1 |
-| Q-4 | Check in generated first-party Lexicon code (D-04) or generate at build time? | Check in. | Phase 2 |
+| Q-4 | Check in generated first-party Lexicon code (D-04) or generate at build time? | Check in. | Phase 3 |
 | Q-5 | Is `ATProtoNet.Ozone` worth keeping as a package, or should Ozone users generate it themselves from the vendored schemas? | Keep (it is cheap once generated). | Phase 8 |
 | Q-6 | Should the GitHub mirror and issue sync stay as they are during the rewrite? | Yes, unchanged. | none |
-| Q-7 | Minimum PDS versions to test against in CI (official `bluesky-social/pds` and Tranquil)? | Latest official release plus the pinned CI version. | Phase 3 |
-| Q-8 | First-party generated namespaces: mechanical `ATProtoNet.Lexicons.App.Bsky.Feed` (D-05) or friendly `ATProtoNet.Bluesky.Feed` via a namespace map? | Mechanical. | Phase 2 |
+| Q-7 | Minimum PDS versions to test against in CI (official `bluesky-social/pds` and Tranquil)? | Latest official release plus the pinned CI version. | Phase 5 |
+| Q-8 | First-party generated namespaces: mechanical `ATProtoNet.Lexicons.App.Bsky.Feed` (D-05) or friendly `ATProtoNet.Bluesky.Feed` via a namespace map? | Mechanical. | Phase 3 |
 | Q-9 | Keep the development-only loopback cookie relay of the OAuth login (about 150 lines in 0.8)? | Drop it; document running the login on `127.0.0.1` with a loopback client ID instead. | Phase 9 |
-| Q-10 | Keep `atproto-lexgen lexicon` (C# → Lexicon JSON by reflection)? | Drop it; Lexicon JSON is the source of truth, C# is generated from it. | Phase 2 |
+| Q-10 | Keep `atproto-lexgen lexicon` (C# → Lexicon JSON by reflection)? | Drop it; Lexicon JSON is the source of truth, C# is generated from it. | Phase 3 |
 | Q-11 | How much of Spaces to port (D-24): primitives + client + syncer only, or the server too? | Primitives, client, syncer and notification receiver; server only if the protocol is stable by phase 10. | Phase 10 |
 | Q-12 | Keep the Jetstream v1 wire protocol, or v2 only (keeping the v1 timestamp-cursor migration)? | Keep v1 as a second codec; public instances still serve it. | Phase 7 |

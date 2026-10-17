@@ -120,6 +120,13 @@ public sealed class ScopeSet : IReadOnlyCollection<Scope>      // parse, format,
 }
 public abstract record Scope { /* Atproto, Transition, Repo, Rpc, Blob, Account, Identity, Include */ }
 
+// A published permission set (Lexicon `permission-set` def), generated as a static value per set
+// (lexicon.md); Include(aud) yields the `include:` scope for one audience.
+public sealed record PermissionSetRef(Nsid Nsid)
+{
+    public Scope Include(XrpcServiceRef? audience = null);
+}
+
 namespace ATProtoNet.Auth.ServiceAuth;
 
 public sealed class ServiceAuthIssuer                  // mints tokens; never disposes its key

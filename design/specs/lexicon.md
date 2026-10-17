@@ -52,18 +52,32 @@ public sealed class LexiconDocument                       // immutable; keeps th
         out IReadOnlyList<LexiconDiagnostic> diagnostics);
 }
 
-public abstract record LexSchema { public string? Description { get; init; } public JsonElement Raw { get; init; } }
+public abstract record LexSchema
+{
+    public string? Description { get; init; }
+    public JsonElement Raw { get; init; }
+}
 public abstract record LexUserType : LexSchema;           // what may appear under "defs"
-public sealed record LexRecord : LexUserType { public required RecordKeyType Key { get; init; } public required LexObject Record { get; init; } }
-public sealed record LexQuery : LexUserType { public LexParams? Parameters { get; init; } public LexBody? Output { get; init; } public IReadOnlyList<LexError> Errors { get; init; } = []; }
-public sealed record LexProcedure : LexUserType { public LexParams? Parameters { get; init; } public LexBody? Input { get; init; } public LexBody? Output { get; init; } public IReadOnlyList<LexError> Errors { get; init; } = []; }
-public sealed record LexSubscription : LexUserType { public LexParams? Parameters { get; init; } public LexUnion? Message { get; init; } public IReadOnlyList<LexError> Errors { get; init; } = []; }
-public sealed record LexPermissionSet : LexUserType { /* title(+lang), detail(+lang), permissions */ }
-public sealed record LexSpace : LexUserType { /* experimental (ATPROTO001): key, name(+lang), collections */ }
-public sealed record LexToken : LexUserType;
-public sealed record LexObject : LexUserType { public IReadOnlyDictionary<string, LexSchema> Properties { get; init; } public IReadOnlyList<string> Required { get; init; } = []; public IReadOnlyList<string> Nullable { get; init; } = []; }
-public sealed record LexString : LexUserType { /* format, minLength, maxLength, minGraphemes, maxGraphemes, enum, const, default, knownValues */ }
-// also: LexInteger, LexBoolean, LexBytes, LexCidLink, LexBlob, LexArray, LexUnknown, LexRef, LexUnion
+public sealed record LexRecord : LexUserType
+{
+    public required RecordKeyType Key { get; init; }
+    public required LexObject Record { get; init; }
+}
+public sealed record LexQuery : LexUserType               // LexProcedure adds Input; LexSubscription has Message
+{
+    public LexParams? Parameters { get; init; }
+    public LexBody? Output { get; init; }
+    public IReadOnlyList<LexError> Errors { get; init; } = [];
+}
+public sealed record LexObject : LexUserType
+{
+    public required IReadOnlyDictionary<string, LexSchema> Properties { get; init; }
+    public IReadOnlyList<string> Required { get; init; } = [];
+    public IReadOnlyList<string> Nullable { get; init; } = [];
+}
+// LexProcedure, LexSubscription, LexPermissionSet, LexSpace (experimental, ATPROTO001), LexToken,
+// LexString (format, length and grapheme bounds, enum, const, default, knownValues),
+// LexInteger, LexBoolean, LexBytes, LexCidLink, LexBlob, LexArray, LexUnknown, LexRef, LexUnion
 // (the last three accepted as named defs with a warning, LEX-3), LexParams, LexBody(Encoding, Schema),
 // LexError(Name, Description)
 
@@ -373,7 +387,8 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   `I{OwnerPath}{Foo}`, where `OwnerPath` concatenates the enclosing generated type names while
   omitting `Parameters`, `Input`, `Output` and `Message` (`Post.embed` → `IPostEmbed`,
   `GetPostThread.Output.thread` → `IGetPostThreadThread`); array items use the array property's
-  name; a subscription's `message` union is `I{Method}Message` (`ISubscribeReposMessage`). The unknown variant of union `IXxx` is `UnknownXxx`. Token defs of a document become
+  name; a subscription's `message` union is `I{Method}Message` (`ISubscribeReposMessage`). The
+  unknown variant of union `IXxx` is `UnknownXxx`. Token defs of a document become
   `public const string` members of a static class `{MainName}Tokens` (`Tokens` for a `defs`
   document), grouping token families in one class.
   *Source:* Decision · 0.8 `Emit_InlineObjectSchema_GeneratesNestedClass`,
