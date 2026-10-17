@@ -99,10 +99,8 @@ public static class Base32 { /* RFC 4648 lower-case, unpadded */ }
 public static class Base58Btc { /* multibase 'z' alphabet */ }
 public static class UnsignedVarint { /* minimal LEB128, ≤ 9 bytes */ }
 
-public static class SignedObject                                 // encoding side; signing in crypto.md
-{
-    public static ReadOnlyMemory<byte> GetUnsignedBytes(ReadOnlyMemory<byte> signedDrisl, string signatureKey = "sig");
-}
+// SignedObject lives in ATProtoNet.Crypto (crypto.md); its encoding side is specified here:
+//   public static ReadOnlyMemory<byte> SignedObject.GetUnsignedBytes(ReadOnlyMemory<byte> signedDrisl, string signatureKey = "sig");
 
 public sealed class DataLimitExceededException : FormatException { public string Limit { get; } }
 
@@ -384,7 +382,7 @@ Strict mode enforces every DRISL rule. It is the default (`DrislReaderOptions.Mo
   without its signature entry (default key `sig`).
   *Source:* [specs/repository](https://atproto.com/specs/repository#commit-objects),
   [specs/label](https://atproto.com/specs/label#signature-and-validation), PLC
-- **DAT-66** (MUST) When verifying received bytes, `GetUnsignedBytes` derives them from the
+- **DAT-66** (MUST) When verifying received bytes, `SignedObject.GetUnsignedBytes` derives them from the
   received bytes: it removes the signature key/value pair and decrements the map header, without
   re-encoding the other entries. The received map must itself pass strict reading (DAT-20…25).
   *Source:* 0.8 `CommitBlock.cs:70,155` (sig splice) · primitives audit "keep nearly as-is"

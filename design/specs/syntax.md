@@ -243,7 +243,7 @@ public static class UriFormat
   `RecordKeyTests.Parse_CharacterOutsideTheAllowedSet_Throws`
 - **SYN-26** (MUST) `RecordKey.From(Tid)` yields the TID's text as a record key. There is no
   separate `RecordKey.NewTid()`.
-  *Source:* **Decision** AG-5 ("one way to do it") · 0.8 had `RecordKey.NewTid()` and
+  *Source:* **Decision**, principle 5 ([00 — Vision](../00-vision.md#design-principles), "one way to do it") · 0.8 had `RecordKey.NewTid()` and
   `Tid.NextString()` duplicating `Tid.Next()`
 
 ### TID
