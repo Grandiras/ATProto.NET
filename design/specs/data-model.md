@@ -1,12 +1,14 @@
-# Data model: DRISL-CBOR, JSON, CID, CAR — spec
+# Data model: DRISL-CBOR, JSON, CID, CAR, STAR — spec
 
 **Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet`,
-`ATProtoNet.Data`, `ATProtoNet.Data.Car`; foundation layer) · **Phase:** 1
+`ATProtoNet.Data`, `ATProtoNet.Data.Car`, `ATProtoNet.Data.Star`; foundation layer) · **Phase:** 1
 
 **Normative references:** [Data Model](https://atproto.com/specs/data-model) ·
 [DRISL](https://dasl.ing/drisl.html) · [DASL CID](https://dasl.ing/cid.html) ·
 [Repository: CAR files](https://atproto.com/specs/repository#car-file-serialization) ·
 [CARv1](https://ipld.io/specs/transport/car/carv1/) ·
+[STAR](https://next.tangled.org/microcosm.blue/star) (space repository serialization, via
+[spaces.md](spaces.md) and proposal 0016) ·
 [RFC 8949 (CBOR)](https://www.rfc-editor.org/rfc/rfc8949) ·
 [RFC 4648 (base32/base64)](https://www.rfc-editor.org/rfc/rfc4648) ·
 [unsigned-varint](https://github.com/multiformats/unsigned-varint)
@@ -17,8 +19,9 @@
 and canonical writing, the JSON forms of links, bytes and blobs, the CBOR↔JSON bridge, the
 format-neutral `DataModelValue` tree, the binary form, computation and verification of `Cid`,
 `CidLink` and `BlobRef`, the multiformats codecs (base32, base58btc, unsigned varint), CAR v1
-reading (bounded, whole-buffer and streaming) and writing, and the encoding side of
-`SignedObject` (deriving the bytes a signature covers).
+reading (bounded, whole-buffer and streaming) and writing for public repositories, STAR reading
+and writing for space repositories, and the encoding side of `SignedObject` (deriving the bytes
+a signature covers).
 
 **Out:** CID string syntax ([syntax.md](syntax.md#cid-string-syntax)); signing and verifying
 those bytes ([crypto.md](crypto.md#signed-objects)); the meaning of commit, MST and frame
@@ -133,6 +136,27 @@ public static class CarWriter
     public static ValueTask WriteAsync(Stream output, IEnumerable<Cid> roots, IAsyncEnumerable<CarBlock> blocks, CancellationToken cancellationToken = default);
     public static void Write(IBufferWriter<byte> output, IEnumerable<Cid> roots, IEnumerable<CarBlock> blocks);
 }
+
+namespace ATProtoNet.Data.Star;                                 // space repositories (DAT-72…DAT-79)
+
+public sealed record StarReaderOptions
+{
+    public long MaxTotalBytes { get; init; } = StarLimits.DefaultMaxTotalBytes;
+    public int MaxEntries { get; init; } = StarLimits.DefaultMaxEntries;
+    public int MaxEntryBytes { get; init; } = StarLimits.DefaultMaxEntryBytes;
+    public int MaxHeaderBytes { get; init; } = StarLimits.MaxHeaderBytes;
+}
+public sealed record StarHeader(ReadOnlyMemory<byte> Drisl);    // interpreted by its consumer (the space commit, spaces.md)
+public sealed record StarEntry(string Path, Cid Cid, ReadOnlyMemory<byte> Record);   // Cid recomputed, never read
+public static class StarReader
+{
+    public static ValueTask<StarHeader> ReadHeaderAsync(Stream star, StarReaderOptions? options = null, CancellationToken cancellationToken = default);
+    public static IAsyncEnumerable<StarEntry> ReadEntriesAsync(Stream star, StarReaderOptions? options = null, CancellationToken cancellationToken = default);
+}
+public static class StarWriter
+{
+    public static ValueTask WriteAsync(Stream output, ReadOnlyMemory<byte> header, IAsyncEnumerable<(string Path, ReadOnlyMemory<byte> Record)> entries, CancellationToken cancellationToken = default);
+}
 ```
 
 ## Requirements
@@ -220,7 +244,7 @@ Strict mode enforces every DRISL rule. It is the default (`DrislReaderOptions.Mo
   | Consumer | Mode |
   |---|---|
   | Commit blocks, MST nodes, CAR headers ([repo.md](repo.md)) | Strict |
-  | Record blocks under verification: Sync 1.1, record proofs, snapshots, Spaces repo CARs | Strict |
+  | Record blocks under verification: Sync 1.1, record proofs, snapshots, space repositories (STAR) | Strict |
   | Label signature verification input, PLC operations, space commits and records | Strict |
   | Anything written by the SDK, then re-read to compute or compare a CID | Strict |
   | Event-stream frame headers and envelope bodies (`#commit`, `#identity`, …, `#labels`) | Lenient (the signed content inside is verified strictly) |
@@ -376,6 +400,45 @@ Strict mode enforces every DRISL rule. It is the default (`DrislReaderOptions.Mo
   `Write_BlocksCarryComputedCids_VerifyAllBlockCidsPasses`, `Write_NoRoots_ProducesRootlessCar`,
   `Write_NoBlocks_ProducesHeaderOnlyCar`
 
+### STAR (space repositories)
+
+Space repositories have no MST; their state is a set of records committed to by a set hash
+([spaces.md](spaces.md)). Upstream ships their serialization as STAR rather than CAR (forum
+"Post-alpha plans", 2026-10-08: "expect to ship with STAR files not CAR files").
+
+- **DAT-72** (MUST) Space repositories are read and written as STAR; public repositories stay CAR
+  (DAT-55…DAT-62). The format is chosen by the endpoint and its declared response encoding, never
+  by sniffing bytes.
+  *Source:* forum "Post-alpha plans" (repo serialization) · **Decision** (no sniffing)
+- **DAT-73** (MUST) `ReadEntriesAsync` streams in file order, holding at most one entry plus a
+  bounded read buffer, and enforces `MaxTotalBytes`, `MaxEntries`, `MaxEntryBytes` and
+  `MaxHeaderBytes` before buffering past them (`DataLimitExceededException` naming the limit).
+  *Source:* principle 2 · STAR design goal (streaming, constant memory)
+- **DAT-74** (MUST) STAR is deterministic: entries are strictly increasing by path (duplicates and
+  out-of-order entries are rejected), CIDs are recomputed from the record bytes (a CID on the wire,
+  where the variant carries one, must match; the SDK never trusts it), and trailing bytes after
+  the last entry are rejected.
+  *Source:* STAR design ("rejects extra data that CAR files tolerate"; implicit, recomputed CIDs)
+- **DAT-75** (MUST) Every record is read with the strict DRISL reader (DAT-28) and must be a map.
+  The header is returned as raw strict DRISL for its consumer (the space commit, spaces.md) to
+  interpret.
+  *Source:* 0.8 `Spaces/SpaceRecordCbor.cs`, `SpaceRepoCar.cs` (strict record rules carried over)
+- **DAT-76** (MUST) `StarWriter` output reads back identically, with entries in path order and
+  canonical DRISL records, and two writers given the same header and records produce identical
+  bytes.
+  *Source:* **Decision** (determinism, DAT-74)
+- **DAT-77** (MUST) Paths are validated as space record paths (`{author}/{collection}/{rkey}` or
+  the variant's form, per spaces.md) before a record is handed to the caller.
+  *Source:* **Decision** (mirrors DAT-61's role for CAR consumers)
+- **DAT-78** (MUST) The STAR variant, framing and header contents implemented are the ones the
+  pinned reference implementation produces ([spaces.md](spaces.md)); vectors generated from it
+  pin the behaviour. A change in the GA specification is absorbed here and in its vectors.
+  *Source:* forum "Post-alpha plans" · "Space commitment changes" (2026-10-12/13: the commit and
+  its MAC move, which affects what the header carries)
+- **DAT-79** (SHOULD) STAR reading shares the varint, CID-computation and limit machinery of CAR
+  reading; there is no second varint or CID implementation.
+  *Source:* G1 (one home per mechanism)
+
 ### Signed objects: encoding side
 
 - **DAT-65** (MUST) The bytes a signature covers are the canonical DRISL encoding of the map
@@ -417,6 +480,10 @@ Strict mode enforces every DRISL rule. It is the default (`DrislReaderOptions.Mo
 | `CarLimits.DefaultMaxTotalBytes` | 256 MiB | DAT-59 (matches 0.8's resync and Spaces repository bounds) |
 | `CarLimits.DefaultMaxBlocks` | 4,194,304 | DAT-59 (raise together with `MaxTotalBytes` for very large repositories) |
 | `Cid.BinaryLength` | 36 | DAT-10 |
+| `StarLimits.MaxHeaderBytes` | 64 KiB | DAT-73 |
+| `StarLimits.DefaultMaxEntryBytes` | 1 MiB | DAT-73 (records are at most 1 MB) |
+| `StarLimits.DefaultMaxTotalBytes` | 256 MiB | DAT-73 (matches 0.8's `SpaceSyncer.MaxRepoSize`) |
+| `StarLimits.DefaultMaxEntries` | 1,048,576 | DAT-73 |
 
 ## Errors
 
@@ -426,6 +493,7 @@ Strict mode enforces every DRISL rule. It is the default (`DrislReaderOptions.Mo
 | A configured or built-in limit exceeded | `DataLimitExceededException : FormatException` (names the limit) |
 | Not a blessed binary CID | `FormatException` (CIDv0 named as such) |
 | CAR block CID mismatch with `VerifyBlockCids` | `FormatException` |
+| STAR entry out of order, duplicated, CID mismatch, trailing bytes, non-map record | `FormatException` |
 | Writing a float, duplicate key or out-of-range integer | `ArgumentException` |
 | Invalid blob in JSON | `JsonException` with path |
 
@@ -438,6 +506,9 @@ Strict mode enforces every DRISL rule. It is the default (`DrislReaderOptions.Mo
 - The CAR cases of `CarReaderTests`: malformed headers, varints, CIDv0, huge lengths, depth.
 - The hostile-input corpus of [04 — Testing](../04-testing.md#regression-corpus): deep nesting,
   2 GiB declared lengths, a CAR header nested past the limit.
+- **New:** STAR vectors generated from the pinned reference implementation (valid repositories,
+  out-of-order and duplicate entries, trailing bytes, oversized entries), plus the strict-record
+  cases of 0.8's `SpaceRepoCarTests` re-expressed against STAR.
 
 **0.8 test classes whose scenarios are ported:** `DagCborEncoderTests`, `DagCborDecoderTests`,
 `DagCborInteropTests`, `DagCborRoundtripTests`, `CidComputationTests`, `CidTests` (binary
@@ -457,6 +528,7 @@ scenarios), `CarReaderTests`, `CarWriterTests`, `CommitBlockTests` (the splice s
 | `CarWriter` takes `Cid`-keyed blocks only (no base32-string dictionary). | One CID representation (DAT-14). |
 | Blob `ref` must be a raw-codec link; legacy blobs are read. | Data-model spec. |
 | One `SignedObject` splice implementation. | Five copies in 0.8. |
+| Space repositories are STAR, read by a streaming, bounded reader in `ATProtoNet.Data.Star`. | Upstream ships STAR for space repos; 0.8 used a two-root CAR read whole (`SpaceRepoCar`). |
 
 ## Open points
 
@@ -470,3 +542,8 @@ scenarios), `CarReaderTests`, `CarWriterTests`, `CommitBlockTests` (the splice s
 3. **`DataModelValue` key order.** Kept as encoded for display. Writing always re-sorts. *Proposed
    default:* keep. Revisit if users need ordered round trips of non-canonical JSON (they should
    not, since canonical order is the protocol's).
+4. **STAR variant for spaces.** STAR has a flat key-record variant (STAR-lite) and MST variants;
+   upstream has not published which framing and header the GA space repositories use, nor
+   whether a multi-repository bundle (for account migration) follows. *Proposed default:*
+   implement the flat variant as the pinned reference implementation emits it (DAT-78); add a
+   multi-repository reader only when the GA specification defines one.

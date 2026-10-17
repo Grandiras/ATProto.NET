@@ -50,9 +50,9 @@ proven in use before it carries a 1.0 promise.
 
 | Package | Role |
 |---|---|
-| `ATProtoNet` | Everything that does not need ASP.NET Core, EF Core or Aspire: identifiers, data model, crypto, repo, Lexicon schema model and validation, identity, the XRPC client, sessions, OAuth, service auth, labels, records API, PDS admin, **all generated Lexicons** (`com.atproto`, `app.bsky`, `chat.bsky`, `tools.ozone`, `site.standard`) with the Bluesky helpers, streaming (firehose, Sync 1.1, Jetstream, Tap, labels, PLC export), Spaces (experimental), the DI/hosting integration (builder, client factory, file session store, stream workers, health checks, Aspire client), and the bundled Lexicon source generator. |
-| `ATProtoNet.AspNetCore` | Replaces `ATProtoNet.Server`: XRPC server endpoints, service-auth scheme, OAuth web login, labeler endpoints, Tap webhook, Spaces server endpoints (experimental). |
-| `ATProtoNet.EntityFrameworkCore` | EF Core store implementations, including Spaces stores (experimental). |
+| `ATProtoNet` | Everything that does not need ASP.NET Core, EF Core or Aspire: identifiers, data model, crypto, repo, Lexicon schema model and validation, identity, the XRPC client, sessions, OAuth, service auth, labels, records API, PDS admin, **all generated Lexicons** (`com.atproto`, `app.bsky`, `chat.bsky`, `tools.ozone`, `site.standard`) with the Bluesky helpers, streaming (firehose, Sync 1.1, Jetstream, Tap, labels, PLC export), Spaces (both data protocols are first class, D-08), the DI/hosting integration (builder, client factory, file session store, stream workers, health checks, Aspire client), and the bundled Lexicon source generator. |
+| `ATProtoNet.AspNetCore` | Replaces `ATProtoNet.Server`: XRPC server endpoints, service-auth scheme, OAuth web login, labeler endpoints, Tap webhook, Spaces server roles (space authority, repo host, simplespace, notifications). |
+| `ATProtoNet.EntityFrameworkCore` | EF Core store implementations, including the Spaces stores. |
 | `ATProtoNet.Blazor` | Per-circuit user client accessor and an unstyled login form (D-09). |
 | `ATProtoNet.Aspire.Hosting` | PDS container resources for an Aspire AppHost. |
 | `atproto-lexgen` (tool) | CLI: generate, install, update, lint, diff, publish, resolve. |
@@ -72,8 +72,7 @@ concerns are handled by trimming.
 **Consequences.** Moving the DI and hosting integration into the base package means a worker
 service needs only `ATProtoNet`; the base takes small `Microsoft.Extensions.*` and
 `Microsoft.AspNetCore.DataProtection.Abstractions` dependencies, never the ASP.NET Core shared
-framework. A Spaces change ships with the whole base package, which is acceptable because Spaces
-APIs are `[Experimental]` (D-08). Generated code must be fully trimmable.
+framework. Generated code must be fully trimmable.
 
 **Rejected.** The first draft's split into foundation, network, Lexicon-family, hosting and
 Spaces packages: cleaner on paper, worse for every consumer.
@@ -164,25 +163,46 @@ adapter, so worker services need no ASP.NET Core.
 **Rejected.** .NET events or callback registration (no back-pressure, error handling scattered).
 Public `Channel<T>` (leaks buffering decisions).
 
-## D-08 Spaces is experimental
+## D-08 Spaces is a first-class part of the protocol
 
-**Context.** The permissioned-data protocol is alpha. 0.8 alone changed its credential signing
-(#212), type naming (#211), revision model (#213) and revocation schema (#214), and each was a
-breaking change for every `ATProtoNet` user, because nothing marked the Spaces API as unstable.
+**Status: Accepted in direction** (maintainer, 2026-10-17), replacing the first draft's
+"experimental, ported last" treatment.
 
-**Decision.** Spaces stays in the existing packages (client, syncer and receiver in `ATProtoNet`,
-namespace `ATProtoNet.Spaces`; server endpoints in `ATProtoNet.AspNetCore`; EF stores in
-`ATProtoNet.EntityFrameworkCore`), with every public Spaces type marked
-`[Experimental("ATPROTO001")]`. Callers opt in by suppressing the diagnostic. Experimental APIs
-may change in any release without counting as a breaking change of the 0.9 line (D-02). The
-generated `com.atproto.space.*` and `com.atproto.simplespace.*` code is generated from vendored
-proposal Lexicons and carries the same attribute. BLAKE3 lives with Spaces (its only user). Stable
-code outside the Spaces namespaces contains no Spaces knowledge (0.8's transport signs Spaces
-requests, and its central in-memory-defaults warning knows Spaces stores).
+**Context.** Atproto Spaces (formerly "the permissioned data protocol") is AT Protocol's second
+data protocol: a different way of storing and syncing data that shares everything else (DIDs,
+OAuth, Lexicon, XRPC) with public repositories. The upstream team expects it to become the basis
+for most experiences in the Atmosphere. Its alpha has run since August 2026. Per the Bluesky
+protocol team's published timeline, October 2026 batches the remaining breaking changes into a
+draft specification, and **general availability (GA) is targeted for November 2026**, with
+reviewed specifications, stable SDKs and the reference PDS rollout. The rewrite ships after that.
+0.8 bolted Spaces on: Spaces signing inside the generic transport, Spaces knowledge in central
+hosting code, and every wire change a breaking change of the core package because nothing marked
+it.
 
-**Consequences.** Spaces can track the protocol without breaking anyone who has not opted in.
-Spaces is the last phase of the rewrite, so it ports against the protocol as it stands then, not
-as it stood in 0.8.
+**Decision.** Both data protocols are designed in from the start and are equally first class:
+
+- **Woven through every layer, as public repositories are.** Space addressing in the syntax layer,
+  STAR serialization next to CAR, key agreement and HTTP message signatures in crypto, space
+  repositories and commitments next to the MST, space host entries in identity, space
+  credentials beside OAuth and service auth, a records API that addresses public repos and spaces
+  alike, space sync beside the firehose, and space server roles in `ATProtoNet.AspNetCore`
+  ([02 — Architecture](02-architecture.md#layers-inside-atprotonet)).
+- **Built in the phase of each layer**, not in a separate final phase
+  ([05 — Rewrite plan](05-rewrite-plan.md)).
+- **Targets the GA protocol.** [specs/spaces.md](specs/spaces.md) tracks the proposal and draft
+  specification, re-validates against the GA specification in phase 0 and again in phase 10,
+  and takes its conformance vectors from the GA reference implementation.
+- **Stable surface.** Spaces APIs are part of the 0.9 compatibility promise and carry no
+  `[Experimental]` attribute. Fallback only: if the GA specification has not been published when
+  0.9.0 ships, the Spaces APIs carry `[Experimental("ATPROTO001")]` until the 0.9.x release that
+  follows GA.
+
+**Consequences.** Upstream changes still landing before GA (STAR serialization, the KEM-based
+commitment with a new DID document key, optional credential proofs, the URI scheme) are absorbed
+into the specs now rather than retrofitted. Spaces work runs on the critical path. Spaces stays
+out of code that has no reason to know it: the core XRPC invoker signs nothing Spaces-specific
+(signed requests are an `IXrpcHandler`), and hosting knows Spaces only through its own feature
+registration.
 
 ## D-09 Blazor components
 
@@ -287,7 +307,7 @@ store contract includes compare-and-swap (D-22). Details: [specs/stores.md](spec
 
 | ID | Surface |
 |---|---|
-| `ATPROTO001` | Spaces (permissioned data) |
+| `ATPROTO001` | Spaces, only as a fallback if the GA specification is not published when 0.9.0 ships (D-08) |
 | `ATPROTO002` | Bluesky `app.bsky.unspecced.*` endpoints |
 | `ATPROTO003` | Jetstream v2 archive API |
 | `ATPROTO004` | Lexicon runtime resolution (`com.atproto.lexicon.*`, until the spec settles) |
@@ -410,24 +430,26 @@ client. Metrics count drops and errors whether or not notices are requested.
 
 ## D-24 Spaces scope in the rewrite
 
-**Context.** Spaces is about 11.5k source lines and 10.4k test lines, more than the whole
-streaming stack, for a protocol that is explicitly not final, has had no security review, is not
-served by any released PDS, and changed its wire format or stored schema five times across 0.7
-and 0.8 (#113, #211–#214). The server
-alone is 56% of `ATProtoNet.Server`'s public API.
+**Status: Accepted** (maintainer, 2026-10-17): full scope, nothing deferred. Supersedes the
+first draft's "primitives, client and syncer; server only if stable".
 
-**Decision (proposed).** Phase 10 ports, against the protocol as it stands then:
+**Decision.** The rewrite implements the whole GA protocol, client and server side:
 
-1. the **primitives** (space URIs, LtHash, BLAKE3, space commits, space repo CAR, strict record
-   CBOR, tokens, HTTP message signatures) with their reference vectors;
-2. the **client**: credential provider, signed requests through a generic per-request
-   authenticator (no Spaces code in the core transport), and the syncer;
-3. a **notification receiver** for forwarded `notifyWrite`/`notifySpaceDeleted`, which 0.8 lacks;
-4. the **server** (authority and repo host) only if the protocol has stabilised by then.
-   `simplespace` server endpoints, managing-app policy and client-attestation verification are
-   deferred until upstream settles them.
+1. **Primitives:** space addressing (`SpaceUri`), STAR serialization, BLAKE3 and LtHash, key
+   agreement for the KEM-based commitment and MACs, space token formats, RFC 9421 HTTP message
+   signatures with RFC 8941 structured fields.
+2. **Client:** space credentials (delegation token, space credential, client attestation, with
+   the optional proofs that make public spaces readable without an account), revocation, signed
+   requests through an `IXrpcHandler`, the records API for spaces, generated
+   `com.atproto.space.*` and `com.atproto.simplespace.*`.
+3. **Sync:** the space syncer (operation log, recovery, sequenced write notifications,
+   `listRepos` checkpoints) and a notification receiver.
+4. **Server roles:** space authority (credential issuing, revocation, notification sequencing and
+   forwarding), repo host, `simplespace` (independent read and write policies, open write
+   spaces, updatable policies), and their stores.
 
-**Status: Open.** See Q-11.
+The Atmosphere groups standard layers on top of Spaces through Lexicons; it needs no SDK
+machinery beyond generating its Lexicons once they are published.
 
 ## D-25 Target .NET 11 and C# 15
 
@@ -479,7 +501,8 @@ is a regeneration. See Q-14.
 | Q-8 | First-party generated namespaces: mechanical `ATProtoNet.Lexicons.App.Bsky.Feed` (D-05) or friendly `ATProtoNet.Bluesky.Feed` via a namespace map? | Mechanical. | Phase 3 |
 | Q-9 | Keep the development-only loopback cookie relay of the OAuth login (about 150 lines in 0.8)? | Drop it; document running the login on `127.0.0.1` with a loopback client ID instead. | Phase 9 |
 | Q-10 | Keep `atproto-lexgen lexicon` (C# → Lexicon JSON by reflection)? | Drop it; Lexicon JSON is the source of truth, C# is generated from it. | Phase 3 |
-| Q-11 | How much of Spaces to port (D-24): primitives + client + syncer only, or the server too? | Primitives, client, syncer and notification receiver; server only if the protocol is stable by phase 10. | Phase 10 |
+| Q-11 | ~~How much of Spaces to port?~~ **Resolved** (maintainer, 2026-10-17): all of it, as a first-class part of the protocol (D-08, D-24). | — | — |
+| Q-15 | Space address syntax: upstream is still debating `at://{spaceDid}/space/…` against a separate `ats://` scheme. | Follow upstream's GA choice; the syntax layer keeps the scheme in one place, so either is a contained change. | Phase 1 |
 | Q-12 | Keep the Jetstream v1 wire protocol, or v2 only (keeping the v1 timestamp-cursor migration)? | Keep v1 as a second codec; public instances still serve it. | Phase 7 |
 | Q-13 | Name the ASP.NET Core package `ATProtoNet.AspNetCore` (D-03), or keep 0.8's `ATProtoNet.Server`? | `ATProtoNet.AspNetCore`: "Server" reads like a PDS, and the package changes shape anyway. | Phase 9 |
 | Q-14 | Target `net11.0` only (D-25), or also `net10.0` for apps staying on the LTS release? | `net11.0` only; .NET 10 and .NET 11 support both end in November 2028. | Phase 0 |

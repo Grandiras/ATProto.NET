@@ -12,7 +12,8 @@ How the rewrite gets from 0.8 to 0.9: strategy, phases, gates and working agreem
   "keep nearly as-is" (the audits name those parts: `IdentifierSyntax`, the `AtDatetime` parser,
   `TidGenerator`, `IdentityNetworkPolicy`, `ResolutionCache`, `PartialMerkleSearchTree`, the
   commit sig splice, `RepoSyncVerifier`, the replay algorithm, `JetstreamSegmentReader`, OAuth
-  validation rules, `ServiceAuthVerifier`'s checks, the Spaces primitives). Copied code is
+  validation rules, `ServiceAuthVerifier`'s checks, the Spaces primitives that the GA protocol
+  keeps). Copied code is
   restyled to the new guidelines and loses any dependency on 0.8 internals.
 - **Bottom-up**, one layer per phase, each one usable and tested before the next starts. Phases
   1–8 and 10 fill namespace areas of the one `ATProtoNet` package; phase 9 builds the extension
@@ -21,7 +22,7 @@ How the rewrite gets from 0.8 to 0.9: strategy, phases, gates and working agreem
 
 ```mermaid
 flowchart LR
-    P0["0 Foundations"] --> P1["1 Primitives"] --> P2["2 Repo"]
+    P0["0 Foundations"] --> P1["1 Primitives"] --> P2["2 Repositories and spaces"]
     P1 --> P3["3 Lexicon"]
     P1 --> P4["4 Identity"]
     P2 --> P5["5 Client core"]
@@ -34,13 +35,31 @@ flowchart LR
     P6 --> P9["9 Hosting"]
     P7 --> P9
     P8 --> P9
-    P9 --> P10["10 Spaces"]
-    P9 --> P11["11 Release"]
-    P10 -.optional.-> P11
+    P9 --> P10["10 End-to-end and interop"]
+    P10 --> P11["11 Release"]
 ```
 
 Phases 2, 3 and 4 can run in parallel after phase 1. Phases 7 and 8 can run in parallel after
-phase 6. Spaces (10) is off the critical path; 0.9 can ship without it.
+phase 6.
+
+**Spaces is not a phase.** Both data protocols are built together, each piece in the phase of
+its layer ([D-08](06-decisions.md#d-08-spaces-is-a-first-class-part-of-the-protocol)):
+
+| Phase | Public repositories | Spaces |
+|---|---|---|
+| 1 Primitives | `AtUri`, CAR, signing keys | `SpaceUri`, STAR, key-agreement keys, BLAKE3, HTTP message signatures |
+| 2 Repositories and spaces | MST, signed commits, proofs | LtHash state, commitments and MACs, token formats |
+| 3 Lexicon | `com.atproto.repo/sync/…` | `com.atproto.space.*`, `com.atproto.simplespace.*` |
+| 4 Identity | PDS entry, signing key | space host entry, key-agreement key |
+| 5 Client core | records API on repos | records API on spaces (`client.Space(uri)`), signed space requests |
+| 6 Auth | password, OAuth, service auth | space credentials (consume and issue), revocation |
+| 7 Streaming and sync | firehose, Sync 1.1, Jetstream, Tap | space syncer, write notifications, checkpoints |
+| 9 Hosting | XRPC server, OAuth login, labeler | space authority, repo host, `simplespace`, notification forwarding, stores |
+| 10 End-to-end | flows against the reference PDS | flows against the GA Spaces reference PDS |
+
+The upstream Spaces protocol reaches general availability in November 2026 (D-08), while phases
+0–1 run. Phase 0 pins the specification as it stands and re-validates
+[specs/spaces.md](specs/spaces.md) against the GA text as soon as it is published.
 
 ## Phases
 
@@ -67,40 +86,51 @@ for planning only.
   **`Adapter.Legacy` over the 0.8 packages, green**.
 - `tests/ATProtoNet.Benchmarks` with the scenarios from [04 — Testing](04-testing.md#benchmarks),
   **run against 0.8 and the baseline recorded**.
-- `/lexicons` vendored from upstream (moved from `tests/…/Upstream`, plus the Spaces proposal
-  Lexicons) and `lexicons.json` pinned. Until phase 3's `install` command exists, a script does
+- `/lexicons` vendored from upstream (moved from `tests/…/Upstream`, plus the Spaces Lexicons,
+  from the proposal until GA publishes them) and `lexicons.json` pinned. Until phase 3's `install` command exists, a script does
   the vendoring.
 - CI on both forges through one `build.sh`, with the jobs from
   [04 — Testing](04-testing.md#ci-shape), most of them no-ops until code exists.
 - `CLAUDE.md`, `CONTRIBUTING.md` and the issue-workflow skill on `next`, updated for the new
   tree. One source for the CHANGELOG rules; the others link to it.
+- **Spaces pin:** the Spaces proposal and draft-spec revision and the reference implementation
+  commit that [specs/spaces.md](specs/spaces.md) targets, recorded in the spec. When the GA
+  specification is published, the spec is re-validated against it and the pin moves; GA
+  reference-implementation vectors (LtHash, BLAKE3, HTTP signatures, tokens, STAR, commitments)
+  go into the conformance suite. 0.8's alpha vectors for the superseded commit and CAR formats
+  are not carried.
 
 **Gate.** CI green. The conformance suite is green against 0.8 (or each failure is filed as a
 0.8 bug with the vector marked `KnownLegacyFailure`). The benchmark baseline is committed.
 
 ### Phase 1 — Primitives (`ATProtoNet`, `ATProtoNet.Data`, `ATProtoNet.Crypto`)
 
-Specs: [syntax](specs/syntax.md), [data-model](specs/data-model.md), [crypto](specs/crypto.md).
-Identifier types, multiformats codecs, DRISL reader/writer (strict and lenient), the JSON data
-model and its converters, `DataModelValue`, `SignedObject`, CAR reader (bounded, streaming) and
-writer, keys and signatures, `did:key`, JOSE. **~5k lines.**
+Specs: [syntax](specs/syntax.md), [data-model](specs/data-model.md), [crypto](specs/crypto.md),
+the primitives of [spaces](specs/spaces.md). Identifier types including `SpaceUri`, multiformats
+codecs, DRISL reader/writer (strict and lenient), the JSON data model and its converters,
+`DataModelValue`, `SignedObject`, CAR reader (bounded, streaming) and writer, STAR reader and
+writer, signing and key-agreement keys, signatures, `did:key`, BLAKE3, JOSE, HTTP message
+signatures. **~6k lines.**
 
 **Gate.** Syntax, data-model, CID/CAR and crypto conformance areas are green on `Adapter.Next`.
 Benchmarks for CBOR and CAR are at or better than baseline. No I/O APIs in the foundation layer
 (architecture test).
 
-### Phase 2 — Repo (`ATProtoNet.Repo`)
+### Phase 2 — Repositories and spaces (`ATProtoNet.Repo`, `ATProtoNet.Spaces`)
 
-Spec: [repo](specs/repo.md). One MST (grown from `PartialMerkleSearchTree`, with incremental
-hashing), commits, record proofs, snapshots, `IBlockStore`. **~2.5k lines.**
+Specs: [repo](specs/repo.md), [spaces](specs/spaces.md) (space repositories). One MST (grown from
+`PartialMerkleSearchTree`, with incremental hashing), commits, record proofs, snapshots,
+`IBlockStore`; space repository state (LtHash), the KEM-based commitment and MACs, space token
+formats and their verification. **~4k lines.**
 
-**Gate.** MST, commits and proofs conformance areas are green. The MST build/diff benchmark is at
-or better than baseline.
+**Gate.** MST, commits, proofs and Spaces-structure conformance areas are green. The MST
+build/diff benchmark is at or better than baseline.
 
 ### Phase 3 — Lexicon (`ATProtoNet.Lexicon`, the code generator, CLI part 1)
 
 Specs: [lexicon](specs/lexicon.md), [tooling](specs/tooling.md). The schema object model, ref
-resolution, validation, the C# emitter, and `atproto-lexgen generate|install|update|lint`. It
+resolution, validation, the C# emitter, and `atproto-lexgen generate|install|update|lint`. All
+first-party Lexicons, Spaces' included, are generated from here on. It
 starts with **a spike** on bundling the emitter and System.Text.Json into a Roslyn analyzer;
 the outcome decides whether the user-facing source generator ships in phase 8 or users get an
 MSBuild-task fallback. **~6k lines.**
@@ -113,8 +143,9 @@ against stubs until phase 5).
 
 ### Phase 4 — Identity (`ATProtoNet.Identity`)
 
-Spec: [identity](specs/identity.md). The untrusted-fetch layer, DNS TXT, DID documents,
-resolvers, handle verification, caching, PLC client and typed operations. **~4k lines.**
+Spec: [identity](specs/identity.md). The untrusted-fetch layer, DNS TXT, DID documents (PDS and
+space host entries, signing and key-agreement keys), resolvers, handle verification, caching, PLC
+client and typed operations. **~4k lines.**
 
 **Gate.** Identity hardening scenarios ported and green. A pinned PLC genesis vector added and
 green. Identity-lookup benchmark at or better than baseline.
@@ -122,9 +153,10 @@ green. Identity-lookup benchmark at or better than baseline.
 ### Phase 5 — Client core (`ATProtoNet`, part 1)
 
 Specs: [xrpc-client](specs/xrpc-client.md), [auth](specs/auth.md) (password sessions and the
-session model), [stores](specs/stores.md) (session store contract). `AtProtoClient`, the XRPC
-pipeline, error model, password sessions, generated `com.atproto.*` wired up, records API,
-pagination, `PdsAdminClient`, Lexicon resolution. **~5k lines.**
+session model), [stores](specs/stores.md) (session store contract), [spaces](specs/spaces.md)
+(the space client). `AtProtoClient`, the XRPC pipeline, error model, password sessions, generated
+`com.atproto.*` wired up, the records API for public repositories and spaces, signed space
+requests as an `IXrpcHandler`, pagination, `PdsAdminClient`, Lexicon resolution. **~6k lines.**
 
 **Gate.** The XRPC golden wire fixtures pass. Session race scenarios ported and green.
 Integration tests against the pinned PDS (`Requirement=Pds|PdsAdmin`) green. The AOT smoke app
@@ -133,23 +165,28 @@ than baseline.
 
 ### Phase 6 — OAuth, service auth, labels (`ATProtoNet`, part 2)
 
-Specs: [auth](specs/auth.md), [labels](specs/labels.md). OAuth client and `OAuthSession`, DPoP,
-scopes, confidential clients, `ServiceAuthHandler` and `ServiceAuthVerifier`, label signing,
-verification and frame codec. **~5k lines.**
+Specs: [auth](specs/auth.md), [labels](specs/labels.md), [spaces](specs/spaces.md) (credentials).
+OAuth client and `OAuthSession`, DPoP, scopes (including space permissions), confidential
+clients, `ServiceAuthHandler` and `ServiceAuthVerifier`, space credentials (delegation token,
+space credential, client attestation; consuming and issuing; revocation), label signing,
+verification and frame codec. **~7k lines.**
 
-**Gate.** Tokens and labels conformance areas green. OAuth flow, callback, refresh and
-confidential-client scenarios ported and green against the fake authorization server. A manual
-OAuth sign-in against a real PDS is recorded in the PR.
+**Gate.** Tokens, Spaces credential and labels conformance areas green. OAuth flow, callback,
+refresh and confidential-client scenarios ported and green against the fake authorization
+server. A manual OAuth sign-in against a real PDS, and a space credential exchange against the
+Spaces reference PDS, are recorded in the PR.
 
-### Phase 7 — Streaming (`ATProtoNet.Streaming`)
+### Phase 7 — Streaming and sync (`ATProtoNet.Streaming`, `ATProtoNet.Spaces.Sync`)
 
-Spec: [streaming](specs/streaming.md). The stream runtime, firehose with Sync 1.1 and resync,
-label stream, Jetstream (v1 and v2 codecs), archive replay with the cutover combinator, Tap,
-PLC export. **~6k lines.**
+Specs: [streaming](specs/streaming.md), [spaces](specs/spaces.md) (sync). The stream runtime,
+firehose with Sync 1.1 and resync, label stream, Jetstream (v1 and v2 codecs), archive replay
+with the cutover combinator, Tap, PLC export; the space syncer, sequenced write notifications and
+`listRepos` checkpoints. **~8k lines.**
 
 **Gate.** Firehose, Sync 1.1 (the `Tampered` table) and Jetstream conformance areas green.
-Cursor semantics scenarios ported and green. Firehose and Jetstream decode benchmarks at or
-better than baseline (the direct CBOR binders should beat it). A nightly live Jetstream run green.
+Cursor semantics and space-sync scenarios (including recovery) ported and green. Firehose and
+Jetstream decode benchmarks at or better than baseline (the direct CBOR binders should beat it).
+A nightly live Jetstream run green.
 
 ### Phase 8 — Lexicon families and the user source generator
 
@@ -169,22 +206,32 @@ custom Lexicon through the source generator builds and runs.
 Specs: [hosting](specs/hosting.md), [server](specs/server.md), [stores](specs/stores.md). The DI
 builder, client factory, stream workers, health checks, Aspire client integration, the XRPC
 server (including subscriptions), service-auth scheme, OAuth web login, labeler endpoints, Tap
-webhook, EF stores, the minimal Blazor package. **~6k lines.**
+webhook, the Spaces server roles (space authority, repo host, `simplespace`, notification receipt
+and forwarding) and their stores, EF stores, the minimal Blazor package. **~10k lines.**
 
 **Gate.** All store implementations pass their contract suites, including concurrency. XRPC
 server routing, binding and error scenarios ported and green. OAuth login security scenarios
-(CSRF binding, service-auth principal isolation) green. A worker-service sample consumes
-Jetstream with no reference to `Microsoft.AspNetCore.App`.
+(CSRF binding, service-auth principal isolation) green. Space server scenarios (credential
+issuing, revocation, notification sequencing, `simplespace` policies) green. A worker-service
+sample consumes Jetstream with no reference to `Microsoft.AspNetCore.App`.
 
-### Phase 10 — Spaces (experimental)
+### Phase 10 — End-to-end and interoperability
 
-Spec: [spaces](specs/spaces.md). Scope per
-[D-24](06-decisions.md#d-24-spaces-scope-in-the-rewrite) and Q-11, against the protocol as it
-stands at that point. Every public Spaces type is `[Experimental("ATPROTO001")]`, in the existing
-packages. **~4–7k lines depending on Q-11.**
+Every spec, against real services rather than fakes. The SDK's client and server sides run
+complete flows with each other and with the reference implementations:
 
-**Gate.** The Spaces conformance area green against the pinned reference implementation. Spaces
-integration tests green against a permissioned-data PDS (nightly).
+- **Public data:** OAuth sign-in, record writes, firehose and Jetstream consumption, service
+  auth between an app view and a feed generator built with `ATProtoNet.AspNetCore`, labeler
+  query and subscribe.
+- **Spaces:** create a space, add members, write from several accounts, issue and revoke
+  credentials, receive and forward notifications, sync and recover, read a public space without
+  an account. Run against the GA Spaces reference PDS and against `ATProtoNet.AspNetCore`'s own
+  space roles, in both directions.
+- **Re-validation:** [specs/spaces.md](specs/spaces.md) and the vendored Lexicons against the
+  latest published upstream specifications; open points closed or carried as issues.
+
+**Gate.** All end-to-end scenarios green in CI (PR CI for the reference PDS, nightly for live
+networks). No open spec requirement without a test or an accepted waiver.
 
 ### Phase 11 — Release
 
@@ -195,7 +242,9 @@ integration tests green against a permissioned-data PDS (nightly).
   migration guides are dropped. A new **migrating-to-0.9** guide maps every 0.8 entry point to
   its replacement.
 - Samples: console (custom Lexicon), worker (firehose and Jetstream), web (OAuth login, per-user
-  client, XRPC endpoints with service auth, labeler), Aspire AppHost (managed PDS).
+  client, XRPC endpoints with service auth, labeler), a Spaces app (a private space with members,
+  client and syncer), a space host (`ATProtoNet.AspNetCore` space roles), Aspire AppHost (managed
+  PDS).
 - `0.9.0-preview.1`, a feedback period, then `0.9.0`. `next` replaces `main`.
 
 **Gate.** Everything in [Phase gates](#phase-gates), for all packages. All goals in
@@ -262,11 +311,12 @@ migration guide.
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| The rewrite stalls halfway, leaving two codebases | High | Bottom-up phases that each leave a usable, tested layer. Spaces is off the critical path. A preview can ship as soon as phase 8 passes, with hosting following. |
+| The rewrite stalls halfway, leaving two codebases | High | Bottom-up phases that each leave a usable, tested layer. A preview can ship as soon as phase 8 passes, with hosting following. |
+| The Spaces GA specification differs from the draft the specs track | Medium | Upstream's agreed changes (STAR, KEM commitment, optional credential proofs) are already in the spec; phase 0 and phase 10 re-validate against the published text; open points name what is still in flux (URI scheme, DID document identifiers). |
 | Behaviour lost in translation | High | Conformance suite green on 0.8 *before* phase 1. Requirement IDs on tests. Regression corpus in [04 — Testing](04-testing.md#regression-corpus). |
 | The generator cannot match hand-written quality | Medium | Phase 3's gate requires generating and compiling all vendored Lexicons, plus golden output review, before anything depends on it. |
 | Roslyn analyzer packaging problems (System.Text.Json in the compiler) | Medium | Spike first in phase 3, with an MSBuild-task fallback. First-party code is checked in, so the SDK never depends on the analyzer. |
-| Upstream protocol changes during the rewrite (OAuth scopes, Lexicon resolution, Sync, Spaces) | Medium | Specs cite upstream sections. Vendored Lexicons update through the CLI. Experimental markers (`ATPROTO00x`) on moving surfaces. |
+| Upstream protocol changes during the rewrite (OAuth scopes, Lexicon resolution, Sync, Spaces after GA) | Medium | Specs cite upstream sections. Vendored Lexicons update through the CLI. Experimental markers (`ATPROTO00x`) on moving surfaces. |
 | Performance regressions | Medium | Benchmarks against the 0.8 baseline at every relevant gate. |
 | C# 15 union details shift before or after .NET 11 GA | Low/Medium | Phases 0–2 do not use unions. The union shape is fixed in phase 3 against the released compiler, and generated code changes by regenerating. |
 | Apps that must stay on .NET 10 | Low | They stay on 0.8 (Q-14); .NET 10 and .NET 11 support end on the same day. |
@@ -275,7 +325,7 @@ migration guide.
 ## Immediate next steps
 
 1. The maintainer reviews this design and answers or accepts defaults for the open questions,
-   especially Q-1, Q-3, Q-4, Q-8 and Q-11 ([06 — Decisions](06-decisions.md#open-questions)).
+   especially Q-1, Q-3, Q-4, Q-8, Q-14 and Q-15 ([06 — Decisions](06-decisions.md#open-questions)).
 2. Fix the two build-health defects on `main` ([01 — Current state](01-current-state.md#build-health)),
    because `Adapter.Legacy` builds against 0.8.
 3. Create the phase tracking issues.

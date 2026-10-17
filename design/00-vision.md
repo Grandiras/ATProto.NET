@@ -26,10 +26,11 @@ growth. 0.7.0 alone carried 366 changelog entries. The behaviour is good and wel
   `SessionManager` (1,092 lines) plugged into `XrpcClient` (928 lines). `AtProtoClient` builds
   29 sub-clients by hand. `ATProtoNet.Server` mixes OAuth web login, service auth, XRPC hosting,
   labels, the Tap webhook, the Spaces server, Aspire client wiring and PDS admin binding.
-- **Alpha protocol churn breaks the stable core.** Spaces changed its wire format or stored
-  schema five times across 0.7 and 0.8 (#113, #211, #212, #213, #214). Each change is a breaking
-  change for *every* user of the `ATProtoNet` package, because nothing marks the Spaces API as
-  unstable.
+- **Spaces is bolted on.** Spaces, AT Protocol's second data protocol, was added on top of a
+  design built for public repositories only: signing inside the generic transport, Spaces stores
+  known to central hosting code, its own HTTP stack, and no place in the records API. Its wire
+  format changed five times across 0.7 and 0.8 (#113, #211–#214), each a breaking change of the
+  core package.
 - **Package lines in the wrong places.** `ATProtoNet.Server` mixes eight jobs and forces the
   ASP.NET Core shared framework on worker services that only want DI and a stream worker. The EF
   stores were merged into it and split out again, and an Aspire package was merged in.
@@ -62,7 +63,8 @@ how.
 | G2 | **Few packages, clear layers.** Consumers install `ATProtoNet` plus at most one or two integration packages. Inside, namespaces form layers: the foundation does no I/O, and dependencies only point down. | Architecture tests on namespaces fail the build on a forbidden reference. No `InternalsVisibleTo` between production assemblies. |
 | G3 | **Generated Lexicon surface.** All `com.atproto`, `app.bsky`, `chat.bsky`, `tools.ozone`, `site.standard` models and clients come from vendored Lexicon JSON through one generator, which users also use for their own Lexicons. | Hand-written Lexicon LOC ≈ 0 outside helpers. Syncing upstream means updating JSON and regenerating. |
 | G4 | **Spec-anchored behaviour.** Each subsystem has a normative spec in `design/specs/`. Each MUST is covered by a conformance or unit test. | Requirement IDs appear in test names or traits; a coverage report lists untested IDs. |
-| G5 | **Stable core, marked churn.** Alpha protocols (Spaces) and unspecced upstream surfaces are `[Experimental]`, so callers opt in knowingly and changes there do not break anyone else. | A Spaces wire change touches only `[Experimental]` APIs; the API-compatibility check of the 0.9 line passes. |
+| G5 | **Both data protocols are first class.** Public repositories and Spaces share identity, Lexicon, auth, the client, the records API and hosting; each layer has the Spaces piece next to its public counterpart. The SDK targets the Spaces GA protocol. | Every layer's spec covers both protocols; end-to-end Spaces flows (create, write, credentials, sync, server roles) pass against the GA reference PDS in phase 10. |
+| G5a | **Stable core, marked churn.** Surfaces upstream has not specified (unspecced endpoints) are `[Experimental]`, so callers opt in knowingly. | The API-compatibility check of the 0.9 line passes. |
 | G6 | **AOT- and trim-safe.** No reflection-based registries or serializers on the hot path. JSON goes through source-generated `JsonSerializerContext`s. Since the base package contains all generated Lexicons, trimming is what keeps apps small. | `IsAotCompatible=true` on every runtime package; a NativeAOT smoke app builds with zero trim/AOT warnings. |
 | G7 | **Small, learnable public API.** One way to do each thing. Fewer, more orthogonal types. | Per-package API baselines, reviewed at each phase gate. |
 | G8 | **Performance at least as good as 0.8** on the paths the perf passes optimised (XRPC request path, JSON models, firehose and CAR decoding, Jetstream, identity lookups). | A BenchmarkDotNet suite compares 0.9 against 0.8 on the same scenarios. |

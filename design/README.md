@@ -30,7 +30,7 @@ If you have ten minutes: read 00, the package map in 02, and the open questions 
 - **Few packages, clear layers inside.** `ATProtoNet` contains nearly everything: protocol
   primitives, repo, Lexicon, identity, the client, OAuth, streaming, every generated Lexicon family
   (including Bluesky, chat and Ozone), DI and worker integration, the bundled Lexicon source
-  generator, and Spaces as `[Experimental]`. Extension packages exist only for heavy framework
+  generator, and Spaces. Extension packages exist only for heavy framework
   dependencies: `ATProtoNet.AspNetCore` (replacing `ATProtoNet.Server`),
   `ATProtoNet.EntityFrameworkCore`, `ATProtoNet.Blazor` and `ATProtoNet.Aspire.Hosting`, plus the
   `atproto-lexgen` tool. Inside the base package, namespace layers with architecture tests
@@ -40,6 +40,10 @@ If you have ten minutes: read 00, the package map in 02, and the open questions 
   21k hand-written lines and a regex-based drift test. Users run the same generator on their own
   Lexicons. Unions become C# 15 `union` types, known values open structs, and XRPC methods typed
   descriptors that take one parameters record.
+- **Two data protocols, both first class.** Public repositories and Spaces (targeting the
+  November 2026 GA protocol) sit side by side in every layer: addressing, storage structures,
+  credentials beside OAuth, one records API for both, space sync beside the firehose, and space
+  server roles in `ATProtoNet.AspNetCore`. Spaces is not a separate phase.
 - **A session is the authenticated transport.** `new AtProtoClient(session)`. Password, OAuth,
   service-auth and admin sessions are `IXrpcHandler`s that own their tokens and refresh.
   `AtProtoClient` is immutable and knows nothing about logins.
@@ -54,7 +58,7 @@ If you have ten minutes: read 00, the package map in 02, and the open questions 
   conformance suite behind a protocol adapter. The adapter is proven green against 0.8 first,
   then re-implemented on the rewrite, phase by phase.
 - **Twelve phases, bottom-up, each with a gate, shipping as 0.9.0.** Foundations, primitives, repo, Lexicon,
-  identity, client, OAuth, streaming, Lexicon families, hosting, Spaces, release.
+  identity, client, OAuth, streaming, Lexicon families, hosting, end-to-end and interop, release.
 
 ## Conventions
 

@@ -89,7 +89,7 @@ The conformance suite references only the adapter interface and its vectors. It 
 | Tokens | service-auth verdict table, DPoP and PKCE cases, OAuth AS-metadata validation table | today's verifier tests |
 | Lexicon | `lexicon-resolution.json`; **new:** interop-tests `lexicon/` suites | @atproto/lex-resolver 0.3.0 |
 | XRPC wire | golden request/response fixtures (method, path, query, body, headers, response) from `EndpointRequestTests` and `WireFidelityTests` | extracted |
-| Spaces | BLAKE3, LtHash, HTTP signatures, structured fields, space tokens | upstream @atproto/space, atproto@679724ad |
+| Spaces | BLAKE3, LtHash, HTTP signatures, structured fields, space tokens, STAR, KEM commitment and MACs | the GA reference implementation (pinned in phase 0; 0.8's alpha vectors for the superseded commit and CAR formats are not carried) |
 | Hostile input | the corpus in [Regression corpus](#regression-corpus) | today's regression tests |
 
 ## Test architecture of the new tree
@@ -165,7 +165,8 @@ tests/
 - PR CI: the official PDS as a service container (pinned version) runs every `Pds` and
   `PdsAdmin` test.
 - Nightly or manual: Jetstream (live), Jetstream archive (needs an API key), Bluesky AppView,
-  Spaces (needs a permissioned-data PDS), Tranquil PDS.
+  Tranquil PDS. The Spaces reference PDS runs in PR CI next to the official PDS once a GA image
+  exists, so Spaces integration is not nightly-only.
 
 ### Benchmarks
 
@@ -257,11 +258,12 @@ One build script (`build.sh`, also callable from both forges) with these jobs:
 | `test` | PR, push | Unit + conformance + architecture tests, coverage (Cobertura), TRX, `--blame-hang-timeout` |
 | `lexicons` | PR, push | Regenerate first-party code, `git diff --exit-code`; generator compiles all vendored Lexicons |
 | `integration-pds` | PR, push | PDS service container, `Requirement=Pds\|PdsAdmin`, REQUIRE=1 |
+| `integration-spaces` | PR, push | Spaces reference PDS service container (GA image), `Requirement=Spaces`, REQUIRE=1 |
 | `api` | PR | Public API baseline diff; from 0.9.0 on, package validation against the last release |
 | `aot` | PR | Publish `AotSmoke` with NativeAOT, fail on warnings |
 | `aspire` | PR | Aspire manifest publish + check |
 | `changelog` | PR | `[Unreleased]` gained a bullet unless the PR is labelled `no-changelog` |
-| `nightly` | schedule | Jetstream, archive, Bluesky, Spaces, Tranquil integration; benchmarks vs baseline |
+| `nightly` | schedule | Jetstream, archive, Bluesky, Tranquil integration; benchmarks vs baseline |
 | `release` | tag | Everything above, then verify the CHANGELOG section is non-empty, pack, push |
 
 The GitHub mirror runs the same script (today its CI lacks the Aspire and PDS jobs).

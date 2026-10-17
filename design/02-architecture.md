@@ -12,8 +12,8 @@ packages exist only where they would otherwise force a heavy framework dependenc
 
 ```mermaid
 flowchart BT
-    CORE["<b>ATProtoNet</b><br/>protocol primitives · repo · Lexicon · identity<br/>XRPC client · sessions · OAuth · service auth · labels<br/>all generated Lexicons (com.atproto, app.bsky, chat.bsky,<br/>tools.ozone, site.standard) · streaming · DI and workers<br/>Spaces (experimental) · bundled Lexicon source generator"]
-    ASP["<b>ATProtoNet.AspNetCore</b><br/>XRPC server · service-auth scheme · OAuth web login<br/>labeler endpoints · Tap webhook · Spaces server (experimental)"]
+    CORE["<b>ATProtoNet</b><br/>protocol primitives · repo · Lexicon · identity<br/>XRPC client · sessions · OAuth · service auth · labels<br/>all generated Lexicons (com.atproto, app.bsky, chat.bsky,<br/>tools.ozone, site.standard) · streaming · DI and workers<br/>Spaces · bundled Lexicon source generator"]
+    ASP["<b>ATProtoNet.AspNetCore</b><br/>XRPC server · service-auth scheme · OAuth web login<br/>labeler endpoints · Tap webhook · Spaces server roles"]
     EF["<b>ATProtoNet.EntityFrameworkCore</b><br/>EF Core stores"]
     BZ["<b>ATProtoNet.Blazor</b><br/>user client accessor · login form"]
     ASPIRE["<b>ATProtoNet.Aspire.Hosting</b><br/>PDS containers in an Aspire AppHost"]
@@ -48,9 +48,9 @@ for their own Lexicons. The CLI compiles the same generator.
 ### Versioning
 
 All packages share one version. The rewrite ships as **0.9.0**, with `0.9.0-preview.N` builds
-first ([D-02](06-decisions.md#d-02-ship-as-09)). APIs marked `[Experimental]` (Spaces,
-unspecced upstream endpoints; see [D-16](06-decisions.md#d-16-experimental-diagnostic-ids)) may
-change in any release. Everything else follows the compatibility rules of the 0.9 line.
+first ([D-02](06-decisions.md#d-02-ship-as-09)). APIs marked `[Experimental]` (unspecced
+upstream endpoints and the like; see [D-16](06-decisions.md#d-16-experimental-diagnostic-ids))
+may change in any release. Everything else follows the compatibility rules of the 0.9 line.
 
 ## Layers inside `ATProtoNet`
 
@@ -61,26 +61,28 @@ dependencies that only point down.
 ```mermaid
 flowchart BT
     subgraph L0["Layer 0 — foundation (no I/O)"]
-        SYN["ATProtoNet<br/>identifier types · Cid"]
-        DATA["ATProtoNet.Data · .Data.Car<br/>DRISL-CBOR · JSON data model · CAR"]
-        CRY["ATProtoNet.Crypto · .Crypto.Jose<br/>keys · signatures · did:key · JWS/JWK"]
+        SYN["ATProtoNet<br/>identifier types · Cid · SpaceUri"]
+        DATA["ATProtoNet.Data · .Data.Car · .Data.Star<br/>DRISL-CBOR · JSON data model · CAR · STAR"]
+        CRY["ATProtoNet.Crypto · .Crypto.Jose · .Crypto.HttpSignatures<br/>signing and key-agreement keys · did:key · BLAKE3<br/>JWS/JWK · HTTP message signatures"]
         REPO["ATProtoNet.Repo<br/>MST · commits · proofs"]
+        SPCD["ATProtoNet.Spaces<br/>LtHash · space repo state · commitments · token formats"]
         LEX["ATProtoNet.Lexicon<br/>schema model · validation · generated-code runtime"]
     end
     subgraph L1["Layer 1 — network foundations"]
         NET["ATProtoNet.Net<br/>untrusted fetch (SSRF policy)"]
-        IDN["ATProtoNet.Identity · .Identity.Plc<br/>DID documents · resolution · handles · PLC"]
+        IDN["ATProtoNet.Identity · .Identity.Plc<br/>DID documents (PDS and space host entries, keys)<br/>resolution · handles · PLC"]
     end
     subgraph L2["Layer 2 — client"]
         XRPC["ATProtoNet.Xrpc + AtProtoClient<br/>pipeline · errors · pagination"]
         AUTH["ATProtoNet.Auth · .OAuth · .ServiceAuth"]
         MISC["ATProtoNet.Labels · .Records · .Admin"]
-        GCORE["ATProtoNet.Lexicons.Com.AtProto.* (generated)"]
+        SPCA["ATProtoNet.Spaces.Access<br/>space credentials · signed requests · space client"]
+        GCORE["ATProtoNet.Lexicons.Com.AtProto.* (generated,<br/>incl. space and simplespace)"]
     end
     subgraph L3["Layer 3 — protocols and Lexicon families"]
         STR["ATProtoNet.Streaming.*<br/>firehose · Sync 1.1 · labels · Jetstream · Tap · PLC export"]
+        SPCS["ATProtoNet.Spaces.Sync<br/>space syncer · notifications · checkpoints"]
         GFAM["ATProtoNet.Lexicons.App.Bsky / Chat.Bsky /<br/>Tools.Ozone / Site.Standard (generated)<br/>+ ATProtoNet.Bluesky helpers"]
-        SPC["ATProtoNet.Spaces<br/>(experimental)"]
     end
     subgraph L4["Layer 4 — integration"]
         HOST["ATProtoNet.Hosting<br/>DI · client factory · stores · workers · health · Aspire client"]
@@ -99,17 +101,19 @@ flowchart BT
 2. **Dependencies point down.** A namespace may use its own layer's namespaces where the diagram
    allows and anything below, never above. Within layer 3, the Lexicon families depend on each
    other only along the Lexicon reference graph (`com.atproto` ← `app.bsky` ← `chat.bsky` ←
-   `tools.ozone`, and `com.atproto` ← `site.standard`), and `ATProtoNet.Spaces` is a leaf that
-   no stable namespace references. Architecture tests on namespaces (NetArchTest or a Roslyn
+   `tools.ozone`, and `com.atproto` ← `site.standard`). Architecture tests on namespaces (NetArchTest or a Roslyn
    check) enforce all of this. The root namespace mixes layer-0 vocabulary types with
    `AtProtoClient` (layer 2), so the tests classify its types explicitly.
 3. **No `InternalsVisibleTo` between production assemblies.** If `ATProtoNet.AspNetCore` needs
    something from `ATProtoNet`, it is public. Infrastructure that is public but not for app
    developers goes in an `*.Advanced` namespace with docs saying so.
-4. **Experimental surface is marked, not packaged.** Spaces and other moving surfaces carry
-   `[Experimental]`. Stable code outside the Spaces namespaces contains no Spaces knowledge
-   (0.8's transport signs Spaces requests, and its central in-memory-defaults warning knows Spaces
-   stores).
+4. **Both data protocols are built in, neither is bolted on.** Public repositories and Spaces
+   each have their pieces in the layer where they belong ([D-08](06-decisions.md#d-08-spaces-is-a-first-class-part-of-the-protocol)).
+   Shared mechanisms stay generic: the XRPC invoker signs nothing Spaces-specific (signed space
+   requests are an `IXrpcHandler`), and hosting knows Spaces only through Spaces' own feature
+   registration (0.8's transport signs Spaces requests, and its central in-memory-defaults
+   warning knows Spaces stores). Moving surfaces that upstream has not specified carry
+   `[Experimental]` instead of living in separate packages.
 5. **The generator has no runtime dependency on the SDK.** `ATProtoNet.Lexicon.CodeGen` targets
    `netstandard2.0` and compiles the schema-model sources of `ATProtoNet.Lexicon` as linked files:
    one source of truth, compiled twice. See
@@ -120,11 +124,11 @@ flowchart BT
 | Boundary | Reason |
 |---|---|
 | Layer 0 apart from everything | No I/O, highest reuse, slowest churn, easiest to test against interop vectors. |
-| Repo apart from the data model | Only sync, verification and Spaces need the MST and commits. Keeping them apart keeps the data model small and the MST rules in one place. |
+| Repo and Spaces data structures apart from the data model | Public repositories (MST, signed commits) and space repositories (LtHash state, commitments) are the two storage structures; the data model they share stays small, and each structure's rules live in one place. |
 | Lexicon apart from the client | The schema model is used by the generator, validation and tooling without an XRPC client. |
 | Net and Identity below the client | OAuth discovery, Lexicon resolution and repo fetchers fetch from attacker-chosen hosts just as identity resolution does. One hardened layer (0.8's misnamed `IdentityFetch`) serves them all. |
 | Lexicon families above the client core | The client core must not know about Bluesky. Families attach through extension properties ([D-13](06-decisions.md#d-13-lexicon-namespace-access-through-extension-properties)), the same mechanism users' own generated Lexicons use. |
-| Spaces as a leaf | Alpha protocol; see [D-08](06-decisions.md#d-08-spaces-is-experimental). |
+| Spaces across the layers | Spaces is AT Protocol's second data protocol and shares identity, Lexicon, auth and XRPC with public repositories. Its pieces sit beside their public counterparts in each layer, so neither protocol is an add-on to the other ([D-08](06-decisions.md#d-08-spaces-is-a-first-class-part-of-the-protocol)). |
 | Hosting on top | DI wiring composes everything below and nothing below depends on it, so every component works with `new` (AG-24). |
 
 ### Why not more packages
@@ -140,10 +144,11 @@ which removes what they do not touch.
 
 | Namespace | Contents |
 |---|---|
-| `ATProtoNet` | identifier vocabulary (`Did`, `Handle`, `AtIdentifier`, `Nsid`, `AtUri`, `RecordKey`, `Tid`, `AtDatetime`, `Cid`, `Language`), `AtProtoClient`, `AtProtoException` |
-| `ATProtoNet.Data`, `.Data.Car` | DRISL-CBOR reader/writer, JSON data model, `DataModelValue`, blobs, bytes, CID links, multiformats codecs, CAR reader/writer |
-| `ATProtoNet.Crypto`, `.Crypto.Jose` | signing and verification keys, signatures, `did:key`, `SignedObject`; JWS compact, JWK, thumbprints |
-| `ATProtoNet.Repo` | MST, commits, record proofs, snapshots, `IBlockStore` |
+| `ATProtoNet` | identifier vocabulary (`Did`, `Handle`, `AtIdentifier`, `Nsid`, `AtUri`, `SpaceUri`, `RecordKey`, `Tid`, `AtDatetime`, `Cid`, `Language`), `AtProtoClient`, `AtProtoException` |
+| `ATProtoNet.Data`, `.Data.Car`, `.Data.Star` | DRISL-CBOR reader/writer, JSON data model, `DataModelValue`, blobs, bytes, CID links, multiformats codecs, CAR reader/writer (public repositories), STAR reader/writer (space repositories) |
+| `ATProtoNet.Crypto`, `.Crypto.Jose`, `.Crypto.HttpSignatures` | signing and verification keys, key-agreement keys (for the Spaces commitment), signatures, `did:key`, BLAKE3, `SignedObject`; JWS compact, JWK, thumbprints; RFC 9421 HTTP message signatures with RFC 8941 structured fields |
+| `ATProtoNet.Repo` | public repositories: MST, commits, record proofs, snapshots, `IBlockStore` |
+| `ATProtoNet.Spaces` | space repositories: LtHash state, commitments and MACs, space token formats and their verification |
 | `ATProtoNet.Lexicon` (+ `.Validation`, `.Runtime`) | schema model, ref resolution, lint/diff rules, data validation, the types and attributes generated code uses |
 | `ATProtoNet.Net` | untrusted-fetch layer: SSRF policy, bounded fetch, DNS TXT |
 | `ATProtoNet.Identity`, `.Identity.Plc` | DID documents, DID/handle resolution and verification, caching, PLC client and operations |
@@ -154,9 +159,10 @@ which removes what they do not touch.
 | `ATProtoNet.Admin` | PDS administration |
 | `ATProtoNet.Streaming` (+ `.Firehose`, `.Jetstream`, `.Labels`, `.Tap`, `.Plc`, `.Advanced`) | event-stream runtime and the stream clients |
 | `ATProtoNet.Bluesky` | hand-written Bluesky helpers: rich text, posting, profile updates, video upload, chat moderation stream |
-| `ATProtoNet.Spaces` | permissioned data (experimental) |
+| `ATProtoNet.Spaces.Access` | space credentials (consuming and issuing), signed space requests, the space-scoped client (`client.Space(uri)`) |
+| `ATProtoNet.Spaces.Sync` | space syncer, write notifications, `listRepos` checkpoints |
 | `ATProtoNet.Hosting` | DI builder, client factory, file session store, distributed-cache OAuth state store, stream workers, health checks, PDS admin registration, telemetry wiring, Aspire client integration. Registration extension methods live in `Microsoft.Extensions.DependencyInjection` (and `Microsoft.Extensions.Hosting` for Aspire), per framework convention. |
-| `ATProtoNet.Lexicons.*` | generated code for every vendored Lexicon (`.Com.AtProto.*`, `.App.Bsky.*`, `.Chat.Bsky.*`, `.Tools.Ozone.*`, `.Site.Standard.*`; Spaces' `.Com.AtProto.Space.*`/`.SimpleSpace.*` experimental) |
+| `ATProtoNet.Lexicons.*` | generated code for every vendored Lexicon (`.Com.AtProto.*`, `.App.Bsky.*`, `.Chat.Bsky.*`, `.Tools.Ozone.*`, `.Site.Standard.*`, `.Com.AtProto.Space.*`, `.Com.AtProto.SimpleSpace.*`) |
 | `ATProtoNet.AspNetCore` (+ `.Xrpc`, `.Authentication`, `.OAuth`, `.Labels`, `.Tap`, `.Spaces`) | the ASP.NET Core package |
 | `ATProtoNet.EntityFrameworkCore` | the EF Core package |
 | `ATProtoNet.Blazor` | the Blazor package |
@@ -330,6 +336,24 @@ one definition of the method, including subscriptions (WebSocket event streams),
 cannot serve. See [specs/server.md](specs/server.md) and
 [specs/hosting.md](specs/hosting.md).
 
+### 7. Two data protocols: public repositories and spaces
+
+AT Protocol stores data in two ways that share identity, Lexicon, OAuth and XRPC. The SDK treats
+both as first-class and gives each piece of one a counterpart in the same layer as the other:
+
+| Concern | Public repositories | Spaces |
+|---|---|---|
+| Address | `AtUri` (`at://did/collection/rkey`) | `SpaceUri` (space and space-record forms; scheme per upstream GA, Q-15) |
+| Storage structure | MST, signed commits (`ATProtoNet.Repo`) | LtHash state, KEM-based commitments and MACs (`ATProtoNet.Spaces`) |
+| Export format | CAR (`ATProtoNet.Data.Car`) | STAR (`ATProtoNet.Data.Star`) |
+| Who may read | everyone | members, through space credentials signed with HTTP message signatures (`ATProtoNet.Spaces.Access`) |
+| Writing | `client.Records<T>()` | `client.Space(uri).Records<T>()` |
+| Sync | firehose, Sync 1.1, Jetstream, Tap (`ATProtoNet.Streaming`) | space syncer, sequenced write notifications, checkpoints (`ATProtoNet.Spaces.Sync`) |
+| Hosting | PDS (not implemented by the SDK) | space authority, repo host, `simplespace` roles (`ATProtoNet.AspNetCore`) |
+| Identity | `#atproto_pds`, `#atproto` signing key | space host service entry, key-agreement key (`ATProtoNet.Identity`) |
+
+See [specs/spaces.md](specs/spaces.md) for the Spaces protocol rules and their sources.
+
 ## Cross-cutting concerns
 
 ### Language and runtime
@@ -396,7 +420,7 @@ process-global registry ([D-10](06-decisions.md#d-10-serialization-systemtextjso
 | `ATProtoNet.Net`, `ATProtoNet.Identity` | `ATProtoNet.Identity` | 1000–1999 |
 | `ATProtoNet.Xrpc`, `ATProtoNet.Auth`, `ATProtoNet.Admin` | `ATProtoNet.Xrpc`, `ATProtoNet.Auth` | 2000–2999 |
 | `ATProtoNet.Streaming` | `ATProtoNet.Streaming` | 3000–3999 |
-| `ATProtoNet.Spaces` (+ Spaces server) | `ATProtoNet.Spaces` | 4000–4999 |
+| `ATProtoNet.Spaces.*` (+ Spaces server roles) | `ATProtoNet.Spaces` | 4000–4999 |
 | `ATProtoNet.Hosting`, `ATProtoNet.AspNetCore` | `ATProtoNet.AspNetCore` | 5000–5999 |
 | `ATProtoNet.EntityFrameworkCore` | none | 6000–6999 |
 
@@ -417,14 +441,14 @@ with zero warnings.
 
 ```
 /
-├── lexicons/                     vendored Lexicon JSON (com/, app/, chat/, tools/, site/, Spaces proposal)
+├── lexicons/                     vendored Lexicon JSON (com/, app/, chat/, tools/, site/; Spaces from the proposal until GA)
 ├── lexicons.json                 manifest: NSID → source, CID, upstream commit
 ├── src/
 │   ├── ATProtoNet/
-│   │   ├── Data/ Crypto/ Repo/ Lexicon/            layer 0
+│   │   ├── Data/ Crypto/ Repo/ Spaces/ Lexicon/    layer 0 (Spaces/ = space data structures)
 │   │   ├── Net/ Identity/                          layer 1
-│   │   ├── Xrpc/ Auth/ Labels/ Records/ Admin/     layer 2
-│   │   ├── Streaming/ Bluesky/ Spaces/             layer 3
+│   │   ├── Xrpc/ Auth/ Labels/ Records/ Admin/     layer 2 (+ Spaces/Access/)
+│   │   ├── Streaming/ Bluesky/                     layer 3 (+ Spaces/Sync/)
 │   │   ├── Hosting/                                layer 4
 │   │   └── Generated/                              checked-in generated Lexicon code, one folder per NSID authority
 │   ├── ATProtoNet.AspNetCore/

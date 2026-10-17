@@ -1,11 +1,12 @@
 # Identifier syntax — spec
 
-**Status:** Draft · **Package:** `ATProtoNet` (namespace `ATProtoNet`, foundation layer) · **Phase:** 1
+**Status:** Draft · **Package:** `ATProtoNet` (namespace `ATProtoNet`, foundation layer) · **Phase:** 1 (space addresses included)
 
 **Normative references:** [DID](https://atproto.com/specs/did) ·
 [Handle](https://atproto.com/specs/handle) · [NSID](https://atproto.com/specs/nsid) ·
 [Record Key](https://atproto.com/specs/record-key) · [TID](https://atproto.com/specs/tid) ·
 [AT URI](https://atproto.com/specs/at-uri-scheme) ·
+[Atproto Spaces (proposal 0016)](spaces.md) (space addresses) ·
 [Lexicon string formats](https://atproto.com/specs/lexicon#string-formats) (incl. `datetime`,
 `uri`, `language`) · [Data Model: CID formats](https://atproto.com/specs/data-model#link-and-cid-formats) ·
 [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339) · [RFC 5646 (BCP 47)](https://www.rfc-editor.org/rfc/rfc5646) ·
@@ -14,7 +15,8 @@
 ## Scope
 
 **In:** the vocabulary types `Did`, `Handle`, `AtIdentifier`, `Nsid`, `RecordKey`, `Tid`,
-`TidGenerator`, `AtUri`, `AtDatetime`, `Language`; the string syntax of `Cid`; the generic
+`TidGenerator`, `AtUri`, `SpaceUri` (addresses of spaces and of records in spaces), `AtDatetime`,
+`Language`; the string syntax of `Cid`; the generic
 Lexicon `uri` format check; the System.Text.Json converters for all of them; the public
 `IAtIdentifier<TSelf>` constraint.
 
@@ -99,6 +101,26 @@ public sealed class AtUri : IAtIdentifier<AtUri>
     public Nsid? Collection { get; }
     public RecordKey? RecordKey { get; }
     public static AtUri Create(AtIdentifier authority, Nsid? collection = null, RecordKey? recordKey = null);
+}
+
+// A space, or a record in a space (SYN-74…SYN-80). Parsed by the same scanner as AtUri.
+public sealed class SpaceUri : IAtIdentifier<SpaceUri>
+{
+    public Did Authority { get; }                       // the space authority (never a handle)
+    public Nsid SpaceType { get; }
+    public RecordKey SpaceKey { get; }
+    public Did? Author { get; }                         // null for a space reference
+    public Nsid? Collection { get; }
+    public RecordKey? RecordKey { get; }
+    public bool IsRecord { get; }
+    public SpaceUri Space { get; }                      // the space part of a record address
+    public static SpaceUri ForSpace(Did authority, Nsid spaceType, RecordKey spaceKey);
+    public SpaceUri ForRecord(Did author, Nsid collection, RecordKey recordKey);
+}
+
+public static class AtProtoUri                          // one entry point for both address kinds
+{
+    public static bool TryParse(ReadOnlySpan<char> value, out AtUri? publicUri, out SpaceUri? spaceUri);
 }
 
 public sealed class AtDatetime : IAtIdentifier<AtDatetime>, IComparable<AtDatetime>
@@ -308,6 +330,52 @@ public static class UriFormat
   may compute a part twice, to equal values).
   *Source:* 0.8 `AtUri.cs:25-29`
 
+### Space addresses
+
+Spaces are part of the protocol's core vocabulary: a space and every record in it have an
+address, and Lexicons refer to them with the `space-ref` format (mapped to `SpaceUri`,
+[lexicon.md](lexicon.md)).
+
+- **SYN-74** (MUST) A `SpaceUri` addresses either a space,
+  `at://{authority}/space/{spaceType}/{spaceKey}`, or a record in a space,
+  `at://{authority}/space/{spaceType}/{spaceKey}/{author}/{collection}/{rkey}`, where authority and
+  author are DIDs (never handles), spaceType and collection are NSIDs, and spaceKey and rkey are
+  record keys. The literal segment `space` cannot be an NSID (an NSID has at least two dots), so
+  space addresses never collide with public AT URIs.
+  *Source:* proposal 0016 (at the pin in [spaces.md](spaces.md)) · forum thread "Bringing back
+  at://" (2026-07) · 0.8 `Spaces/SpaceUri.cs` · tests
+  `SpaceUriTests.Parse_SpaceRef_SplitsItsThreeComponents`, `Parse_RecordUri_SplitsAllSixComponents`,
+  `TryParse_RejectsAHandleAuthority`
+- **SYN-75** (MUST) One scanner parses both kinds of address. `AtUri.Parse` rejects space
+  addresses with a `FormatException` naming `SpaceUri`, `SpaceUri.Parse` rejects public AT URIs,
+  and `AtProtoUri.TryParse` classifies any at-URI as one or the other without a second scan.
+  The scheme, the marker segment and the segment layout are constants in exactly one place, so an
+  upstream change to the space address syntax (SYN-80) is a change in one file.
+  *Source:* **Decision** (0.8 parses them in two unrelated types) · tests
+  `SpaceUriTests.Parse_RecordUri_IsRejectedAsASpaceRef`, `IsSpaceUri_DistinguishesPermissionedFromPublic`
+- **SYN-76** (MUST) Space addresses follow the AT URI restrictions of SYN-36 (no query, fragment,
+  trailing slash, empty segment, whitespace or line break) and the same maximum length.
+  *Source:* 0.8 `Spaces/SpaceUri.cs` · tests `SpaceUriTests.TryParse_InvalidSpaceRef_ReturnsFalse`,
+  `TryParse_InvalidRecordUri_ReturnsFalse`, `TryParse_RejectsASpaceKeyOverTheLengthLimit`
+- **SYN-77** (MUST) `Value` keeps the text exactly as given; equality is ordinal on `Value`.
+  `Space` of a record address equals the `SpaceUri` that `ForSpace` builds from the same parts, and
+  `ForRecord` builds the address `Parse` would read back.
+  *Source:* 0.8 `Spaces/SpaceUri.cs` · tests `SpaceUriTests.Record_BuildsTheSameUriAsParsingOne`,
+  `Create_RoundTripsThroughParse`, `Equality_IsByValue`
+- **SYN-78** (MUST) The JSON converter (SYN-70) treats `SpaceUri` like every other identifier:
+  invalid text fails deserialization with the JSON path.
+  *Source:* 0.8 `IdentifierJsonConverter<SpaceUri>`
+- **SYN-79** (SHOULD) Code that accepts "any atproto address" (for example a generic `at-uri`
+  field that may point into a space once upstream settles SYN-80) uses `AtProtoUri.TryParse`, not
+  string inspection.
+  *Source:* **Decision**
+- **SYN-80** (MUST) The space address syntax is pinned to the proposal revision recorded in
+  [spaces.md](spaces.md). Upstream is still debating the scheme (`at://…/space/…` versus a
+  distinct scheme such as `ats://`) and whether to drop the `//`; a change is absorbed by the
+  single implementation point of SYN-75 and its vectors, before 0.9.0 if the GA specification
+  settles it.
+  *Source:* forum "Post-alpha plans" (URI scheme, 2026-10-08: "still furiously debating")
+
 ### Generic URI format
 
 - **SYN-40** (MUST) `UriFormat.IsValid` accepts what the Lexicon `uri` format allows: an RFC 3986
@@ -426,6 +494,7 @@ public static class UriFormat
 | `TidGenerator.MaxClockId` | 1,023 | SYN-32 |
 | `TidGenerator.MaxTimestamp` | 2⁵³ − 1 µs | SYN-33 |
 | `AtUri.MaxLength` | 8,192 | SYN-36 |
+| `SpaceUri.MaxLength` | 8,192 | SYN-76 |
 | `UriFormat.MaxLength` | 8,192 | SYN-40 |
 | `AtDatetime.MaxLength` | 64 | SYN-41 |
 | `AtDatetime.MaxFractionDigits` | 20 | SYN-41 |
@@ -444,6 +513,7 @@ public static class UriFormat
 | Clock identifier outside 0–1023 | `ArgumentOutOfRangeException` |
 | TID timestamp past 53 bits | `InvalidOperationException` |
 | `AtUri.Create` with a record key but no collection | `ArgumentException` |
+| Space address passed to `AtUri.Parse`, or public AT URI to `SpaceUri.Parse` | `FormatException` naming the other type |
 
 ## Conformance and tests
 
@@ -453,13 +523,16 @@ all 24 files of `syntax/` from atproto-interop-tests `056e5741` (CC0), each asse
 
 - the reference-regex oracle with seeded mutations (SYN-8);
 - line-break cases for every type (SYN-2);
-- the TID spec example (SYN-34).
+- the TID spec example (SYN-34);
+- space address vectors (space and record forms, collisions with public AT URIs, handle
+  authorities refused), extracted from 0.8 `SpaceUriTests` and re-checked against the pinned
+  proposal.
 
 **0.8 test classes whose scenarios are ported:** `SyntaxInteropTests`, `IdentifierSyntaxTests`,
 `IdentifierLineBreakTests`, `IdentifierContractTests` (minus the explicit-cast scenarios),
 `DidTests`, `HandleTests`, `AtIdentifierTests`, `NsidTests`, `RecordKeyTests`, `TidTests`,
-`TidGeneratorTests`, `AtUriTests`, `AtDatetimeTests`, `CidTests` (string scenarios),
-`IdentitySerializationTests`.
+`TidGeneratorTests`, `AtUriTests`, `SpaceUriTests`, `AtDatetimeTests`, `CidTests` (string
+scenarios), `IdentitySerializationTests`.
 
 ## Changes from 0.8
 
@@ -472,6 +545,7 @@ all 24 files of `syntax/` from atproto-interop-tests `056e5741` (CC0), each asse
 | `RecordKey.NewTid()` and `Tid.NextString()` removed. | Duplicates of `RecordKey.From(Tid.Next())` and `Tid.Next().Value`. |
 | `IAtIdentifier<TSelf>` public; `TidGenerator.Default` public. | Generic code and explicit generator use need them; both were internal. |
 | `Language` type and `UriFormat` added; their vectors asserted. | 0.8 vendored `language_*` and `uri_*` vectors without asserting them. |
+| `SpaceUri` moves to the root namespace and shares one scanner with `AtUri` (`AtProtoUri.TryParse` classifies an address). | Spaces are core protocol vocabulary; 0.8 kept `SpaceUri` in `ATProtoNet.Spaces` with its own parser and the internal `IIdentifier`. |
 
 ## Open points
 
@@ -488,3 +562,9 @@ all 24 files of `syntax/` from atproto-interop-tests `056e5741` (CC0), each asse
    in Lexicon validation. Decide in [lexicon.md](lexicon.md).
 4. **`Tid` as a struct.** AG-8 allows it because `default` is valid. *Proposed default:* struct;
    revisit only if the generic `IAtIdentifier<TSelf>` code paths box it heavily.
+5. **Space address scheme.** Upstream has not settled `at://{authority}/space/…` versus a
+   separate scheme (`ats://`), nor whether space URIs may later address blobs or record versions.
+   *Proposed default:* implement the pinned form (SYN-74) behind the single implementation point
+   (SYN-75) and follow the GA specification; keep `SpaceUri` a distinct type even if the scheme
+   becomes `at://`, because public and space addresses resolve differently and must not be
+   confused in APIs.
