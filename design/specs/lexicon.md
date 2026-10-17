@@ -423,8 +423,10 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   `foo` → nested type `FooObject`; inline `knownValues`/`enum` on property `foo` → nested struct
   `FooValue`; a union at property `foo` → a namespace-level union type `{OwnerPath}{Foo}`, where
   `OwnerPath` concatenates the enclosing generated type names while omitting `Parameters`,
-  `Input`, `Output` and `Message` (`Post.embed` → `PostEmbed`, `GetPostThread.Output.thread` →
-  `GetPostThreadThread`); array items use the array property's name; a subscription's `message`
+  `Input`, `Output` and `Message` and dropping a method name's leading verb (`Get`, `List`,
+  `Search`, `Query`, `Create`, `Put`, `Update`, `Delete`, `Describe`), and a word repeated across
+  the join is written once (`Post.embed` → `PostEmbed`, `GetPostThread.Output.thread` →
+  `PostThread`, not `GetPostThreadThread`); array items use the array property's name; a subscription's `message`
   union is `{Method}Message` (`SubscribeReposMessage`). Open unions share the `LexiconUnknown`
   case (LEX-50); no per-union unknown type exists. Token defs of a document become
   `public const string` members of a static class `{MainName}Tokens` (`Tokens` for a `defs`
@@ -453,6 +455,25 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   *Source:* [D-05](../06-decisions.md#d-05-lexicon-generated-type-naming) ·
   [.NET namespace naming](https://learn.microsoft.com/dotnet/standard/design-guidelines/names-of-namespaces) ·
   Lexicon survey
+- **LEX-89** (MUST) **Namespaces are mechanical, type names are friendly** (Q-8, maintainer
+  2026-10-17). Every generated type name reads like a hand-written .NET type name: a PascalCase
+  noun phrase (static classes for methods keep their verb, `GetTimeline`), at most 40 characters,
+  with no protocol plumbing words (`Main`, `Defs`, `Def`), no word repeated back to back
+  (`ThreadThread`), no stacked generated suffixes (`FooObjectValue`) and no leading digit or
+  underscore. The generator checks every name it emits against these rules and reports a
+  violation as a warning naming the definition and suggesting a `renames` entry; first-party
+  generation runs with zero warnings, so every violation is fixed before code is checked in.
+  *Source:* Decision (Q-8) · 0.8's hand-written names (`FeedViewPost`, `PostView`) as the bar
+- **LEX-90** (MUST) The generator writes a **type-name inventory** next to the generated code
+  (`Generated/TypeNames.txt`: one sorted line per definition, `nsid#def → Namespace.TypeName`).
+  It is checked in, so every naming change from a Lexicon sync, a rule change or a rename shows
+  up as a reviewable diff, alongside the public API baseline.
+  *Source:* Decision (Q-8)
+- **LEX-91** (MUST) First-party naming exceptions live in the first-party `lexgen.json`
+  `renames` table, each entry with a one-line reason. The table is reviewed with the inventory in
+  phase 3 and stays short: a rename is for a name that breaks LEX-89 or collides (LEX-37), not for
+  taste. Users' configurations use the same mechanism.
+  *Source:* Decision (Q-8)
 
 ### Generated output
 

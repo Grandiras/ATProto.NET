@@ -7,8 +7,10 @@ Architecture decision records for the rewrite. Each has a status:
 - **Open**: needs input before the phase that depends on it starts.
 
 Records are **Proposed** unless marked otherwise. The maintainer's first review (2026-10-17)
-accepted D-02 (version 0.9) and D-03 (few packages) in revised form. Open questions are collected
-at the end.
+accepted D-02 (version 0.9) and D-03 (few packages) in revised form, and D-08 and D-24 (Spaces).
+The second review (2026-10-17) answered every open question: Q-1, Q-6 and Q-8 explicitly, the
+rest by accepting the defaults. The records those answers settle (D-04, D-05, D-09, D-11, D-17,
+D-25) are Accepted. The [questions](#open-questions) stay listed at the end with their outcomes.
 
 ---
 
@@ -53,7 +55,6 @@ proven in use before it carries a 1.0 promise.
 | `ATProtoNet` | Everything that does not need ASP.NET Core, EF Core or Aspire: identifiers, data model, crypto, repo, Lexicon schema model and validation, identity, the XRPC client, sessions, OAuth, service auth, labels, records API, PDS admin, **all generated Lexicons** (`com.atproto`, `app.bsky`, `chat.bsky`, `tools.ozone`, `site.standard`) with the Bluesky helpers, streaming (firehose, Sync 1.1, Jetstream, Tap, labels, PLC export), Spaces (both data protocols are first class, D-08), the DI/hosting integration (builder, client factory, file session store, stream workers, health checks, Aspire client), and the bundled Lexicon source generator. |
 | `ATProtoNet.AspNetCore` | Replaces `ATProtoNet.Server`: XRPC server endpoints, service-auth scheme, OAuth web login, labeler endpoints, Tap webhook, Spaces server roles (space authority, repo host, simplespace, notifications). |
 | `ATProtoNet.EntityFrameworkCore` | EF Core store implementations, including the Spaces stores. |
-| `ATProtoNet.Blazor` | Per-circuit user client accessor and an unstyled login form (D-09). |
 | `ATProtoNet.Aspire.Hosting` | PDS container resources for an Aspire AppHost. |
 | `atproto-lexgen` (tool) | CLI: generate, install, update, lint, diff, publish, resolve. |
 
@@ -63,9 +64,10 @@ package boundaries.
 
 **Rationale.** For consumers, many packages are tedious and confusing: which do I need, which
 versions go together, where did a type move? A base package plus extensions for the frameworks
-that bring heavy dependencies (ASP.NET Core, EF Core, Aspire, Blazor) is easy to explain and to
-install. 0.8's own history (EF stores merged into Server, then split out again; an Aspire package
-merged in) shows the cost of drawing package lines in the wrong place. The internal discipline the
+that bring heavy dependencies (ASP.NET Core, EF Core, Aspire) is easy to explain and to
+install. There is no Blazor package (D-09). 0.8's own history (EF stores merged into Server,
+then split out again; an Aspire package merged in) shows the cost of drawing package lines in the
+wrong place. The internal discipline the
 split was meant to provide comes from namespace layers and architecture tests instead. Size
 concerns are handled by trimming.
 
@@ -78,6 +80,8 @@ framework. Generated code must be fully trimmable.
 Spaces packages: cleaner on paper, worse for every consumer.
 
 ## D-04 Generate the Lexicon surface from vendored Lexicon JSON
+
+**Status: Accepted** (maintainer, 2026-10-17; Q-4: check in the generated code).
 
 **Context.** About 21k lines of hand-written Lexicon models and clients restate the upstream
 schemas. A drift test compares them against vendored JSON in the test project. Every upstream
@@ -108,6 +112,9 @@ specifies that output. The drift test disappears: generated code cannot drift.
 
 ## D-05 Lexicon generated-type naming
 
+**Status: Accepted** (maintainer, 2026-10-17; Q-8): namespaces are mechanical, as long as the
+types themselves have friendly names.
+
 **Decision.** Namespace `{root}.{NSID authority and name segments, PascalCase}` minus the last
 segment. Root `ATProtoNet.Lexicons` for first-party code (for example `app.bsky.feed.post` →
 `ATProtoNet.Lexicons.App.Bsky.Feed.Post`). The main definition takes the PascalCased last segment.
@@ -117,10 +124,24 @@ procedures become a static class named after the method, with nested `Parameters
 `Output` types (`GetTimeline.Parameters`). Collisions are a generator error, resolved by an
 explicit rename in the manifest, never silently.
 
+**Type names are friendly** ([LEX-89–91](specs/lexicon.md#naming)). Mechanical namespaces are
+fine because users write them once per file in a `using`; type names appear on every line, so
+they must read like hand-written code. The generator enforces a naming rule set (PascalCase noun
+phrases, no `Main`/`Defs`/`Def`, no repeated words, no stacked suffixes, a length limit), names
+union types without the method's leading verb (`GetPostThread.Output.thread` → `PostThread`),
+warns on a name that breaks a rule and suggests a rename, and first-party generation runs with
+zero warnings. A checked-in type-name inventory (`Generated/TypeNames.txt`) shows every
+generated name and makes renames visible in review. The first-party rename table in
+`lexgen.json` is short, each entry carries a reason, and it is reviewed in phase 3 against 0.8's
+hand-written names (`FeedViewPost`, `PostView`, `ThreadViewPost`) as the bar.
+
 **Rejected.** *Mirroring NSIDs without a prefix* (`App.Bsky.Feed`): `App` collides with the
 application class in WPF, MAUI and WinForms projects. *Keeping today's `ATProtoNet.Lexicon.*`*:
 `ATProtoNet.Lexicon` becomes the schema-model namespace, and the singular/plural split
-(`Lexicon` = the language, `Lexicons` = the definitions) is deliberate.
+(`Lexicon` = the language, `Lexicons` = the definitions) is deliberate. *A friendly namespace map*
+(`ATProtoNet.Bluesky.Feed`, Q-8): one more table to maintain for every upstream family, a
+namespace that no longer tells you the NSID, and users' Lexicons would follow different rules
+than the SDK's.
 
 ## D-06 A session is the authenticated transport
 
@@ -211,15 +232,22 @@ and `ComposePost` (223 lines total). The feed and post widgets encode product de
 styling, which embeds render) that apps replace in practice. The login itself is the server
 package's.
 
-**Decision (proposed).** Keep a minimal `ATProtoNet.Blazor`: the per-circuit
-`AtProtoUserClientAccessor` (getting client lifetimes right in Blazor Server is genuinely
-fiddly: same user → same client, sign-out or user change → dispose, re-check the store) and an
-unstyled, localizable `LoginForm` that reads the login route from options. Move `FeedView`,
-`PostCard`, `ProfileCard` and `ComposePost` into `samples/ServerIntegrationSample` as copyable
-code. They are Bluesky product UI, hard-code English strings and Bootstrap classes, and shipped
-broken until 0.7.
+**Status: Accepted** (maintainer, 2026-10-17; Q-1).
 
-**Status: Open.** The alternative is dropping the package entirely. See Q-1.
+**Decision.** There is no Blazor package in 0.9. `samples/ServerIntegrationSample` carries all of
+it as copyable code: the per-circuit user client accessor (same user → same client, sign-out or
+user change → dispose, re-check the store), an unstyled login form that posts to the
+`ATProtoNet.AspNetCore` login endpoint, and the `FeedView`, `PostCard`, `ProfileCard` and
+`ComposePost` widgets. The sample builds with the solution in CI, so the code people copy keeps
+compiling against the API. [specs/hosting.md](specs/hosting.md#blazor) describes it.
+
+**Rationale.** The widgets are Bluesky product UI that hard-code English strings and Bootstrap
+classes, and they shipped broken until 0.7. What remains (an accessor and a form) is too small
+to justify a package with its own version, baseline and support promise, and apps adapt it
+anyway. Everything the sample needs is public API of `ATProtoNet` and `ATProtoNet.AspNetCore`.
+
+**Rejected.** *A minimal package with the accessor and the login form* (the first draft's
+proposal).
 
 ## D-10 Serialization: System.Text.Json with source generation, generated union converters
 
@@ -254,10 +282,10 @@ firehose hot path.
 **Decision.** Identifier types have `Parse`/`TryParse` and an implicit conversion *to* `string`,
 never *from* it. See [AG-8](03-api-guidelines.md#types).
 
+**Status: Accepted** (maintainer, 2026-10-17; Q-3: explicit `Parse` only).
+
 **Rationale.** An implicit conversion that throws hides validation at call sites. The verbosity
 cost is small and helpers accept the typed identifier.
-
-**Status: Open** if the maintainer prefers literal ergonomics (`client.GetProfileAsync("alice.bsky.social")`). See Q-3.
 
 ## D-12 Generated XRPC methods take one parameters record
 
@@ -317,10 +345,19 @@ removed.
 
 ## D-17 Repository and branch workflow for the rewrite
 
+**Status: Accepted** (maintainer, 2026-10-17; Q-6: no GitHub mirror).
+
 **Decision.** The `next` branch holds the new tree. Each phase lands as one or more PRs into
 `next`, each tied to a tracker issue and following the existing issue workflow (CHANGELOG
 excepted: `next` keeps its own `CHANGELOG.md` that starts at 0.9.0). `main` merges into `next`
 only for vendored-Lexicon or spec-relevant fixes. When phase 11 passes, `next` replaces `main`.
+
+**One forge.** Forgejo (`git.grandiras.net`) is the only forge: the tracker, CI and releases. The
+GitHub mirror and its issue, comment and PR sync are dropped (Q-6), so `next` has no
+`.github/workflows/` and no `sync-to-github.yml`, and `CONTRIBUTING.md` points at Forgejo only.
+The issue-workflow skill moves from `.github/skills/` to `.claude/skills/`. A future mirror to
+Tangled is out of scope for this design; when it comes, it is repository configuration, not a
+build concern, since CI never depends on a mirror.
 
 ## D-18 Lexicon unions are C# 15 union types
 
@@ -453,7 +490,7 @@ machinery beyond generating its Lexicons once they are published.
 
 ## D-25 Target .NET 11 and C# 15
 
-**Status: Proposed** (raised by the maintainer, 2026-10-17).
+**Status: Accepted** (raised by the maintainer, 2026-10-17; Q-14: `net11.0` only).
 
 **Context.** .NET 11 and C# 15 ship in November 2026, before the rewrite's first preview. .NET 11
 is a standard-term release supported for 24 months, until November 2028, the same end date as
@@ -481,7 +518,7 @@ the third-party zstd dependency.
 
 **Risks.** C# 15 union details could still shift before GA. Phases 0–2 do not depend on them; the
 union shape is fixed in phase 3 against the released compiler, and since it is generated, a change
-is a regeneration. See Q-14.
+is a regeneration.
 
 ---
 
@@ -489,20 +526,24 @@ is a regeneration. See Q-14.
 
 <a id="open-questions"></a>
 
-| # | Question | Default if unanswered | Blocks |
+All questions are resolved (maintainer, 2026-10-17). Q-1, Q-6 and Q-8 were answered explicitly;
+the others took the default this design proposed. A new question gets the next free number
+(Q-16 onward).
+
+| # | Question | Outcome | Phase |
 |---|---|---|---|
-| Q-1 | Keep a minimal Blazor package (accessor + login form) in 0.9, or drop it (D-09)? | Keep it minimal; widgets become sample code. | Phase 9 |
-| Q-2 | Keep `PdsAdminClient` and `ATProtoNet.Aspire.Hosting` in scope? The non-goals exclude implementing a PDS, but administering and orchestrating one is in scope today. | Keep both. | Phase 11 |
-| Q-3 | Accept explicit `Parse` for identifiers (D-11), or allow implicit conversion from `string` for ergonomics? | Explicit only. | Phase 1 |
-| Q-4 | Check in generated first-party Lexicon code (D-04) or generate at build time? | Check in. | Phase 3 |
-| Q-5 | ~~Is `ATProtoNet.Ozone` worth keeping as a package?~~ **Resolved by D-03** (maintainer, 2026-10-17): `tools.ozone` is generated into `ATProtoNet` like every other first-party family. | — | — |
-| Q-6 | Should the GitHub mirror and issue sync stay as they are during the rewrite? | Yes, unchanged. | none |
-| Q-7 | Minimum PDS versions to test against in CI (official `bluesky-social/pds` and Tranquil)? | Latest official release plus the pinned CI version. | Phase 5 |
-| Q-8 | First-party generated namespaces: mechanical `ATProtoNet.Lexicons.App.Bsky.Feed` (D-05) or friendly `ATProtoNet.Bluesky.Feed` via a namespace map? | Mechanical. | Phase 3 |
-| Q-9 | Keep the development-only loopback cookie relay of the OAuth login (about 150 lines in 0.8)? | Drop it; document running the login on `127.0.0.1` with a loopback client ID instead. | Phase 9 |
-| Q-10 | Keep `atproto-lexgen lexicon` (C# → Lexicon JSON by reflection)? | Drop it; Lexicon JSON is the source of truth, C# is generated from it. | Phase 3 |
-| Q-11 | ~~How much of Spaces to port?~~ **Resolved** (maintainer, 2026-10-17): all of it, as a first-class part of the protocol (D-08, D-24). | — | — |
-| Q-15 | Space address syntax: upstream is still debating `at://{spaceDid}/space/…` against a separate `ats://` scheme. | Follow upstream's GA choice; the syntax layer keeps the scheme in one place, so either is a contained change. | Phase 1 |
-| Q-12 | Keep the Jetstream v1 wire protocol, or v2 only (keeping the v1 timestamp-cursor migration)? | Keep v1 as a second codec; public instances still serve it. | Phase 7 |
-| Q-13 | Name the ASP.NET Core package `ATProtoNet.AspNetCore` (D-03), or keep 0.8's `ATProtoNet.Server`? | `ATProtoNet.AspNetCore`: "Server" reads like a PDS, and the package changes shape anyway. | Phase 9 |
-| Q-14 | Target `net11.0` only (D-25), or also `net10.0` for apps staying on the LTS release? | `net11.0` only; .NET 10 and .NET 11 support both end in November 2028. | Phase 0 |
+| Q-1 | Keep a minimal Blazor package (accessor + login form) in 0.9, or drop it (D-09)? | **Dropped.** The accessor, login form and widgets are sample code in `samples/ServerIntegrationSample` (D-09). | 9 |
+| Q-2 | Keep `PdsAdminClient` and `ATProtoNet.Aspire.Hosting` in scope? The non-goals exclude implementing a PDS, but administering and orchestrating one is in scope today. | Keep both (default). | 11 |
+| Q-3 | Accept explicit `Parse` for identifiers (D-11), or allow implicit conversion from `string` for ergonomics? | Explicit only (default, D-11). | 1 |
+| Q-4 | Check in generated first-party Lexicon code (D-04) or generate at build time? | Check in (default, D-04). | 3 |
+| Q-5 | ~~Is `ATProtoNet.Ozone` worth keeping as a package?~~ | **Resolved by D-03** (first review): `tools.ozone` is generated into `ATProtoNet` like every other first-party family. | — |
+| Q-6 | Should the GitHub mirror and issue sync stay as they are during the rewrite? | **Dropped altogether.** Forgejo is the only forge; a mirror to Tangled may follow later and is out of scope (D-17). | 0 |
+| Q-7 | Minimum PDS versions to test against in CI (official `bluesky-social/pds` and Tranquil)? | Latest official release plus the pinned CI version (default). | 5 |
+| Q-8 | First-party generated namespaces: mechanical `ATProtoNet.Lexicons.App.Bsky.Feed` (D-05) or friendly `ATProtoNet.Bluesky.Feed` via a namespace map? | **Mechanical namespaces, friendly type names.** The generator enforces naming rules, writes a type-name inventory and takes a short, reviewed rename table (D-05, [LEX-89–91](specs/lexicon.md#naming)). | 3 |
+| Q-9 | Keep the development-only loopback cookie relay of the OAuth login (about 150 lines in 0.8)? | Drop it; document running the login on `127.0.0.1` with a loopback client ID instead (default, [SRV-56](specs/server.md)). | 9 |
+| Q-10 | Keep `atproto-lexgen lexicon` (C# → Lexicon JSON by reflection)? | Drop it; Lexicon JSON is the source of truth, C# is generated from it (default, [tooling](specs/tooling.md)). | 3 |
+| Q-11 | ~~How much of Spaces to port?~~ | **Resolved** (first review): all of it, as a first-class part of the protocol (D-08, D-24). | — |
+| Q-12 | Keep the Jetstream v1 wire protocol, or v2 only (keeping the v1 timestamp-cursor migration)? | Keep v1 as a second codec; public instances still serve it (default). | 7 |
+| Q-13 | Name the ASP.NET Core package `ATProtoNet.AspNetCore` (D-03), or keep 0.8's `ATProtoNet.Server`? | `ATProtoNet.AspNetCore`: "Server" reads like a PDS, and the package changes shape anyway (default). | 9 |
+| Q-14 | Target `net11.0` only (D-25), or also `net10.0` for apps staying on the LTS release? | `net11.0` only; .NET 10 and .NET 11 support both end in November 2028 (default, D-25). | 0 |
+| Q-15 | Space address syntax: upstream is still debating `at://{spaceDid}/space/…` against a separate `ats://` scheme. | Follow upstream's GA choice; the syntax layer keeps the scheme in one place, so either is a contained change (default). Re-checked at the phase 0 Spaces pin. | 1 |

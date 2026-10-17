@@ -594,7 +594,7 @@ of `FirehoseStream`, also usable on its own.
     `network.bsky.jetstream.subscribeEvents`; commit fields are flat; filters `collections`,
     `dids`, `kinds`; cursor `seq`.
   *Source:* Jetstream v1 README · v2 Lexicons · 0.8 `JetstreamConsumer.cs:50-53`,
-  `JetstreamEventParser.cs:21` · **Decision** Q-12 default (keep v1)
+  `JetstreamEventParser.cs:21` · **Decision** Q-12 (keep v1)
 - **STR-65** (MUST) On v1, a reconnect resumes at the last `time_us` minus
   `ReconnectRewind` (5 s) and drops events whose `time_us` is not after the last delivered one.
   *Source:* 0.8 `JetstreamModels.cs:124`

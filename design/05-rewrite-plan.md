@@ -89,10 +89,11 @@ for planning only.
 - `/lexicons` vendored from upstream (moved from `tests/…/Upstream`, plus the Spaces Lexicons,
   from the proposal until GA publishes them) and `lexicons.json` pinned. Until phase 3's `install` command exists, a script does
   the vendoring.
-- CI on both forges through one `build.sh`, with the jobs from
-  [04 — Testing](04-testing.md#ci-shape), most of them no-ops until code exists.
-- `CLAUDE.md`, `CONTRIBUTING.md` and the issue-workflow skill on `next`, updated for the new
-  tree. One source for the CHANGELOG rules; the others link to it.
+- CI on Forgejo through one `build.sh`, with the jobs from
+  [04 — Testing](04-testing.md#ci-shape), most of them no-ops until code exists. No GitHub
+  mirror workflows on `next` ([D-17](06-decisions.md#d-17-repository-and-branch-workflow-for-the-rewrite)).
+- `CLAUDE.md`, `CONTRIBUTING.md` and the issue-workflow skill (moved to `.claude/skills/`) on
+  `next`, updated for the new tree and for Forgejo as the only forge. One source for the CHANGELOG rules; the others link to it.
 - **Spaces pin:** the Spaces proposal and draft-spec revision and the reference implementation
   commit that [specs/spaces.md](specs/spaces.md) targets, recorded in the spec. When the GA
   specification is published, the spec is re-validated against it and the pin moves; GA
@@ -137,8 +138,10 @@ MSBuild-task fallback. **~6k lines.**
 
 **Gate.** The emitter generates **all** vendored Lexicons and the output compiles with zero
 diagnostics on the released (GA) C# 15 compiler, including the `union` types and their
-converters. Golden-output tests for the representative cases are reviewed and committed. The
-generated `com.atproto.*` code is checked in under `src/ATProtoNet/Generated/` (it compiles
+converters. First-party generation raises no naming warnings, and the type-name inventory and
+the rename table are reviewed against 0.8's hand-written names
+([LEX-89–91](specs/lexicon.md#naming)). Golden-output tests for the representative cases are
+reviewed and committed. The generated `com.atproto.*` code is checked in under `src/ATProtoNet/Generated/` (it compiles
 against stubs until phase 5).
 
 ### Phase 4 — Identity (`ATProtoNet.Identity`)
@@ -201,13 +204,15 @@ analyzer (or the fallback chosen in phase 3). **~2k lines of helpers.**
 JSON model benchmark (large feed responses) at or better than baseline. A sample app using a
 custom Lexicon through the source generator builds and runs.
 
-### Phase 9 — Hosting (`ATProtoNet.Hosting` namespace, `ATProtoNet.AspNetCore`, `ATProtoNet.EntityFrameworkCore`, `ATProtoNet.Blazor`)
+### Phase 9 — Hosting (`ATProtoNet.Hosting` namespace, `ATProtoNet.AspNetCore`, `ATProtoNet.EntityFrameworkCore`)
 
 Specs: [hosting](specs/hosting.md), [server](specs/server.md), [stores](specs/stores.md). The DI
 builder, client factory, stream workers, health checks, Aspire client integration, the XRPC
 server (including subscriptions), service-auth scheme, OAuth web login, labeler endpoints, Tap
 webhook, the Spaces server roles (space authority, repo host, `simplespace`, notification receipt
-and forwarding) and their stores, EF stores, the minimal Blazor package. **~10k lines.**
+and forwarding) and their stores, EF stores. There is no Blazor package
+([D-09](06-decisions.md#d-09-blazor-components)); its accessor and login form become sample code
+in phase 11. **~10k lines.**
 
 **Gate.** All store implementations pass their contract suites, including concurrency. XRPC
 server routing, binding and error scenarios ported and green. OAuth login security scenarios
@@ -242,9 +247,10 @@ networks). No open spec requirement without a test or an accepted waiver.
   migration guides are dropped. A new **migrating-to-0.9** guide maps every 0.8 entry point to
   its replacement.
 - Samples: console (custom Lexicon), worker (firehose and Jetstream), web (OAuth login, per-user
-  client, XRPC endpoints with service auth, labeler), a Spaces app (a private space with members,
-  client and syncer), a space host (`ATProtoNet.AspNetCore` space roles), Aspire AppHost (managed
-  PDS).
+  client, XRPC endpoints with service auth, labeler, and the Blazor Server user client accessor,
+  login form and widgets that replace 0.8's Blazor package), a Spaces app (a private space with
+  members, client and syncer), a space host (`ATProtoNet.AspNetCore` space roles), Aspire AppHost
+  (managed PDS).
 - `0.9.0-preview.1`, a feedback period, then `0.9.0`. `next` replaces `main`.
 
 **Gate.** Everything in [Phase gates](#phase-gates), for all packages. All goals in
@@ -268,7 +274,7 @@ On top of each phase's own criteria, a phase passes only if:
 5. **Docs.** Every public member has XML docs. The phase's guide pages exist in draft on `next`
    with compiled samples.
 6. **Decisions.** Every open question that blocks the phase ([06 — Decisions](06-decisions.md#open-questions))
-   is answered.
+   is answered, and every decision the phase implements is Accepted.
 
 ## Working agreements
 
@@ -319,13 +325,15 @@ migration guide.
 | Upstream protocol changes during the rewrite (OAuth scopes, Lexicon resolution, Sync, Spaces after GA) | Medium | Specs cite upstream sections. Vendored Lexicons update through the CLI. Experimental markers (`ATPROTO00x`) on moving surfaces. |
 | Performance regressions | Medium | Benchmarks against the 0.8 baseline at every relevant gate. |
 | C# 15 union details shift before or after .NET 11 GA | Low/Medium | Phases 0–2 do not use unions. The union shape is fixed in phase 3 against the released compiler, and generated code changes by regenerating. |
-| Apps that must stay on .NET 10 | Low | They stay on 0.8 (Q-14); .NET 10 and .NET 11 support end on the same day. |
+| Apps that must stay on .NET 10 | Low | They stay on 0.8 (Q-14, D-25); .NET 10 and .NET 11 support end on the same day. |
 | Users stuck on 0.8 | Low/Medium | 0.8.x gets fixes until 0.9.0 plus a stated support window (proposal: 6 months). The migration guide maps every entry point. |
 
 ## Immediate next steps
 
-1. The maintainer reviews this design and answers or accepts defaults for the open questions,
-   especially Q-1, Q-3, Q-4, Q-8, Q-14 and Q-15 ([06 — Decisions](06-decisions.md#open-questions)).
+1. ~~The maintainer answers or accepts defaults for the open questions.~~ Done (2026-10-17):
+   every question is resolved ([06 — Decisions](06-decisions.md#open-questions)). The decisions
+   still marked *Proposed* are confirmed at the phase that implements them; an objection there
+   becomes a new decision record.
 2. Fix the two build-health defects on `main` ([01 — Current state](01-current-state.md#build-health)),
    because `Adapter.Legacy` builds against 0.8.
 3. Create the phase tracking issues.

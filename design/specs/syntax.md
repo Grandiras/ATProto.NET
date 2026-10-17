@@ -578,6 +578,6 @@ scenarios), `IdentitySerializationTests`.
 5. **Space address scheme.** Upstream has not settled `at://{authority}/space/…` versus a
    separate scheme (`ats://`), nor whether space URIs may later address blobs or record versions.
    *Proposed default:* implement the pinned form (SYN-74) behind the single implementation point
-   (SYN-75) and follow the GA specification; keep the space types distinct even if the scheme
+   (SYN-75) and follow the GA specification (Q-15); keep the space types distinct even if the scheme
    becomes `at://`, because public and space addresses resolve differently and must not be
    confused in APIs.

@@ -2,8 +2,8 @@
 
 **Status:** Draft · **Packages:** `ATProtoNet` (namespace `ATProtoNet.Hosting`; registration
 extension methods in `Microsoft.Extensions.DependencyInjection` and, for Aspire,
-`Microsoft.Extensions.Hosting`), `ATProtoNet.Blazor`, `ATProtoNet.Aspire.Hosting` ·
-**Phase:** 9 (hosting layer including Spaces registration, Blazor), 11 (Aspire.Hosting port) ·
+`Microsoft.Extensions.Hosting`), `ATProtoNet.Aspire.Hosting` ·
+**Phase:** 9 (hosting layer including Spaces registration), 11 (Aspire.Hosting port) ·
 **Normative references:** [.NET generic host](https://learn.microsoft.com/dotnet/core/extensions/generic-host),
 [Options pattern](https://learn.microsoft.com/dotnet/core/extensions/options),
 [`IHttpClientFactory`](https://learn.microsoft.com/dotnet/core/extensions/httpclient-factory),
@@ -25,8 +25,8 @@ In scope:
   Options, Http, Hosting.Abstractions, Diagnostics.HealthChecks.Abstractions) and
   `Microsoft.AspNetCore.DataProtection.Abstractions` (the encrypted file store), never on the
   ASP.NET Core shared framework. Worker services and console apps need only `ATProtoNet`.
-- `ATProtoNet.Blazor`: the per-circuit user client accessor and the login form
-  ([D-09](../06-decisions.md#d-09-blazor-components)).
+- No Blazor package ([D-09](../06-decisions.md#d-09-blazor-components)): the per-circuit user
+  client accessor and the login form are sample code in `samples/` (see [Blazor](#blazor)).
 - `ATProtoNet.Aspire.Hosting`: AppHost resources for the official Bluesky PDS and Tranquil PDS
   containers.
 
@@ -96,14 +96,6 @@ public static class AtProtoConfigurationKeys
 // Aspire client integration (namespace Microsoft.Extensions.Hosting, per Aspire convention)
 builder.AddAtProtoClient(connectionName: "pds");          // returns AtProtoBuilder
 
-// ── ATProtoNet.Blazor ─────────────────────────────────────────────────
-builder.Services.AddAtProto().AddClientFactory().AddBlazor();
-public sealed class AtProtoUserClientAccessor : IAsyncDisposable
-{
-    public ValueTask<AtProtoClient?> GetClientAsync(CancellationToken cancellationToken = default);
-}
-// <LoginForm ReturnUrl="/" />  (unstyled; posts to the login route from OAuthLoginOptions)
-
 // ── ATProtoNet.Aspire.Hosting (AppHost) ───────────────────────────────
 var pds = builder.AddAtProtoPds("pds").WithDataVolume();
 var tranquil = builder.AddAtProtoTranquilPds("tranquil").WithAdminAccount("admin");
@@ -126,7 +118,7 @@ applies to the SDK's DI builder, not to AppHost resource builders.
   *Source:* [AG-25](../03-api-guidelines.md#options-configuration-and-dependency-injection) ·
   0.8 `AtProtoBuilderExtensions.cs:114-119` · test `WithSessionStore_OfAType_IsTheStoreEitherWayRound`
 - **HST-3** (MUST) Every registration extension method of `ATProtoNet` (its hosting layer),
-  `ATProtoNet.AspNetCore`, `ATProtoNet.EntityFrameworkCore` and `ATProtoNet.Blazor` hangs off
+  `ATProtoNet.AspNetCore` and `ATProtoNet.EntityFrameworkCore` hangs off
   `AtProtoBuilder`, except
   `AddAtProtoServiceAuth` and `AddAtProtoSpaceCredentials` (on `AuthenticationBuilder`), `MapAtProto*` (on
   `IEndpointRouteBuilder`) and `AddAtProtoClient` (on `IHostApplicationBuilder`, Aspire
@@ -332,18 +324,20 @@ their packages ([server.md](server.md#spaces-server-roles), [stores.md](stores.m
 
 ### Blazor
 
-- **HST-33** (MUST) `AtProtoUserClientAccessor` is scoped (one per circuit). For the same user it
-  returns the same client; on user change or sign-out it disposes the old client; it re-checks the
-  store (by version, cheaply) on each call so a sign-out elsewhere takes effect; a signed-out
-  user or a service-auth principal gets `null` without asking the factory. *Source:* 0.8
-  `AtProtoUserClientAccessor.cs:71` · tests `AtProtoUserClientAccessorTests` (all)
-- **HST-34** (MUST) `LoginForm` renders an unstyled form posting `identifier` and `returnUrl` to
-  `{OAuthLoginOptions.RoutePrefix}/login`, reads its texts from parameters with English defaults
-  and an optional `IStringLocalizer<LoginForm>` (never required), and maps the `error` code to a
-  localizable message without echoing unknown text. *Source:* 0.8 · tests `LoginFormTests` (all) ·
-  route from options is **Decision** (0.8 hard-codes `/atproto/login`, `LoginForm.razor:106`)
-- **HST-35** (MUST NOT) The package ships no feed, post, profile or compose components
-  ([D-09](../06-decisions.md#d-09-blazor-components)).
+<a id="blazor"></a>
+
+There is no `ATProtoNet.Blazor` package (Q-1, [D-09](../06-decisions.md#d-09-blazor-components)).
+`samples/ServerIntegrationSample` contains a per-circuit user client accessor, an unstyled login
+form and the feed, post, profile and compose widgets as copyable code built on the public API of
+`ATProtoNet.AspNetCore` (`IAtProtoClientFactory`, the `ClaimsPrincipal` adapter, the login
+routes).
+
+- ~~**HST-33**~~ Superseded by Q-1 (package dropped). The sample's accessor keeps the 0.8
+  behaviour as guidance: one client per circuit and user, dispose on user change or sign-out,
+  re-check the store on each call, no client for service-auth principals.
+- ~~**HST-34**~~ Superseded by Q-1 (package dropped). The sample's login form posts `identifier`
+  and `returnUrl` to `{OAuthLoginOptions.RoutePrefix}/login`.
+- ~~**HST-35**~~ Superseded by Q-1 (package dropped).
 
 ### Aspire.Hosting: shared behaviour
 
@@ -423,7 +417,6 @@ their packages ([server.md](server.md#spaces-server-roles), [stores.md](stores.m
 | Constant | Value | Applies to |
 |---|---|---|
 | `HostingLimits.SessionCacheCapacity` | 1,024 sessions | factory cache of restored sessions (HST-15) |
-| `HostingLimits.StoreRecheckInterval` | 30 s | Blazor accessor store re-check (HST-33) |
 | `HostingLimits.HealthCheckTimeout` | 5 s | each health check request |
 | `StreamWorkerOptions.ShutdownFlushTimeout` | 10 s | cursor flush on host stop (HST-22) |
 
@@ -448,7 +441,8 @@ their packages ([server.md](server.md#spaces-server-roles), [stores.md](stores.m
   features' own warnings), `SpaceStoreRegistrationTests`, `PdsAdminExtensionsTests`,
   `IdentityServiceCollectionExtensionsTests`, `AtProtoAspireExtensionsTests`,
   `AtProtoPdsHealthCheckTests`, `AtProtoPdsHostingExtensionsTests`,
-  `AtProtoTranquilPdsHostingExtensionsTests`, `AtProtoUserClientAccessorTests`, `LoginFormTests`.
+  `AtProtoTranquilPdsHostingExtensionsTests`. (`AtProtoUserClientAccessorTests` and
+  `LoginFormTests` are dropped with the Blazor package.)
 - New tests: Jetstream health check failure status, resilience handlers removed from every named
   client under Aspire service defaults, culture-invariant environment formatting (run under
   `de-DE`), stream worker commit-after-handler and flush-on-stop, duplicate `StreamId`, a worker
@@ -468,11 +462,10 @@ their packages ([server.md](server.md#spaces-server-roles), [stores.md](stores.m
 | Telemetry | 0.8 has none |
 | Pinned image tags; secrets as parameters only; invariant formatting; consistent AppHost names | Reproducibility and security |
 | Jetstream health check honours failure status | Bug in 0.8 |
-| Blazor widgets moved to samples | D-09 |
+| `ATProtoNet.Blazor` dropped; its accessor, login form and widgets are sample code | Q-1, D-09 |
 
 ## Open points
 
-- **Blazor package** kept minimal or dropped (Q-1). Proposed: minimal.
 - **Stream worker error policy** default: stop vs skip-and-log. Proposed: stop, because skipping
   silently loses data and at-least-once redelivery after restart is the safe default.
 - **`AddAtProtoClient` return type**: `AtProtoBuilder` (proposed) vs Aspire's usual `void`.

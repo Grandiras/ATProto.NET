@@ -463,7 +463,7 @@ their protocol behaviour in [spaces.md](spaces.md).
 - **SRV-55** (MUST) The scope requested at login is the client metadata's `scope`; the login
   has no separate scope setting. *Source:* **Decision** ([auth.md](auth.md): one scope source;
   0.8 configures it in three places)
-- **SRV-56** (MUST NOT) The loopback cookie relay of 0.8 is not carried over (Q-9 default).
+- **SRV-56** (MUST NOT) The loopback cookie relay of 0.8 is not carried over (Q-9).
   Local development runs the login on `http://127.0.0.1:{port}` with an atproto loopback
   `client_id`. *Source:* [06 — Decisions Q-9](../06-decisions.md#open-questions)
 

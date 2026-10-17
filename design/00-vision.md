@@ -44,8 +44,8 @@ A new codebase, developed in this repository, that:
 1. keeps the **protocol behaviour** the current library gets right: every spec rule, security
    hardening measure and bug fix that today's tests pin;
 2. replaces the **shape**: internal layering, public API and internal mechanisms, with as few
-   packages as possible (the base `ATProtoNet` package plus extensions for ASP.NET Core, EF Core,
-   Blazor and Aspire);
+   packages as possible (the base `ATProtoNet` package plus extensions for ASP.NET Core, EF Core
+   and Aspire);
 3. is **generated where the protocol is declarative** (Lexicons) and hand-written only where
    code adds meaning;
 4. is anchored to **written specs** (`design/specs/`), each requirement traceable to an
@@ -78,8 +78,9 @@ how.
 - **Targets older than .NET 11.** The SDK uses C# 15 unions and closed hierarchies and .NET 11's
   built-in Zstandard ([D-25](06-decisions.md#d-25-target-net-11-and-c-15)). Exception: the Roslyn
   source generator, which must target `netstandard2.0`.
-- **UI component libraries.** UI components that encode product opinions (feed widgets, post
-  cards) are out of scope; see [decision D-09](06-decisions.md#d-09-blazor-components).
+- **UI component libraries.** There is no Blazor package. The per-circuit user client accessor,
+  the login form and the feed and post widgets are sample code to copy; see
+  [decision D-09](06-decisions.md#d-09-blazor-components).
 - **Porting every 0.8 convenience.** A helper survives only if it adds meaning beyond the
   generated call (rich-text facets, post composition, blob upload with MIME detection). Thin
   wrappers that rename a generated method do not.

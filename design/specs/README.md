@@ -19,7 +19,7 @@ Normative behaviour for each subsystem of the rewrite. Structure is in
 | [Labels](labels.md) | `LBL` | `ATProtoNet` · `.Labels`, `.Streaming.Labels`; `ATProtoNet.AspNetCore` | 6 |
 | [Event streams](streaming.md) | `STR` | `ATProtoNet` · `.Streaming.*` | 7 |
 | [XRPC server and ASP.NET Core](server.md) | `SRV` | `ATProtoNet.AspNetCore` | 9 |
-| [Hosting, DI and integrations](hosting.md) | `HST` | `ATProtoNet` · `.Hosting`; `ATProtoNet.Blazor`, `ATProtoNet.Aspire.Hosting` | 9, 11 |
+| [Hosting, DI and integrations](hosting.md) | `HST` | `ATProtoNet` · `.Hosting`; `ATProtoNet.Aspire.Hosting` | 9, 11 |
 | [Stores](stores.md) | `STO` | `ATProtoNet` (interfaces, in-memory, file); `ATProtoNet.EntityFrameworkCore` | 4–9 |
 | [Spaces](spaces.md) | `SPC` | `ATProtoNet` · `ATProtoNet`, `.Data.Star`, `.Crypto`, `.Spaces`, `.Spaces.Access`, `.Spaces.Sync`; `ATProtoNet.AspNetCore`; `ATProtoNet.EntityFrameworkCore` | 1–7, 9, 10 |
 

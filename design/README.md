@@ -5,10 +5,10 @@ cleaner, layered and largely generated shape, released as 0.9. It is the input f
 itself: each phase of the plan names the specs it implements, and each spec lists testable
 requirements.
 
-**Status: draft under review.** The maintainer's first review accepted the package model (D-03)
-and the version (D-02); every other decision is *proposed* until accepted. The open questions in
-[06 — Decisions](06-decisions.md#open-questions) need answers (or accepted defaults) before the
-phases they block.
+**Status: reviewed; ready for phase 0.** The maintainer's reviews (2026-10-17) accepted the
+package model, the version, Spaces as a first-class protocol and .NET 11, and resolved every open
+question in [06 — Decisions](06-decisions.md#open-questions). The decisions still marked
+*proposed* are confirmed at the phase that implements them.
 
 ## Reading order
 
@@ -23,23 +23,24 @@ phases they block.
 | 06 | [Decisions](06-decisions.md) | Decision records (`D-n`) and open questions (`Q-n`) |
 | — | [Subsystem specs](specs/README.md) | Normative requirements per subsystem (`SYN-n`, `DAT-n`, …) |
 
-If you have ten minutes: read 00, the package map in 02, and the open questions in 06.
+If you have ten minutes: read 00, the package map in 02, and the decision records in 06.
 
 ## The design in one page
 
 - **Few packages, clear layers inside.** `ATProtoNet` contains nearly everything: protocol
   primitives, repo, Lexicon, identity, the client, OAuth, streaming, every generated Lexicon family
   (including Bluesky, chat and Ozone), DI and worker integration, the bundled Lexicon source
-  generator, and Spaces. Extension packages exist only for heavy framework
-  dependencies: `ATProtoNet.AspNetCore` (replacing `ATProtoNet.Server`),
-  `ATProtoNet.EntityFrameworkCore`, `ATProtoNet.Blazor` and `ATProtoNet.Aspire.Hosting`, plus the
-  `atproto-lexgen` tool. Inside the base package, namespace layers with architecture tests
-  provide the structure 0.8 lacks. No `InternalsVisibleTo` between production assemblies.
+  generator, and Spaces. Extension packages exist only for heavy framework dependencies:
+  `ATProtoNet.AspNetCore` (replacing `ATProtoNet.Server`), `ATProtoNet.EntityFrameworkCore` and
+  `ATProtoNet.Aspire.Hosting`, plus the `atproto-lexgen` tool. There is no Blazor package; its
+  accessor and login form become sample code. Inside the base package, namespace layers with
+  architecture tests provide the structure 0.8 lacks. No `InternalsVisibleTo` between production assemblies.
 - **Generated Lexicons.** All `com.atproto`, `app.bsky`, `chat.bsky`, `tools.ozone` and
   `site.standard` code is generated from vendored Lexicon JSON by one generator. That replaces
   21k hand-written lines and a regex-based drift test. Users run the same generator on their own
-  Lexicons. Unions become C# 15 `union` types, known values open structs, and XRPC methods typed
-  descriptors that take one parameters record.
+  Lexicons. Namespaces are mechanical (`ATProtoNet.Lexicons.App.Bsky.Feed`), type names are
+  friendly (`PostView`, `ThreadViewPost`). Unions become C# 15 `union` types, known values open
+  structs, and XRPC methods typed descriptors that take one parameters record.
 - **Two data protocols, both first class.** Public repositories and Spaces (targeting the
   November 2026 GA protocol) sit side by side in every layer: addressing, storage structures,
   credentials beside OAuth, one records API for both, space sync beside the firehose, and space

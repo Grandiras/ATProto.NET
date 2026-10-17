@@ -106,7 +106,6 @@ tests/
 │                                    Streaming/, Bluesky/, Spaces/, Hosting/, …)
 ├── ATProtoNet.AspNetCore.Tests/     TestHost
 ├── ATProtoNet.EntityFrameworkCore.Tests/   SQLite in memory
-├── ATProtoNet.Blazor.Tests/         bUnit
 ├── ATProtoNet.Lexicon.Tests/        CodeGen, source generator, CLI; incl. "generator compiles
 │                                    every vendored Lexicon" (Roslyn)
 ├── ATProtoNet.Architecture.Tests/   dependency rules, conventions
@@ -132,8 +131,8 @@ tests/
 
 ### Rules
 
-1. One unit-test project per package, so heavy test dependencies (TestHost, EF/SQLite, bUnit,
-   Roslyn) stay out of the base package's tests. Inside `ATProtoNet.Tests`, folders mirror the
+1. One unit-test project per package, so heavy test dependencies (TestHost, EF/SQLite, Roslyn)
+   stay out of the base package's tests. Inside `ATProtoNet.Tests`, folders mirror the
    namespace areas. `InternalsVisibleTo` only from a package to its own test project, and only
    when a test genuinely needs it. The default is testing through the public API.
 2. Test names: `Method_Scenario_Expected`, as today. Spec-backed tests carry
@@ -250,11 +249,12 @@ in brackets.
 
 ## CI shape
 
-One build script (`build.sh`, also callable from both forges) with these jobs:
+One build script (`build.sh`), run by Forgejo Actions, the only CI
+([D-17](06-decisions.md#d-17-repository-and-branch-workflow-for-the-rewrite)), with these jobs:
 
 | Job | Trigger | Content |
 |---|---|---|
-| `build` | PR, push | Restore with locked SDK (`global.json`), build with `-warnaserror`, docs included |
+| `build` | PR, push | Restore with locked SDK (`global.json`), build with `-warnaserror`, docs and samples included |
 | `test` | PR, push | Unit + conformance + architecture tests, coverage (Cobertura), TRX, `--blame-hang-timeout` |
 | `lexicons` | PR, push | Regenerate first-party code, `git diff --exit-code`; generator compiles all vendored Lexicons |
 | `integration-pds` | PR, push | PDS service container, `Requirement=Pds\|PdsAdmin`, REQUIRE=1 |
@@ -266,7 +266,8 @@ One build script (`build.sh`, also callable from both forges) with these jobs:
 | `nightly` | schedule | Jetstream, archive, Bluesky, Tranquil integration; benchmarks vs baseline |
 | `release` | tag | Everything above, then verify the CHANGELOG section is non-empty, pack, push |
 
-The GitHub mirror runs the same script (today its CI lacks the Aspire and PDS jobs).
+CI lives in `build.sh`, not in workflow YAML: `.forgejo/workflows/*.yml` only call its jobs, so
+the same checks run locally and a later move or mirror (Tangled, Q-6) carries no CI logic.
 
 ## Assets to copy verbatim into the new tree
 
@@ -285,4 +286,6 @@ From `tests/ATProtoNet.Tests/` unless noted:
 - `Conventions/*.cs` as templates for architecture tests
 - From `.forgejo/workflows/ci.yml`: the PDS service-container block and the REQUIRE +
   `TreatNoTestsAsError` pattern
-- `.github/workflows/sync-*.yml` unchanged
+
+Not carried over: `.github/workflows/` (the GitHub mirror's CI and issue, comment and PR sync)
+and `.forgejo/workflows/sync-to-github.yml`. The mirror is dropped (Q-6).

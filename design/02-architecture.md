@@ -15,13 +15,11 @@ flowchart BT
     CORE["<b>ATProtoNet</b><br/>protocol primitives · repo · Lexicon · identity<br/>XRPC client · sessions · OAuth · service auth · labels<br/>all generated Lexicons (com.atproto, app.bsky, chat.bsky,<br/>tools.ozone, site.standard) · streaming · DI and workers<br/>Spaces · bundled Lexicon source generator"]
     ASP["<b>ATProtoNet.AspNetCore</b><br/>XRPC server · service-auth scheme · OAuth web login<br/>labeler endpoints · Tap webhook · Spaces server roles"]
     EF["<b>ATProtoNet.EntityFrameworkCore</b><br/>EF Core stores"]
-    BZ["<b>ATProtoNet.Blazor</b><br/>user client accessor · login form"]
     ASPIRE["<b>ATProtoNet.Aspire.Hosting</b><br/>PDS containers in an Aspire AppHost"]
     CLI["<b>atproto-lexgen</b><br/>dotnet tool"]
 
     ASP --> CORE
     EF --> CORE
-    BZ --> ASP
     CLI -.shares the code generator.-> CORE
 ```
 
@@ -30,14 +28,15 @@ flowchart BT
 | `ATProtoNet` | always: apps, bots, indexers, tools, worker services | `System.Formats.Cbor`; small `Microsoft.Extensions.*` packages (Logging, Caching, DependencyInjection and Hosting abstractions, Options, Http, HealthChecks abstractions); `Microsoft.AspNetCore.DataProtection.Abstractions` (for the encrypted file session store). Never the ASP.NET Core shared framework. |
 | `ATProtoNet.AspNetCore` | you serve XRPC endpoints, accept service auth, run the OAuth web login, a labeler or a Tap webhook | `ATProtoNet`, `Microsoft.AspNetCore.App` |
 | `ATProtoNet.EntityFrameworkCore` | you persist sessions, OAuth state, replay entries, cursors or sync state in a database | `ATProtoNet`, `Microsoft.EntityFrameworkCore.Relational` |
-| `ATProtoNet.Blazor` | you build a Blazor Server UI that acts as the signed-in user | `ATProtoNet.AspNetCore` |
 | `ATProtoNet.Aspire.Hosting` | you run a PDS container (Bluesky or Tranquil) in an Aspire AppHost | Aspire hosting packages only; it starts containers and does not reference the SDK |
 | `atproto-lexgen` | you lint, diff, publish or resolve Lexicons, or generate C# outside a build | (a `dotnet tool`) |
 
 `ATProtoNet.AspNetCore` replaces 0.8's `ATProtoNet.Server`. It contains only what needs ASP.NET
 Core. DI registration, the client factory, stores, stream workers, health checks and the Aspire
 client integration move into `ATProtoNet` (namespace `ATProtoNet.Hosting`), so a worker service
-or console app needs only the base package.
+or console app needs only the base package. There is no Blazor package: a Blazor Server app uses
+`ATProtoNet.AspNetCore` and copies the per-circuit user client accessor and login form from
+`samples/ServerIntegrationSample` ([D-09](06-decisions.md#d-09-blazor-components)).
 
 The C# code generator (`ATProtoNet.Lexicon.CodeGen`, `netstandard2.0`) and the Roslyn source
 generator built on it (`ATProtoNet.Lexicon.Generator`) are internal build projects, not packages.
@@ -165,7 +164,6 @@ which removes what they do not touch.
 | `ATProtoNet.Lexicons.*` | generated code for every vendored Lexicon (`.Com.AtProto.*`, `.App.Bsky.*`, `.Chat.Bsky.*`, `.Tools.Ozone.*`, `.Site.Standard.*`, `.Com.AtProto.Space.*`, `.Com.AtProto.SimpleSpace.*`) |
 | `ATProtoNet.AspNetCore` (+ `.Xrpc`, `.Authentication`, `.OAuth`, `.Labels`, `.Tap`, `.Spaces`) | the ASP.NET Core package |
 | `ATProtoNet.EntityFrameworkCore` | the EF Core package |
-| `ATProtoNet.Blazor` | the Blazor package |
 
 The root `ATProtoNet` namespace holds only the vocabulary types, the client and the root
 exception; everything else is in a sub-namespace.
@@ -453,7 +451,6 @@ with zero warnings.
 │   │   └── Generated/                              checked-in generated Lexicon code, one folder per NSID authority
 │   ├── ATProtoNet.AspNetCore/
 │   ├── ATProtoNet.EntityFrameworkCore/
-│   ├── ATProtoNet.Blazor/
 │   └── ATProtoNet.Aspire.Hosting/
 ├── tools/
 │   ├── ATProtoNet.Lexicon.CodeGen/       internal; netstandard2.0
@@ -465,7 +462,6 @@ with zero warnings.
 │   ├── ATProtoNet.Tests/         base package, one folder per namespace area
 │   ├── ATProtoNet.AspNetCore.Tests/
 │   ├── ATProtoNet.EntityFrameworkCore.Tests/
-│   ├── ATProtoNet.Blazor.Tests/
 │   ├── ATProtoNet.Lexicon.Tests/ generator and CLI
 │   ├── ATProtoNet.IntegrationTests/
 │   ├── ATProtoNet.Architecture.Tests/
@@ -477,6 +473,6 @@ with zero warnings.
 └── design/                       this design
 ```
 
-One test project per package keeps heavy test dependencies (TestHost, EF/SQLite, bUnit, Roslyn)
+One test project per package keeps heavy test dependencies (TestHost, EF/SQLite, Roslyn)
 out of the base package's tests, which was 0.8's monolithic-test-assembly problem. See
 [04 — Testing](04-testing.md).
