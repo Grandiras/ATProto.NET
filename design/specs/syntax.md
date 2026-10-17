@@ -17,7 +17,8 @@
 **In:** the vocabulary types `Did`, `Handle`, `AtIdentifier`, `Nsid`, `RecordKey`, `Tid`,
 `TidGenerator`, `AtUri`, `SpaceUri` and `SpaceRecordUri` (addresses of spaces and of records in
 spaces), the `AtAddress` union over all three, `AtDatetime`,
-`Language`; the string syntax of `Cid`; the generic
+`Language`; `DecimalString` (a number carried in a Lexicon `string`, a community convention since
+the data model has no floats); the string syntax of `Cid`; the generic
 Lexicon `uri` format check; the System.Text.Json converters for all of them; the public
 `IAtIdentifier<TSelf>` constraint.
 
@@ -140,6 +141,17 @@ public sealed class AtDatetime : IAtIdentifier<AtDatetime>, IComparable<AtDateti
 }
 
 public sealed class Language : IAtIdentifier<Language> { }   // BCP 47 language tag
+
+// ATProtoNet.Data: a number written as text in a Lexicon string field (SYN-82…SYN-87).
+public sealed class DecimalString : IAtIdentifier<DecimalString>
+{
+    public string Value { get; }                        // the text exactly as written or read
+    public bool IsValid { get; }                        // false only for values read leniently off the wire
+    public bool TryGetDouble(out double value);         // invariant culture, finite results only
+    public bool TryGetDecimal(out decimal value);
+    public static DecimalString From(double value);     // shortest round-trip text, invariant
+    public static DecimalString From(decimal value);    // keeps the scale: 52.520m → "52.520"
+}
 
 public static class UriFormat
 {
@@ -442,6 +454,50 @@ union of those two and `AtUri`, for places that accept an address from either da
   *Source:* tests `Equality_IsOrdinalOnTheText`, `CompareTo_OrdersByInstantAcrossOffsets`,
   `CompareTo_ValuesWithoutAnInstant_SortFirst`, `CompareTo_SameInstantDifferentText_IsConsistentWithEquality`
 
+### Numbers carried in strings
+
+<a id="numbers-carried-in-strings"></a>
+
+The atproto data model has no floating-point type. Lexicons that need fractions declare a plain
+`string` and write the number as text. `DecimalString` (namespace `ATProtoNet.Data`) gives that
+convention a type that reads and writes the text unchanged and parses it the same way on every
+machine. Generated code uses it only where the developer opts in per field
+([LEX-92](lexicon.md#generated-clients)); hand-written models use it directly.
+
+- **SYN-82** (MUST) A valid `DecimalString` matches the JSON number grammar
+  `-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?`, at most `DecimalString.MaxLength` characters:
+  no leading `+`, no leading zeros, no group separators, no locale forms (`52,52`), no `NaN` or
+  `Infinity`.
+  *Source:* **Decision** (maintainer, 2026-10-17) · [RFC 8259 §6](https://www.rfc-editor.org/rfc/rfc8259#section-6)
+- **SYN-83** (MUST) A `DecimalString` keeps its text exactly. Writing it out (JSON or DRISL)
+  writes that text byte for byte as a string, so a record read and written back keeps its CID
+  (`"52.520"` stays `"52.520"`).
+  *Source:* **Decision**, as SYN-43 for datetimes
+- **SYN-84** (MUST) `Parse`, `TryParse` and `From` only ever produce valid values. `From(double)`
+  writes the shortest text that round-trips, `From(decimal)` keeps the scale, both in the
+  invariant culture whatever the current one is; `From(double)` refuses `NaN` and infinities
+  with `ArgumentOutOfRangeException`.
+  *Source:* **Decision** · the `de-DE` failure mode (`double.Parse("52.520")` is 52520 there)
+- **SYN-85** (MUST) Reading from JSON (or DRISL text) never rejects a string token: invalid text
+  is kept verbatim with `IsValid` false, as SYN-46 does for datetimes. A non-string token
+  (a JSON number) is a `JsonException`, because the Lexicon declares a string and a fractional
+  number is not atproto data.
+  *Source:* [D-20](../06-decisions.md#d-20-json-reads-are-case-sensitive-and-strict-about-number-types)
+- **SYN-86** (MUST) `TryGetDouble` and `TryGetDecimal` parse with the invariant culture and
+  return false for invalid text, for a result outside the target type's range and, for `double`,
+  for a non-finite result.
+  *Source:* **Decision**
+- **SYN-87** (MUST) Equality is ordinal on the text (`"52.52"` and `"52.520"` are different
+  values, as they are different bytes on the wire). There is no ordering; callers compare the
+  parsed numbers.
+  *Source:* **Decision**, as SYN-48
+
+A hand-written model can instead put
+`[JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]`
+on a `double` or `decimal` property: System.Text.Json reads and writes it as a string under the
+strict SDK options, source generation included. It re-formats the text (`"52.520"` is written back
+as `"52.52"`), so a read-modify-write can change the record's CID; `DecimalString` does not.
+
 ### Language
 
 - **SYN-49** (MUST) `Language` accepts BCP 47 language tags as RFC 5646 defines them, including
@@ -511,6 +567,7 @@ union of those two and `AtUri`, for places that accept an address from either da
 | `UriFormat.MaxLength` | 8,192 | SYN-40 |
 | `AtDatetime.MaxLength` | 64 | SYN-41 |
 | `AtDatetime.MaxFractionDigits` | 20 | SYN-41 |
+| `DecimalString.MaxLength` | 64 | SYN-82 (bounds parsing) |
 | `Language.MaxLength` | 128 | SYN-49 (new; RFC 5646 sets no maximum, this bounds parsing) |
 | `Cid.StringLength` | 59 | SYN-60 |
 
@@ -522,6 +579,8 @@ union of those two and `AtUri`, for places that accept an address from either da
 | `null` passed to `Parse` | `ArgumentNullException` |
 | Invalid identifier in JSON | `JsonException` (path) wrapping `FormatException` |
 | Invalid datetime text in JSON | no error: `AtDatetime` with `IsValid == false` |
+| Invalid number text in a `DecimalString` field | no error: `DecimalString` with `IsValid == false` |
+| `DecimalString.From` with `NaN` or an infinity | `ArgumentOutOfRangeException` |
 | Non-string JSON token for any type | `JsonException` |
 | Clock identifier outside 0–1023 | `ArgumentOutOfRangeException` |
 | TID timestamp past 53 bits | `InvalidOperationException` |
@@ -541,6 +600,11 @@ all 24 files of `syntax/` from atproto-interop-tests `056e5741` (CC0), each asse
   authorities refused), extracted from 0.8 `SpaceUriTests` and re-checked against the pinned
   proposal.
 
+**New tests for `DecimalString`** (no 0.8 counterpart): text round-trips byte for byte through
+JSON and DRISL (`"52.520"`), `From` and `TryGet*` give the same results under `de-DE` as under the
+invariant culture, a JSON number token is rejected, invalid text is read with `IsValid` false,
+and a generated record with a `fieldTypes` mapping round-trips `community.lexicon.location.geo`.
+
 **0.8 test classes whose scenarios are ported:** `SyntaxInteropTests`, `IdentifierSyntaxTests`,
 `IdentifierLineBreakTests`, `IdentifierContractTests` (minus the explicit-cast scenarios),
 `DidTests`, `HandleTests`, `AtIdentifierTests`, `NsidTests`, `RecordKeyTests`, `TidTests`,
@@ -558,6 +622,7 @@ scenarios), `IdentitySerializationTests`.
 | `RecordKey.NewTid()` and `Tid.NextString()` removed. | Duplicates of `RecordKey.From(Tid.Next())` and `Tid.Next().Value`. |
 | `IAtIdentifier<TSelf>` public; `TidGenerator.Default` public. | Generic code and explicit generator use need them; both were internal. |
 | `Language` type and `UriFormat` added; their vectors asserted. | 0.8 vendored `language_*` and `uri_*` vectors without asserting them. |
+| `DecimalString` added for numbers carried in Lexicon strings. | 0.8's global `AllowReadingFromString` read such text into a hand-written `double`, then wrote it back as a JSON number: a float, which the Lexicon (a string) and the data model both forbid (D-20). |
 | `SpaceUri` and `SpaceRecordUri` move to the root namespace, share one scanner with `AtUri`, and lose `explicit operator SpaceUri(string)` (AG-8); `AtAddress` is new. | Spaces are core protocol vocabulary; 0.8 kept both in `ATProtoNet.Spaces` with their own parser and the internal `IIdentifier`. |
 
 ## Open points

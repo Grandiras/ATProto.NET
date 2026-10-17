@@ -480,6 +480,19 @@ So, under 0.8's options:
 and writes it back unchanged (0.8 #119), so it loses nothing and the CID survives. The two
 dropped options are lenient *and* lossy.
 
+**Numbers carried in strings.** The data model has no floating-point type, so Lexicons that need
+fractions declare a plain `string` and write the number as text
+(`community.lexicon.location.geo` does this for coordinates). This record does not affect them:
+the Lexicon says `string`, so the generated property is a `string` in 0.8 and in 0.9 alike, and
+`AllowReadingFromString` never applied. It only helped a *hand-written* `double` property, and
+then only one way: 0.8 reads `"52.520"` as 52.52 but writes it back as the JSON number `52.52`, a
+float that the Lexicon and the data model both forbid. The rewrite makes the convention explicit
+instead (maintainer, 2026-10-17: it must stay possible, flagged by the developer):
+`DecimalString` keeps the text exactly and parses it in the invariant culture
+([SYN-82–87](specs/syntax.md#numbers-carried-in-strings)), and the generator uses it for a field
+the configuration maps with `fieldTypes` ([LEX-92](specs/lexicon.md#generated-clients)).
+Hand-written models can use the type, or System.Text.Json's per-property `[JsonNumberHandling]`.
+
 **Decision.**
 
 1. Reads are case-sensitive: no `PropertyNameCaseInsensitive`. *Change from 0.8.*

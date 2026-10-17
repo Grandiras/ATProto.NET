@@ -382,6 +382,7 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   | `include` / `exclude` | NSID glob patterns | all / `internal.**` |
   | `accessors` | NSID authority prefix → client property name, or `@root` for members on `AtProtoClient` itself | derived (LEX-36) |
   | `renames` | `nsid#def` (or `nsid#def.property`) → C# name | none |
+  | `fieldTypes` | `nsid#def.property` → `decimal`: a plain `string` field that carries a number (LEX-92) | none |
   | `proxies` | NSID glob → default `XrpcServiceRef`, with exclusions | none |
   | `experimental` | NSID glob → diagnostic ID | none |
   | `addressFields` | `nsid#def.property` globs whose `at-uri` fields map to `AtAddress` (LEX-88) | none |
@@ -455,6 +456,21 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   *Source:* [D-05](../06-decisions.md#d-05-lexicon-generated-type-naming) ·
   [.NET namespace naming](https://learn.microsoft.com/dotnet/standard/design-guidelines/names-of-namespaces) ·
   Lexicon survey
+- **LEX-92** (MUST) **Numbers carried in strings are an explicit, per-field opt-in.** The data
+  model has no floating-point type, so Lexicons that need fractions declare a plain `string` and
+  write the number as text (`community.lexicon.location.geo` does this for `latitude`,
+  `longitude` and `altitude`). Generated code types such a field as `string` unless the
+  configuration's `fieldTypes` maps it to `decimal`, which generates
+  [`DecimalString`](syntax.md#numbers-carried-in-strings) instead (for an array of strings, its
+  items). The Lexicon JSON is not changed, so other implementations still see a string, and the
+  wire value stays a JSON string in both directions. Mapping a field that is not a plain `string`
+  (it has a `format`, `knownValues` or `enum`) is a generator error; an entry that matches no
+  field is a warning. A JSON number in such a field is still a `JsonException` (D-20): the
+  opt-in changes the C# type, not what the reader accepts.
+  *Source:* Decision (maintainer, 2026-10-17: string-carried floats must stay possible, flagged
+  explicitly by the developer) ·
+  [D-20](../06-decisions.md#d-20-json-reads-are-case-sensitive-and-strict-about-number-types) ·
+  lexicon.community `community.lexicon.location.geo`
 - **LEX-89** (MUST) **Namespaces are mechanical, type names are friendly** (Q-8, maintainer
   2026-10-17). Every generated type name reads like a hand-written .NET type name: a PascalCase
   noun phrase (static classes for methods keep their verb, `GetTimeline`), at most 40 characters,
@@ -651,7 +667,7 @@ public static class BlueskyClientExtensions
   |---|---|
   | `boolean` | `bool` |
   | `integer` | `int` when `minimum` and `maximum` are both present and inside `Int32`, else `long` ([D-19](../06-decisions.md#d-19-lexicon-integer-maps-to-int-when-the-bounds-fit-otherwise-long)) |
-  | `string` (no format) | `string` |
+  | `string` (no format) | `string`, or `DecimalString` when `fieldTypes` maps the field (LEX-92) |
   | `string` format `did`, `handle`, `at-identifier`, `at-uri`, `nsid`, `cid`, `record-key`, `tid`, `datetime`, `language` | `Did`, `Handle`, `AtIdentifier`, `AtUri` (or `AtAddress`, LEX-88), `Nsid`, `Cid`, `RecordKey`, `Tid`, `AtDatetime`, `Language` |
   | `string` format `uri` | `string` (keeps the exact text; `System.Uri` normalises) |
   | other formats | the type the compilation or a referenced assembly declares with `[LexiconFormatType]` (`space-ref` → `SpaceUri`, declared in `ATProtoNet`), else `string` with a warning |
@@ -1057,6 +1073,7 @@ success-body cap already bounds that object ([xrpc-client.md](xrpc-client.md)).
 | Known values are open structs; closed C# enums for open strings (`RepoOpAction`) are gone | AG-9 |
 | Methods take one parameters or input record; per-call options go through `client.With(…)` | D-12 |
 | Case-sensitive reads, no numbers from strings | D-20 |
+| `fieldTypes` maps a plain `string` field that carries a number to `DecimalString` | LEX-92, D-20 |
 | `language` maps to `Language` (0.8: `string`) | Typed identifiers everywhere ([syntax.md](syntax.md)) |
 | Non-required `nullable` fields are `Optional<T?>`; 0.8 could not send `swapRecord: null` | LEX-40 |
 | `LexiconTypeRegistry` is an instance holding records only; `ILexiconPlugin` is replaced by generated `Register` | D-10 |
