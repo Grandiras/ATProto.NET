@@ -877,6 +877,3 @@ verification.
 5. **Notice interfaces.** Notice records implement each in-package stream's item interface they
    can occur on; out-of-package codecs wrap them. *Proposed default:* keep; revisit if C# gains
    union types.
-6. **AG-18 wording.** [AG-18](../03-api-guidelines.md#pagination-and-streams) says hosted-service
-   adapters live in the ASP.NET Core package; [02](../02-architecture.md) and D-03 put
-   `StreamWorker<TItem>` in `ATProtoNet.Hosting`. This spec follows D-03; AG-18 should be updated.

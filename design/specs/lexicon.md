@@ -63,8 +63,9 @@ public sealed record LexSpace : LexUserType { /* experimental (ATPROTO001): key,
 public sealed record LexToken : LexUserType;
 public sealed record LexObject : LexUserType { public IReadOnlyDictionary<string, LexSchema> Properties { get; init; } public IReadOnlyList<string> Required { get; init; } = []; public IReadOnlyList<string> Nullable { get; init; } = []; }
 public sealed record LexString : LexUserType { /* format, minLength, maxLength, minGraphemes, maxGraphemes, enum, const, default, knownValues */ }
-// also: LexInteger, LexBoolean, LexBytes, LexCidLink, LexBlob, LexArray, LexUnknown (named-def capable),
-// LexRef, LexUnion (never named defs), LexParams, LexBody(Encoding, Schema), LexError(Name, Description)
+// also: LexInteger, LexBoolean, LexBytes, LexCidLink, LexBlob, LexArray, LexUnknown, LexRef, LexUnion
+// (the last three accepted as named defs with a warning, LEX-3), LexParams, LexBody(Encoding, Schema),
+// LexError(Name, Description)
 
 public sealed class LexiconCatalog                        // a closed set of documents plus external definitions
 {
@@ -156,11 +157,15 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   *Source:* [Lexicon spec](https://atproto.com/specs/lexicon) · Decision · 0.8 #92 (space defs)
 - **LEX-3** (MUST) Parsing enforces the document shape: `lexicon` is `1`; `id` is a valid NSID; at
   least one def; at most one primary type (`record`, `query`, `procedure`, `subscription`,
-  `permission-set`, `space`), and only under the name `main`; `ref`, `union`, `unknown` and
-  `params` cannot be named defs (except `unknown` as allowed by the spec); `params` properties are
-  limited to `boolean`, `integer`, `string`, `unknown` and arrays of those. Violations are
-  `LexiconDiagnostic`s with a JSON pointer; `Parse` throws `FormatException` naming the first one.
+  `permission-set`, `space`), and only under the name `main`; `params` cannot be a named def;
+  `params` properties are limited to `boolean`, `integer`, `string` and arrays of those.
+  Violations are `LexiconDiagnostic`s with a JSON pointer; `Parse` throws `FormatException`
+  naming the first one. Named `ref`, `union` and `unknown` defs, which the spec does not allow but
+  published schemas use, are accepted with a lint warning: a named `union` generates an interface
+  named after the def, a named `ref` is an alias for its target, a named `unknown` maps to
+  `DataModelValue`.
   *Source:* [Lexicon spec: Lexicon Files, params](https://atproto.com/specs/lexicon) · 0.8
+  `LexiconLinter.cs:46-51` ("used by published schemas"),
   `LexiconLinterTests.Lint_InvalidIdOrNoDefinitions_IsAnError`
 - **LEX-4** (MUST) An unknown def or field `type` is preserved as `LexUnknownType` with a warning,
   never a parse failure, so newer schemas stay readable. A JSON `null` where a schema is expected
@@ -177,9 +182,10 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   the referring pointer, never a silent fallback to `JsonElement`.
   *Source:* [Lexicon spec: ref](https://atproto.com/specs/lexicon) · Decision · 0.8
   `Emit_UnresolvableRef_FallsBackToNullableJsonElementAndWarns` (behaviour dropped)
-- **LEX-7** (MUST) A `ref` to a `token` is an error. A `ref` or `union` member that resolves to
-  another `ref` or `union` is an error.
-  *Source:* [Lexicon spec: ref](https://atproto.com/specs/lexicon)
+- **LEX-7** (MUST) A `ref` to a `token` is an error. A `ref` that resolves to a named `ref` def is
+  followed (alias chains up to `MaxRefAliasDepth`); a cycle of aliases is an error. A `union`
+  member that resolves to a `union` is an error.
+  *Source:* [Lexicon spec: ref](https://atproto.com/specs/lexicon) · LEX-3
 - **LEX-8** (MUST) Definitions outside the catalog's documents resolve through
   `IExternalLexicons`. The generator and CLI implement it from `[LexiconDefinition]` attributes on
   types in referenced assemblies (Roslyn symbols in the generator, `System.Reflection.Metadata` in
@@ -197,10 +203,11 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   `publish` and the generator all run the same rules.
   *Source:* Decision · 0.8 `tools/…/Validation/LexiconLinter.cs`
 - **LEX-11** (MUST) Permission-set rules: the set is `main`; it has a `title` and at least one
-  permission; only `repo`, `rpc` and (if present) `space` resources are allowed in a set; no
-  wildcards; every NSID is in the set's own namespace group or below; repo actions are known and
-  unique; malformed permissions are errors; unknown resources or parameters are warnings that say
-  servers ignore them.
+  permission; `blob`, `account` and `identity` permissions are errors (they must be requested as
+  scopes directly); `repo` and `rpc` are allowed, each warning on parameters that do not apply to
+  it; no wildcards; every NSID is in the set's own namespace group or below; repo actions are
+  `create`, `update`, `delete`, each at most once; malformed permissions are errors; other
+  resources are warnings that say authorization servers ignore them.
   *Source:* [Permission spec](https://atproto.com/specs/permission) · 0.8 #130 ·
   `LexiconLinterTests.Lint_*` (permission-set cases)
 - **LEX-12** (MUST) Space rules (experimental): collections warn on wildcards and non-NSIDs, not on
@@ -346,9 +353,8 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
 
 - **LEX-32** (MUST) Namespace: `{rootNamespace}.{every NSID segment except the last, PascalCased}`.
   `app.bsky.feed.post` → `ATProtoNet.Lexicons.App.Bsky.Feed`. PascalCasing upper-cases the first
-  letter of each segment and keeps the rest (`atproto` → `Atproto` would be wrong: segments are
-  split at case boundaries only when the segment is all lower-case and listed in a small table of
-  protocol words, `atproto` → `AtProto`, `bsky` → `Bsky`).
+  letter of each segment and keeps the rest, except for a fixed table of protocol words with
+  established casing (`atproto` → `AtProto`), so `com.atproto.repo` → `Com.AtProto.Repo`.
   *Source:* [D-05](../06-decisions.md#d-05-lexicon-generated-type-naming) · 0.8 #45 ("`atproto`
   cased as `AtProto`")
 - **LEX-33** (MUST) Type names: the `main` def takes the PascalCased last NSID segment (`Post`).
@@ -392,13 +398,137 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
 
 <a id="generated-clients"></a>
 
+#### Example output (non-normative)
+
+The requirements below define this shape; names and details may change in review.
+
+```csharp
+// <auto-generated/> app.bsky.feed.post · atproto@a7c8604d · bafyrei…
+#nullable enable
+namespace ATProtoNet.Lexicons.App.Bsky.Feed;
+
+/// <summary>Record containing a Bluesky post.</summary>
+[LexiconDefinition("app.bsky.feed.post")]
+public partial record Post : IAtProtoRecord<Post>                 // a record (LEX-56)
+{
+    public static Nsid Collection { get; } = Nsid.Parse("app.bsky.feed.post");
+    public static RecordKeyType KeyType => RecordKeyType.Tid;
+    public static JsonTypeInfo<Post> JsonTypeInfo => BlueskyLexiconsJsonContext.Default.Post;
+
+    /// <summary>The primary post content. May be an empty string, if there are embeds.</summary>
+    /// <remarks>Lexicon: maxLength 3000 (UTF-8 bytes), maxGraphemes 300.</remarks>
+    [JsonPropertyName("text")] public required string Text { get; init; }
+    [JsonPropertyName("reply")] public ReplyRef? Reply { get; init; }
+    [JsonPropertyName("embed")] public IPostEmbed? Embed { get; init; }
+    [JsonPropertyName("labels")] public IPostLabels? Labels { get; init; }
+    [JsonPropertyName("langs")] public IReadOnlyList<Language>? Langs { get; init; }
+    [JsonPropertyName("createdAt")] public required AtDatetime CreatedAt { get; init; }
+    [JsonExtensionData] public IDictionary<string, JsonElement>? ExtensionData { get; init; }
+
+    [LexiconDefinition("app.bsky.feed.post#replyRef")]
+    public partial record ReplyRef : ILexiconObject
+    {
+        [JsonPropertyName("root")] public required StrongRef Root { get; init; }
+        [JsonPropertyName("parent")] public required StrongRef Parent { get; init; }
+        [JsonExtensionData] public IDictionary<string, JsonElement>? ExtensionData { get; init; }
+    }
+}
+
+// An open union (LEX-49–LEX-54). Images, Video, External, Record and RecordWithMedia implement it.
+[JsonConverter(typeof(PostEmbedConverter))]
+public partial interface IPostEmbed : ILexiconObject;
+public sealed partial record UnknownPostEmbed : IPostEmbed, IUnknownUnionVariant
+{
+    public required string Type { get; init; }                 // the $type as received
+    public required JsonElement Raw { get; init; }             // written back unchanged
+    IDictionary<string, JsonElement>? ILexiconObject.ExtensionData => null;
+}
+
+// A paginated query (LEX-60, LEX-63, LEX-70) with inline known values (LEX-47).
+public static partial class GetAuthorFeed
+{
+    public static XrpcQuery<Parameters, Output> Descriptor { get; } = /* NSID, encodings, errors, type infos */;
+
+    public sealed partial record Parameters : IXrpcParameters<Parameters>, ICursorParameters<Parameters>
+    {
+        [XrpcParameter("actor")] public required AtIdentifier Actor { get; init; }
+        /// <remarks>Lexicon: minimum 1, maximum 100, default 50.</remarks>
+        [XrpcParameter("limit")] public int? Limit { get; init; }
+        [XrpcParameter("cursor")] public string? Cursor { get; init; }
+        [XrpcParameter("filter")] public FilterValue? Filter { get; init; }
+        // generated IXrpcParameters<Parameters>.WriteTo / ReadFrom
+    }
+
+    /// <summary>Combinations of post/repost types to include in response.</summary>
+    [JsonConverter(typeof(KnownValueConverter<FilterValue>))]
+    public readonly partial record struct FilterValue(string Value) : IKnownValue<FilterValue>
+    {
+        public static FilterValue PostsWithReplies { get; } = new("posts_with_replies");
+        public static FilterValue PostsNoReplies { get; } = new("posts_no_replies");
+        public static FilterValue PostsWithMedia { get; } = new("posts_with_media");
+        public bool IsKnown => Value is "posts_with_replies" or "posts_no_replies" or "posts_with_media" /* … */;
+        public static FilterValue Create(string value) => new(value);
+        public static implicit operator string(FilterValue value) => value.Value;
+        public static implicit operator FilterValue(string value) => new(value);
+    }
+
+    public sealed partial record Output : ICursorPage<FeedViewPost>, ILexiconObject
+    {
+        [JsonPropertyName("cursor")] public string? Cursor { get; init; }
+        [JsonPropertyName("feed")] public required IReadOnlyList<FeedViewPost> Feed { get; init; }
+        IReadOnlyList<FeedViewPost> ICursorPage<FeedViewPost>.Items => Feed;
+        [JsonExtensionData] public IDictionary<string, JsonElement>? ExtensionData { get; init; }
+    }
+
+    public static class Errors
+    {
+        public const string BlockedActor = "BlockedActor";
+        public const string BlockedByActor = "BlockedByActor";
+    }
+}
+
+// A procedure (ATProtoNet, com.atproto.repo.createRecord) and its namespace-client method.
+public static partial class CreateRecord
+{
+    public static XrpcProcedure<Input, Output> Descriptor { get; } = /* … */;
+    public sealed partial record Input : ILexiconObject
+    {
+        [JsonPropertyName("repo")] public required AtIdentifier Repo { get; init; }
+        [JsonPropertyName("collection")] public required Nsid Collection { get; init; }
+        [JsonPropertyName("rkey")] public RecordKey? Rkey { get; init; }
+        [JsonPropertyName("validate")] public bool? Validate { get; init; }
+        [JsonPropertyName("record")] public required DataModelValue Record { get; init; }
+        [JsonPropertyName("swapCommit")] public Cid? SwapCommit { get; init; }
+        [JsonExtensionData] public IDictionary<string, JsonElement>? ExtensionData { get; init; }
+    }
+    public sealed partial record Output : ILexiconObject { /* uri, cid, commit, validationStatus */ }
+    public static class Errors { public const string InvalidSwap = "InvalidSwap"; }
+}
+
+public readonly partial struct RepoNamespace(AtProtoClient client)
+{
+    /// <summary>Create a single new repository record.</summary>
+    public Task<CreateRecord.Output> CreateRecordAsync(CreateRecord.Input input, CancellationToken cancellationToken = default)
+        => client.ProcedureAsync(CreateRecord.Descriptor, input, cancellationToken);
+}
+
+// Accessors (LEX-67): instance members for @root prefixes, extension properties elsewhere.
+public partial class AtProtoClient { public RepoNamespace Repo => new(this); }
+public static class BlueskyClientExtensions
+{
+    extension(AtProtoClient client) { public BskyNamespace Bsky => new(client); }
+}
+// Usage: await client.Bsky.Feed.GetAuthorFeedAsync(new() { Actor = alice, Filter = GetAuthorFeed.FilterValue.PostsNoReplies });
+```
+
 #### Models
 
 - **LEX-38** (MUST) One generated type per def. Two defs with the same shape are still two types.
   *Source:* Decision · 0.8 merged shapes (`FeedResponse` serves 5 methods, `ConvoIdRequest` 10)
   that needed 86 `DefOf` drift mappings
 - **LEX-39** (MUST) Object defs, records, `Input`/`Output`/`Message` objects become
-  `sealed partial record` classes implementing `ILexiconObject`, with `init` properties.
+  `partial record` classes implementing `ILexiconObject`, with `init` properties (sealed except as
+  LEX-49 requires).
   Lexicon-required properties are `required`; optional properties are nullable.
   *Source:* [AG-7](../03-api-guidelines.md#types) · 0.8 CONTRIBUTING "Lexicon models and clients"
 - **LEX-40** (MUST) Lexicon `nullable`: a required, nullable property is a nullable C# property
@@ -469,15 +599,18 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
 #### Unions
 
 - **LEX-49** (MUST) A union is a generated `partial interface` with `[JsonConverter]` pointing at a
-  generated converter. Each variant type implements every union interface it belongs to, across
-  packages when the referencing package is downstream (an Ozone union containing a `chat.bsky`
-  type is declared in `ATProtoNet.Ozone`; the variant type is in `ATProtoNet.Bluesky`, so
-  CodeGen emits a wrapper-free registration: the Ozone converter dispatches to the Bluesky type
-  and the interface is satisfied by a generated `partial` declaration only within one assembly;
-  across assemblies the converter returns the variant through a generated adapter record that
-  implements the interface and exposes the variant as `Value`).
-  *Source:* [D-18](../06-decisions.md#d-18-unions-are-interfaces) · Lexicon reference DAG
-  (`com.atproto` ← `app.bsky` ← `chat.bsky` ← `tools.ozone`)
+  generated converter. A variant type in the same assembly implements every union interface of
+  that assembly it belongs to. A variant from an upstream assembly cannot implement a downstream
+  interface (22 of the 103 upstream unions name such members, for example `com.atproto.label.defs#selfLabels`
+  in `app.bsky.feed.post#labels`), so the downstream assembly generates a derived record
+  `{Union}{Variant}` (`PostLabelsSelfLabels : SelfLabels, IPostLabels`) and a static
+  `IPostLabels.From(SelfLabels)` factory. The converter reads such members as the derived type, so
+  `post.Labels is SelfLabels labels` works; the wire shape is the variant's own. For this to work
+  in user assemblies too, generated named object types are `partial record` but **not sealed**
+  (a documented exception to [AG-6](../03-api-guidelines.md#types)); method `Parameters`,
+  `Input`, `Output` and inline types stay sealed.
+  *Source:* [D-18](../06-decisions.md#d-18-unions-are-interfaces) · Lexicon survey (cross-package
+  union members: Ozone→core 10, Bluesky→core 6, Ozone→Bluesky 4, StandardSite→core 2)
 - **LEX-50** (MUST) Open unions get an `Unknown…` variant implementing `IUnknownUnionVariant`
   (`Type` = the `$type`, `Raw` = a detached copy of the object) that writes back its raw JSON
   unchanged. Closed unions have no unknown variant.
@@ -695,6 +828,7 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
 | `MaxValidationDepth` | 64 | data validation recursion (matches the DRISL depth limit) |
 | `MaxValidationErrors` | 100 | violations collected before validation stops |
 | `MaxRegistryVariantsPerUnion` | 256 | `LexiconTypeRegistry` additions per union |
+| `MaxRefAliasDepth` | 8 | chains of named `ref` defs (LEX-7) |
 
 The union converter searches for `$type` only within the current object, which the XRPC
 success-body cap already bounds ([xrpc-client.md](xrpc-client.md)).
@@ -736,6 +870,7 @@ success-body cap already bounds ([xrpc-client.md](xrpc-client.md)).
 | All Lexicon models and clients are generated; 100% of vendored methods are covered (0.8: 279 of 321) | D-04 |
 | One type per def; merged shapes (`FeedResponse`, `ConvoIdRequest`) and their names disappear | LEX-38: generated code cannot share shapes without heuristics |
 | Unions are interfaces with generated converters; no `Unknown*` hand classes, no duplicate embed types | D-18 |
+| Named object and record types are unsealed so downstream unions can derive from them | LEX-49 |
 | A union variant serialized outside union context writes no `$type` (0.8 always wrote it) | Lexicon spec: no `$type` on plain refs; records and union members are unaffected |
 | No `AtProtoRecord` base class or #49 contract modifier; `createdAt` stamping via `ICreatedAtRecord<TSelf>` | One record pattern |
 | `integer` maps by the D-19 rule (0.8: `int` 189×, `long` 33×, no rule) | D-19 |
@@ -756,7 +891,7 @@ success-body cap already bounds ([xrpc-client.md](xrpc-client.md)).
 | LEX-O1 | Align `lexicons.json` exactly with `@atproto/lex`'s manifest (`version`, `lexicons`, `resolvers`, `resolutions`) so one manifest serves several SDKs? | Yes where the formats overlap; our extra fields (CID-in-record-form, provenance) go under an `x-atprotonet` key. Verify against `@atproto/lex-installer` at phase 3 start. |
 | LEX-O2 | Closed `enum` as an open struct (LEX-47) or a C# `enum`? | Open struct, lenient read, validator-enforced; a C# enum breaks readers when upstream breaks the rule. |
 | LEX-O3 | Exact extension-data property type (`IDictionary<string, JsonElement>` vs `JsonObject`) under STJ source generation with `init`. | Whichever STJ source generation supports with `init` and no reflection; decided in the phase 3 spike. |
-| LEX-O4 | Cross-assembly union membership (LEX-49): adapter record vs requiring every union's variants to be in the same or a downstream assembly. | Downstream packages declare the interface and emit `partial` implementations only for their own types; upstream variants are wrapped by a generated adapter. Revisit if the adapter proves awkward in Ozone. |
+| LEX-O4 | Cross-assembly union membership (LEX-49): derived records (unsealed object types) or wrapper adapters (`{Union}{Variant}(Value)`, types stay sealed)? | Derived records: pattern matching on the upstream type keeps working. Adapters need `is X { Value: var v }` everywhere Ozone and Bluesky read such fields. |
 | LEX-O5 | Generate `Enumerate*Async` for every paginated query (LEX-71) or only listed ones? | Every one. |
 | LEX-O6 | Direct DRISL-CBOR binding for generated types (skipping `DataModelValue`)? | Later optimisation behind the same API (D-10). |
 | LEX-O7 | Should `app.bsky.unspecced.*` be generated at all? | Yes, marked `ATPROTO002`. |
