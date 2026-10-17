@@ -7,7 +7,8 @@ runtime), `ATProtoNet.LexiconResolution` (runtime resolution), and the generated
 projects: `ATProtoNet.Lexicon.CodeGen` (emitter, `netstandard2.0`) and
 `ATProtoNet.Lexicon.Generator` (Roslyn), which ships as an analyzer inside the `ATProtoNet`
 package. Runtime code targets `net11.0` with C# 15; the generator projects target
-`netstandard2.0` but emit C# 15 ([D-25](../06-decisions.md)) · **Phase:** 3 (model, validation, CodeGen, first-party `com.atproto` generation), 6
+`netstandard2.0` but emit C# 15 ([D-25](../06-decisions.md)) · **Phase:** 3 (model, validation, CodeGen, first-party `com.atproto` generation including the
+`com.atproto.space`/`simplespace` families), 6
 (runtime resolution), 8 (bundled source generator, the remaining Lexicon families) ·
 **Normative references:** [Lexicon](https://atproto.com/specs/lexicon),
 [Lexicon versioning](https://atproto.com/guides/lexicon#versioning),
@@ -78,7 +79,7 @@ public sealed record LexObject : LexUserType
     public IReadOnlyList<string> Required { get; init; } = [];
     public IReadOnlyList<string> Nullable { get; init; } = [];
 }
-// LexProcedure, LexSubscription, LexPermissionSet, LexSpace (experimental, ATPROTO001), LexToken,
+// LexProcedure, LexSubscription, LexPermissionSet, LexSpace, LexToken,
 // LexString (format, length and grapheme bounds, enum, const, default, knownValues),
 // LexInteger, LexBoolean, LexBytes, LexCidLink, LexBlob, LexArray, LexUnknown, LexRef, LexUnion
 // (the last three accepted as named defs with a warning, LEX-3), LexParams, LexBody(Encoding, Schema),
@@ -182,7 +183,7 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
 - **LEX-2** (MUST) The model is immutable and typed: one record type per Lexicon type (`record`,
   `query`, `procedure`, `subscription`, `permission-set`, `token`, `object`, `string`,
   `integer`, `boolean`, `bytes`, `cid-link`, `blob`, `array`, `unknown`, `ref`, `union`,
-  `params`), plus `space` behind `[Experimental("ATPROTO001")]`. Every node keeps its source
+  `params`, `space`). Every node keeps its source
   `JsonElement`, and every document keeps its exact source bytes, so publishing never
   re-serializes (CIDs come from the DRISL encoding, LEX-23).
   *Source:* [Lexicon spec](https://atproto.com/specs/lexicon) · Decision · 0.8 #92 (space defs)
@@ -241,8 +242,7 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   resources are warnings that say authorization servers ignore them.
   *Source:* [Permission spec](https://atproto.com/specs/permission) · 0.8 #130 ·
   `LexiconLinterTests.Lint_*` (permission-set cases)
-- **LEX-12** (MUST) Space rules (experimental): collections warn on wildcards and non-NSIDs, not on
-  long names.
+- **LEX-12** (MUST) Space rules: collections warn on wildcards and non-NSIDs, not on long names.
   *Source:* 0.8 #92 · `Lint_SpaceCollections_WarnsOnWildcardAndNonNsids_NotOnLongNames`
 - **LEX-13** (SHOULD) Style rules from the Lexicon style guide (camelCase property names, `main`
   for primary types, descriptions present on primary defs, `maxGraphemes` paired with
@@ -310,9 +310,12 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
 - **LEX-24** (MUST) Vendored first-party sources: `bluesky-social/atproto` `lexicons/` for
   `com.atproto.*`, `app.bsky.*`, `chat.bsky.*`, `tools.ozone.*`; the `standard.site` authority's
   published records for `site.standard.*` (the only source of its permission sets); the
-  permissioned-data proposal repository at a pinned commit for `com.atproto.space.*` and
-  `com.atproto.simplespace.*` (experimental).
-  *Source:* 0.8 `Lexicon/Upstream/README.md`, `refresh.sh` · [D-24](../06-decisions.md#d-24-spaces-scope-in-the-rewrite)
+  Spaces Lexicons `com.atproto.space.*` and `com.atproto.simplespace.*` from the permissioned-data
+  proposal repository at the commit pinned by [spaces.md](spaces.md) (SPC-1) until the GA Lexicons
+  are published in `bluesky-social/atproto`, then from there like the rest of `com.atproto.*`. They
+  are ordinary first-party families: no experimental marker, same generation, same tests.
+  *Source:* 0.8 `Lexicon/Upstream/README.md`, `refresh.sh` · [D-24](../06-decisions.md#d-24-spaces-scope-in-the-rewrite) ·
+  [SPC-3](spaces.md#protocol-status-pins-and-placement)
 
 ### Generator architecture
 
@@ -381,17 +384,19 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   | `renames` | `nsid#def` (or `nsid#def.property`) → C# name | none |
   | `proxies` | NSID glob → default `XrpcServiceRef`, with exclusions | none |
   | `experimental` | NSID glob → diagnostic ID | none |
+  | `addressFields` | `nsid#def.property` globs whose `at-uri` fields map to `AtAddress` (LEX-88) | none |
   | `unionExtensions` | `nsid#def` → open unions in referenced assemblies it extends; generates typed helpers (LEX-86) | none |
   | `visibility` | `public` or `internal` | `public` |
 
   First-party configuration sets `accessors` (`com.atproto` → `@root`, `app.bsky` → `Bsky`,
   `chat.bsky` → `Chat`, `tools.ozone` → `Ozone`, `site.standard` → `StandardSite`,
   `com.atproto.space` → `Space`, `com.atproto.simplespace` → `SimpleSpace`; the more specific
-  entries win over `com.atproto` → `@root`, so the Spaces accessors are extension properties and
-  the client core never references the experimental Spaces layer), `proxies` (`chat.bsky.**`
-  except `chat.bsky.moderation.**` → `did:web:api.bsky.chat#bsky_chat`), `experimental`
-  (`app.bsky.unspecced.**` → `ATPROTO002`; `com.atproto.space.**` and
-  `com.atproto.simplespace.**` → `ATPROTO001`) and `exclude`
+  entries win over `com.atproto` → `@root`, so the Spaces accessors are extension properties
+  like every other family's and the client core stays free of family namespaces, LEX-67),
+  `proxies` (`chat.bsky.**` except `chat.bsky.moderation.**` →
+  `did:web:api.bsky.chat#bsky_chat`), `experimental` (`app.bsky.unspecced.**` → `ATPROTO002`
+  only; the Spaces families are not listed, see LEX-87), `addressFields`
+  (`com.atproto.space.**` and `com.atproto.simplespace.**`, plus the fields LEX-88 names) and `exclude`
   (`app.bsky.notification.getGroupedNotifications`, flagged unstable upstream).
   *Source:* 0.8 `ConvoClient.cs:16` and siblings (chat proxy), `Upstream/README.md`
   (getGroupedNotifications) · [D-16](../06-decisions.md#d-16-experimental-diagnostic-ids) ·
@@ -626,7 +631,7 @@ public static class BlueskyClientExtensions
   | `boolean` | `bool` |
   | `integer` | `int` when `minimum` and `maximum` are both present and inside `Int32`, else `long` ([D-19](../06-decisions.md#d-19-lexicon-integer-maps-to-int-when-the-bounds-fit-otherwise-long)) |
   | `string` (no format) | `string` |
-  | `string` format `did`, `handle`, `at-identifier`, `at-uri`, `nsid`, `cid`, `record-key`, `tid`, `datetime`, `language` | `Did`, `Handle`, `AtIdentifier`, `AtUri`, `Nsid`, `Cid`, `RecordKey`, `Tid`, `AtDatetime`, `Language` |
+  | `string` format `did`, `handle`, `at-identifier`, `at-uri`, `nsid`, `cid`, `record-key`, `tid`, `datetime`, `language` | `Did`, `Handle`, `AtIdentifier`, `AtUri` (or `AtAddress`, LEX-88), `Nsid`, `Cid`, `RecordKey`, `Tid`, `AtDatetime`, `Language` |
   | `string` format `uri` | `string` (keeps the exact text; `System.Uri` normalises) |
   | other formats | the type the compilation or a referenced assembly declares with `[LexiconFormatType]` (`space-ref` → `SpaceUri`, declared in `ATProtoNet`), else `string` with a warning |
   | `string` with `knownValues` or `enum` | known-values struct (LEX-47) |
@@ -898,10 +903,31 @@ public static class BlueskyClientExtensions
   `Ref` (`PermissionSetRef`) and `Include(XrpcServiceRef? audience)`, which produces the
   `include:` scope string [auth.md](auth.md) parses.
   *Source:* 0.8 #130 (`Include(aud)`), `AtProtoScopes.PermissionSets` must match published sets
-- **LEX-76** (MUST, experimental) A `space` def becomes a static class exposing the declaration as
+- **LEX-76** (MUST) A `space` def becomes a static class exposing the declaration as
   `ATProtoNet.Spaces.SpaceTypeDeclaration` (in `ATProtoNet`, so always available to generated
-  code), marked `[Experimental("ATPROTO001")]`.
-  *Source:* 0.8 #92 · `Emit_SpaceDeclaration_*`
+  code), with no experimental marker. The `space:` scope builders of [auth.md](auth.md) accept it,
+  so a space type's declared collections feed scope defaults ([SPC-63](spaces.md#oauth-scopes)).
+  *Source:* 0.8 #92 · `Emit_SpaceDeclaration_*` · **Decision** (Spaces is core; maintainer review 2026-10-17)
+
+#### Spaces families
+
+- **LEX-87** (MUST) The generated `com.atproto.space.*` and `com.atproto.simplespace.*` families
+  (`ATProtoNet.Lexicons.Com.AtProto.Space`, `…SimpleSpace`) are generated, tested and versioned like
+  every other first-party family and carry no `[Experimental]` attribute. Their methods that need a
+  space credential are reached through `SpaceClient` ([xrpc-client.md](xrpc-client.md#records-in-spaces)),
+  which binds the audience; the generated descriptors carry no audience logic. Only if the GA
+  specification is not out when 0.9.0 ships do these families take `ATPROTO001` through the
+  `experimental` option, removed again in the 0.9.x release after GA ([spaces.md](spaces.md)
+  header).
+  *Source:* **Decision** (Spaces is core; maintainer review 2026-10-17) · [SPC-3](spaces.md#protocol-status-pins-and-placement)
+- **LEX-88** (MUST) A Lexicon `at-uri` field maps to `AtAddress` ([syntax.md](syntax.md#space-addresses))
+  instead of `AtUri` when it matches the `addressFields` option. The first-party configuration
+  matches every `at-uri` field of the Spaces families and each field of another family that the
+  pinned protocol revision says may address a space or a record in one; the list is reviewed at
+  each Spaces pin. All other `at-uri` fields stay `AtUri`. The format `space-ref` maps to
+  `SpaceUri` (LEX-43).
+  *Source:* [SPC-52](spaces.md#addressing-implementation) · forum "Bringing back at://" (a single
+  scheme lets `at-uri` fields carry space addresses)
 
 ### Hand-written code on top of generated code
 
@@ -1016,6 +1042,8 @@ success-body cap already bounds that object ([xrpc-client.md](xrpc-client.md)).
 | Diff treats loosening a constraint and making a field optional as breaking (0.8: compatible) | Lexicon versioning guide |
 | Unresolvable refs are errors (0.8: `JsonElement?` with a warning) | LEX-6 |
 | Generated `ToString()` prints no members | AG-29 |
+| `com.atproto.space.*`/`simplespace.*` are generated first-party families without `ATPROTO001`; `LexSpace` and `space` defs are not experimental | LEX-87; Spaces is a core data protocol targeting GA |
+| `at-uri` fields that may address spaces map to `AtAddress` | LEX-88 |
 
 ## Open points
 
@@ -1030,3 +1058,4 @@ success-body cap already bounds that object ([xrpc-client.md](xrpc-client.md)).
 | LEX-O7 | Should `app.bsky.unspecced.*` be generated at all? | Yes, marked `ATPROTO002`. |
 | LEX-O8 | C# 15 union details (syntax, null semantics, runtime types) may still change before .NET 11 GA (November 2026). | Re-check against the GA compiler at phase 3 start. The emitter isolates the union shape, so a change is a regeneration, not a redesign. |
 | LEX-O9 | System.Text.Json's built-in union support cannot express `$type` discriminators today (LEX-51). | Keep the generated converters; revisit if a later System.Text.Json adds discriminator-based union classification and per-case contracts. |
+| LEX-O10 | How does the generator know which `at-uri` fields may hold space addresses (LEX-88)? | The `addressFields` option, reviewed at each Spaces pin; switch to a Lexicon-level marker if the GA specification defines one. |

@@ -55,32 +55,34 @@ public sealed class AtProtoClient                       // immutable, thread-saf
     public RecordCollection<T> Records<T>() where T : class, IAtProtoRecord<T>;
     public RecordReader<T> Records<T>(AtIdentifier repo) where T : class, IAtProtoRecord<T>;  // read-only, any repo
 
-    public SpaceClient Space(SpaceUri space);                                        // XRC-59: records in a space
-
     public static Task<AtProtoClient> LoginAsync(Uri service, AtIdentifier identifier, string password,
         CancellationToken cancellationToken = default);                                  // scripts; see auth.md
 }
 
 namespace ATProtoNet.Records;
 
-public union RecordAddress(AtUri, SpaceUri);                                         // where a record lives
-public interface IRecordCollection<T> where T : class, IAtProtoRecord<T>              // shared shape (XRC-61)
-{
-    Task<RecordRef> CreateAsync(T record, RecordKey? rkey = null, RecordWriteOptions? options = null, CancellationToken cancellationToken = default);
-    Task<RecordView<T>?> FindAsync(RecordKey rkey, CancellationToken cancellationToken = default);
-    IAsyncEnumerable<RecordView<T>> EnumerateAsync(CancellationToken cancellationToken = default);
-    // … the members of XRC-47
-}
-public sealed record RecordRef(RecordAddress Address, Cid Cid);
+// One records shape for both data protocols (XRC-61): a collection is bound to a public repository
+// or to one author's repository in a space. Refs and views carry an AtAddress (syntax.md).
+public sealed class RecordCollection<T> where T : class, IAtProtoRecord<T> { /* the members of XRC-47 */ }
+public sealed class RecordReader<T> where T : class, IAtProtoRecord<T> { /* the read members of XRC-47 */ }
+public sealed record RecordRef(AtAddress Uri, Cid Cid);
+public sealed record RecordView<T>(AtAddress Uri, Cid Cid, T Value) where T : class, IAtProtoRecord<T>;
 
 namespace ATProtoNet.Spaces.Access;                                                 // spaces.md owns the behaviour
 
+public static class SpaceClientExtensions
+{
+    extension(AtProtoClient client)
+    {
+        public SpaceClient Space(SpaceUri space);                                    // XRC-59: records in a space
+    }
+}
 public sealed class SpaceClient                                                      // a view of AtProtoClient bound to one space
 {
-    public SpaceUri Space { get; }
-    public SpaceRecordCollection<T> Records<T>() where T : class, IAtProtoRecord<T>;              // the account's own repo in the space
-    public SpaceRecordReader<T> Records<T>(Did author) where T : class, IAtProtoRecord<T>;      // another member's repo
-    public IAsyncEnumerable<Did> EnumerateWritersAsync(CancellationToken cancellationToken = default);
+    public SpaceUri Uri { get; }
+    public RecordCollection<T> Records<T>() where T : class, IAtProtoRecord<T>;           // the account's own repo in the space
+    public RecordReader<T> Records<T>(Did author) where T : class, IAtProtoRecord<T>;     // another member's repo
+    // ForAuthority(), ForRepo(author), GetBlobAsync(…): spaces.md
 }
 
 namespace ATProtoNet.Xrpc;
@@ -469,13 +471,14 @@ Spaces are the protocol's data layer for non-public records, so the records API 
 the same shape as public repositories. The protocol rules (credentials, audiences, sync) are in
 [spaces.md](spaces.md); this section fixes how they surface on the client.
 
-- **XRC-59** (MUST) `client.Space(SpaceUri)` returns a `SpaceClient` view that shares the client's
-  handler and options. `Records<T>()` addresses the signed-in account's own repository in that
-  space (writes go to the account's repository host, using the session's credentials); `Records<T>(Did)`
-  reads another member's repository in the space through a space credential. A record address
-  passed to `Space` is a `FormatException` (it must address the space itself).
-  *Source:* **Decision** (Spaces is core; maintainer review 2026-10-17) · 0.8 `SpaceReader`,
-  `SpaceClient` (two unrelated APIs for the same records)
+- **XRC-59** (MUST) `client.Space(SpaceUri)` (an extension member declared in
+  `ATProtoNet.Spaces.Access`, so the client type itself carries no Spaces code) returns a
+  `SpaceClient` view that shares the client's handler and options. `Records<T>()` addresses the
+  signed-in account's own repository in that space (writes go through the session, under the OAuth
+  `space:` scope); `Records<T>(Did)` reads another member's repository in the space through a space
+  credential.
+  *Source:* **Decision** (Spaces is core; maintainer review 2026-10-17) · [SPC-66](spaces.md#space-scoped-client) ·
+  0.8 `SpaceReader`, `SpaceClient` (two unrelated APIs for the same records)
 - **XRC-60** (MUST) Calls that need a space credential go through a `SpaceRequestHandler`
   (an `IXrpcHandler`, [spaces.md](spaces.md)) that the `SpaceClient` composes over the session.
   Its audience is passed explicitly by the API that knows it (the repository owner for repository
@@ -483,12 +486,14 @@ the same shape as public repositories. The protocol rules (credentials, audience
   names. `XrpcInvoker` and the core handler contract contain no Spaces code.
   *Source:* 0.8 `XrpcClient.cs:690-701` (audience guessed from a `repo` parameter; `Did.Parse` threw
   on handles) · streaming audit, problem 5
-- **XRC-61** (MUST) `SpaceRecordCollection<T>` and `RecordCollection<T>` both implement
-  `IRecordCollection<T>` and follow XRC-47…XRC-52 with the same semantics (`FindAsync` maps only the
-  protocol's not-found error, swap guards where the space write API offers them, one `$type`
-  first). Their refs and views carry a `RecordAddress` (a C# 15 union of `AtUri` and `SpaceUri`),
-  so code that handles records from either protocol needs no casts.
-  *Source:* **Decision** (one records shape for both data protocols)
+- **XRC-61** (MUST) Space records use the same `RecordCollection<T>` and `RecordReader<T>` types as
+  public records and follow XRC-47…XRC-52 with the same semantics (`FindAsync` maps only
+  `RecordNotFound`, swap guards where the space write API offers them, one `$type` first). A
+  collection is bound to a public repository or to one author's repository in a space; its
+  `RecordRef` and `RecordView<T>` carry an `AtAddress` (the C# 15 union of `AtUri`, `SpaceUri` and
+  `SpaceRecordUri`, [syntax.md](syntax.md#space-addresses)), so code that handles records from
+  either protocol switches on the address instead of casting.
+  *Source:* **Decision** (one records shape for both data protocols) · [SPC-67](spaces.md#space-scoped-client)
 - **XRC-62** (MUST) Records read from a space repository are verified as [spaces.md](spaces.md)
   requires before they reach the caller; an unverifiable response is an error, not a record.
   *Source:* 0.8 `SpaceReader` and `SpaceSyncer` verification
@@ -591,7 +596,7 @@ the same shape as public repositories. The protocol rules (credentials, audience
 | `PdsAdminClient` re-authenticates on 400 `ExpiredToken` | bug fix (XRC-54) |
 | Collection only from `T.Collection`; `AtProtoRecord` base dropped | one record pattern ([lexicon.md](lexicon.md)) |
 | Case-insensitive property reads and numbers-from-strings dropped | D-20 |
-| Records API covers spaces (`client.Space(uri).Records<T>()`), with a shared `IRecordCollection<T>` and `RecordAddress` | Spaces is a core data protocol; 0.8 had separate `SpaceReader`/`SpaceClient` APIs |
+| Records API covers spaces (`client.Space(uri).Records<T>()`) with the same `RecordCollection<T>`/`RecordReader<T>`; refs and views carry an `AtAddress` | Spaces is a core data protocol; 0.8 had separate `SpaceReader`/`SpaceClient` APIs |
 | No Spaces signing inside the transport | the signed-request handler composes over sessions (XRC-60) |
 
 ## Open points
@@ -608,3 +613,7 @@ the same shape as public repositories. The protocol rules (credentials, audience
    default: parse into `LabelerRef` list, ignore malformed entries.
 5. **`ICreatedAtStamped` (XRC-51).** It keeps a 0.8 convenience for hand-written records. Default:
    keep; drop if phase 5 review finds no user of it outside samples.
+6. **`AtAddress` in refs and views (XRC-61).** Public-only code must switch on the address to get
+   an `AtUri` (for a strong ref, say). Default: keep one `RecordRef`/`RecordView<T>` with
+   `AtAddress`, plus `AtAddress.AsAtUri()` that throws for space addresses; revisit after the
+   phase 5 samples are written against it.

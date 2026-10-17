@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft · **stable surface**, targeting the November 2026 general-availability (GA) protocol. Fallback only: if the GA spec is not published when 0.9.0 ships, the Spaces APIs ship with `[Experimental("ATPROTO001")]` and lose it in the 0.9.x release that follows GA ([D-08](../06-decisions.md#d-08-spaces-is-experimental)). |
+| **Status** | Draft · **stable surface**, targeting the November 2026 general-availability (GA) protocol. Fallback only: if the GA spec is not published when 0.9.0 ships, the Spaces APIs ship with `[Experimental("ATPROTO001")]` and lose it in the 0.9.x release that follows GA ([D-08](../06-decisions.md#d-08-spaces-is-a-first-class-part-of-the-protocol)). |
 | **Packages and namespaces** | `ATProtoNet`, across the layers ([02 — Architecture](../02-architecture.md#layers-inside-atprotonet)): **layer 0:** `SpaceUri`/`SpaceRecordUri` (root namespace), `ATProtoNet.Data.Star` (STAR reader/writer), `ATProtoNet.Crypto` (BLAKE3, key-encapsulation keys) and `ATProtoNet.Crypto.HttpSignatures` (RFC 9421 and RFC 8941), `ATProtoNet.Spaces` (LtHash, space repo state, MAC computation, token formats and verification). **Layer 1:** `ATProtoNet.Identity` (space host, space signing key and key-encapsulation key entries of DID documents). **Layer 2:** `ATProtoNet.Spaces.Access` (credential provider and issuer, signed-request handler, space-scoped client), generated `ATProtoNet.Lexicons.Com.AtProto.Space.*` and `…SimpleSpace.*`. **Layer 3:** `ATProtoNet.Spaces.Sync` (syncer, notification handling, checkpoints). **Layer 4:** `ATProtoNet.Hosting` (`AddSpaces(…)` on the builder). `ATProtoNet.AspNetCore` (namespace `ATProtoNet.AspNetCore.Spaces`): space authority, repo host, `simplespace` and notification-receiver endpoints. `ATProtoNet.EntityFrameworkCore`: the Spaces stores. |
 | **Phases** | 1 primitives (`SpaceUri`, STAR, BLAKE3, KEM keys, HTTP signatures) · 2 space repos (LtHash state, MAC) · 3 generated Lexicons · 4 DID document entries · 5–6 client, credentials, signed requests · 7 sync · 9 server roles and stores · 10 end-to-end and interop against the GA reference PDS |
 | **Depends on** | [syntax](syntax.md), [data-model](data-model.md) (`DrislReader`, `Cid`, bounded readers), [crypto](crypto.md) (`SigningKey`, `VerificationKey`, `DidKey`, JOSE), [identity](identity.md) (`IIdentityResolver`, DID document lookups), [xrpc-client](xrpc-client.md) (`AtProtoClient`, `IXrpcHandler`, `XrpcInvoker`, records API), [auth](auth.md) (`ScopeSet`, `ServiceAuthVerifier`, `IReplayStore`), [streaming](streaming.md) (`#account`/`#identity` events), [server](server.md), [stores](stores.md), [hosting](hosting.md) |
@@ -185,7 +185,7 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
     ([D-02](../06-decisions.md#d-02-ship-as-09)): additive where the protocol change allows,
     otherwise called out as a breaking change in the release notes. If the experimental fallback
     in the header applies, the experimental rules apply instead.
-  *Source:* **Decision** [D-08](../06-decisions.md#d-08-spaces-is-experimental)
+  *Source:* **Decision** [D-08](../06-decisions.md#d-08-spaces-is-a-first-class-part-of-the-protocol)
 - **SPC-3** (MUST) The `com.atproto.space.*` and `com.atproto.simplespace.*` Lexicons are vendored
   under `lexicons/` from the pinned revision (source recorded in `lexicons.json`) and generated
   into `ATProtoNet.Lexicons.Com.AtProto.Space` and `…SimpleSpace` like every other first-party

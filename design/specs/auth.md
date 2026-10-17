@@ -1,8 +1,9 @@
 # Authentication: sessions, OAuth, service auth — spec
 
 **Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet.Auth`, `ATProtoNet.Auth.OAuth`,
-`ATProtoNet.Auth.ServiceAuth`, and `ATProtoNet.Admin` for the admin handler) · **Phases:** 5 (session model, password sessions, PDS admin
-handler), 6 (OAuth, scopes, service auth) · **Prefix:** `AUT`
+`ATProtoNet.Auth.ServiceAuth`, and `ATProtoNet.Admin` for the admin handler; space credentials plug in from
+`ATProtoNet.Spaces.Access`) · **Phases:** 5 (session model, password sessions, PDS admin
+handler), 6 (OAuth, scopes including `space:`, service auth, space credentials) · **Prefix:** `AUT`
 
 **Normative references:** [atproto OAuth](https://atproto.com/specs/oauth) ·
 [atproto HTTP API: auth, service auth](https://atproto.com/specs/xrpc) ·
@@ -12,7 +13,9 @@ handler), 6 (OAuth, scopes, service auth) · **Prefix:** `AUT`
 [RFC 9728](https://www.rfc-editor.org/rfc/rfc9728) protected-resource metadata ·
 [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414) AS metadata · [RFC 7009](https://www.rfc-editor.org/rfc/rfc7009) revocation ·
 [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638) JWK thumbprint · [RFC 7523](https://www.rfc-editor.org/rfc/rfc7523) `private_key_jwt` ·
-[RFC 7519](https://www.rfc-editor.org/rfc/rfc7519) JWT.
+[RFC 7519](https://www.rfc-editor.org/rfc/rfc7519) JWT · [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP message
+signatures (space credentials) · Spaces access control and `space:` scopes per [spaces.md](spaces.md) (proposal 0016 at
+its pin, then the GA specification).
 
 ## Scope
 
@@ -21,14 +24,19 @@ credential generations, single-flight refresh, persistence through `ISessionStor
 compare-and-swap ([D-22](../06-decisions.md#d-22-session-stores-support-compare-and-swap)),
 sign-out and disposal; password sessions; the OAuth client (discovery, PAR, PKCE, DPoP, callback,
 token validation, refresh, revocation, confidential clients); DPoP proofs and nonces; scopes; the
-PDS admin handler's credential side; service-auth issuing and verification.
+PDS admin handler's credential side; service-auth issuing and verification; **space credentials**
+as the fourth authentication mechanism beside password sessions, OAuth and service auth: how the
+delegation-token exchange, the space credential, the optional client attestation, revocation and
+the HTTP-message-signature binding fit the session model, and the `space:` OAuth scopes.
 
 Out of scope: the XRPC pipeline the handlers plug into ([xrpc-client.md](xrpc-client.md)); store
 contracts ([stores.md](stores.md)); identity resolution and the untrusted-fetch layer
 ([identity.md](identity.md)); JWS/JWK primitives ([crypto.md](crypto.md)); the ASP.NET Core OAuth
 login, cookie binding, `ClaimsPrincipal` mapping and the service-auth authentication scheme
 ([server.md](server.md)); per-user client factory and refresh-coordinator registration
-([hosting.md](hosting.md)); Spaces credentials ([spaces.md](spaces.md)).
+([hosting.md](hosting.md)); the Spaces token formats, covered signature components, credential
+provider internals and authority-side issuing ([spaces.md](spaces.md), which this spec's
+space-credential requirements defer to for wire details).
 
 ## Public API sketch
 
@@ -118,7 +126,7 @@ public sealed class ScopeSet : IReadOnlyCollection<Scope>      // parse, format,
     public bool Permits(Scope requested);
     public bool IsSubsetOf(ScopeSet other);
 }
-public closed record Scope { /* Atproto, Transition, Repo, Rpc, Blob, Account, Identity, Include */ }
+public closed record Scope { /* Atproto, Transition, Repo, Rpc, Blob, Account, Identity, Include, Space */ }
 
 // A published permission set (Lexicon `permission-set` def), generated as a static value per set
 // (lexicon.md); Include(aud) yields the `include:` scope for one audience.
@@ -151,6 +159,13 @@ public sealed record ServiceAuthVerification { public bool IsValid; public strin
 
 namespace ATProtoNet.Admin;
 public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; xrpc-client.md XRC-54 */ }
+
+// Space credentials (AUT-75…AUT-81). Types are owned by spaces.md; shown here because they are an
+// authentication mechanism of the same shape as the ones above.
+namespace ATProtoNet.Spaces.Access;
+public sealed class SpaceCredentialProvider : IAsyncDisposable { /* per account session: delegation token → credential, renewal */ }
+public sealed class SpaceRequestHandler : IXrpcHandler { /* credential + RFC 9421 signature for one explicit audience */ }
+public sealed class SpaceCredentialIssuer { /* authority side; verifies delegation tokens and attestations */ }
 ```
 
 ## Requirements
@@ -158,8 +173,9 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
 ### Session model
 
 - **AUT-1** (MUST) Authentication is supplied by an `IXrpcHandler`. `AnonymousHandler`,
-  `PasswordSession`, `OAuthSession`, `ServiceAuthHandler` and `PdsAdminHandler` are the shipped
-  implementations. `AtProtoClient` has no knowledge of logins, tokens, refresh or stores.
+  `PasswordSession`, `OAuthSession`, `ServiceAuthHandler`, `PdsAdminHandler` and
+  `SpaceRequestHandler` (AUT-75) are the shipped implementations. `AtProtoClient` has no
+  knowledge of logins, tokens, refresh or stores.
   *Source:* [D-06](../06-decisions.md#d-06-a-session-is-the-authenticated-transport)
 - **AUT-2** (MUST) A session object is the single owner of its credentials and is complete on its
   own: an `OAuthSession` carries its grant (issuer, token and revocation endpoints, DPoP key, client
@@ -514,8 +530,9 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
 - **AUT-58** (MUST) `ScopeSet.Parse` accepts the atproto scope grammar: `atproto`,
   `transition:generic`, `transition:chat.bsky`, `transition:email`, `repo:{collection|*}[?action=…]`,
   `rpc:{lxm|*}?aud={did#service|*}`, `blob:{mime pattern}`, `account:{attr}[?action=…]`,
-  `identity:{attr|*}`, `include:{nsid}[?aud=…]`. Unknown scope strings are kept verbatim and never
-  match. Formatting round-trips.
+  `identity:{attr|*}`, `include:{nsid}[?aud=…]`, and `space:{spaceType}[?authority=…][&skey=…]`
+  `[&collection=…][&action=…][&manage=…]` ([SPC-63](spaces.md#oauth-scopes)). Unknown scope
+  strings are kept verbatim and never match. Formatting round-trips.
   *Source:* [specs/permission](https://atproto.com/specs/permission) · Decision (0.8 could build
   scopes but not parse or match them; include parsing lived in `LexiconResolver.ParseIncludeScope`)
 - **AUT-59** (MUST) Scope builders reject empty action sets (no silent widening).
@@ -528,6 +545,56 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
   [lexicon.md](lexicon.md)) format to `include:` scopes; the client never expands permission sets
   itself (the authorization server does).
   *Source:* [specs/permission](https://atproto.com/specs/permission) · 0.8 #130
+
+### Space credentials
+
+Spaces gate reads with short-lived credentials issued by a space's authority. They are an
+authentication mechanism of the same rank as sessions and service auth, so they follow this
+spec's model; the token formats, covered components and authority policy are in
+[spaces.md](spaces.md).
+
+- **AUT-75** (MUST) Space credentials plug into the session model as handlers. A
+  `SpaceRequestHandler` (an `IXrpcHandler`) composes over the account's session: the
+  `SpaceCredentialProvider` uses the session to fetch a delegation token from the account's PDS,
+  exchanges it at the space authority for a space credential bound to a fresh in-memory key, and
+  the handler attaches the credential with an RFC 9421 signature for one explicit audience.
+  `XrpcInvoker`, `AtProtoSession` and `SessionData` have no space-credential slot.
+  *Source:* **Decision** (Spaces is core; maintainer review 2026-10-17) · [SPC-23…SPC-29](spaces.md#credential-provider) ·
+  0.8 `XrpcClient.cs:132-138,690-697` (Spaces signing inside the transport)
+- **AUT-76** (MUST) Credential renewal follows the refresh rules of this spec: one mint in flight
+  per space (single-flight, as AUT-7), a mint that has started is not cancelled by a caller giving
+  up (as AUT-8), a replaced credential stays usable by requests already holding it, and every time
+  read comes from the injected `TimeProvider` (AUT-70). The renewal window is in
+  [spaces.md](spaces.md) (SPC-30).
+  *Source:* 0.8 `SpaceCredentialProvider.cs:83,245` · tests `SpaceCredentialProviderTests`
+- **AUT-77** (MUST) A request refused because its credential expired or was revoked discards that
+  credential, mints once more and resends **once** when the body is replayable (as AUT-9). A
+  second refusal surfaces as `SpaceCredentialException`. Revocation never ends the account session.
+  *Source:* Proposal 0016, *Credential expiration and revocation* · proposal PR #109
+  (revocation, shorter expiry)
+- **AUT-78** (MUST) Space credentials, delegation tokens, client attestations and their keys live
+  in memory only. `ISessionStore` persists the account session, never space credentials; a
+  restarted process mints new ones. The provider owns the keys it generates and disposes them
+  (AUT-71 for keys it was given).
+  *Source:* **Decision** (credentials last minutes, SPC-20; persisting a key-bound bearer adds risk
+  for no gain)
+- **AUT-79** (MUST) The delegation token and the client attestation are each optional, as the
+  protocol allows. A tokenless credential (no account session, for public spaces) is an explicit
+  provider option combined with an `AnonymousHandler`, never a fallback taken when a session is
+  missing; a client attestation is sent only when the authority asks for one or the caller
+  configures it.
+  *Source:* forum "Post-alpha plans" (2026-10-08: delegation token and client attestation both
+  optional) · [SPC-28](spaces.md#credential-provider), [SPC-62](spaces.md#credential-provider)
+- **AUT-80** (MUST) Writes to the account's own space repo go through the account session under a
+  covering `space:` scope ([SPC-66](spaces.md#space-scoped-client)); they need no space
+  credential. A session whose `GrantedScope` does not permit the write fails before sending, with
+  the missing scope named, when the scope is known locally.
+  *Source:* Proposal 0016, *OAuth scopes* · **Decision** (fail early, as AUT-60 makes scopes checkable)
+- **AUT-81** (MUST) Verifying space tokens (authority and repo-host side) reuses this spec's
+  machinery: the JOSE primitives (AUT-73), `IReplayStore` for single-use delegation tokens with the
+  same consume-after-all-checks rule as AUT-68, and redaction (AUT-72) for every space token and
+  key. There is no second JWT or replay implementation.
+  *Source:* **Decision** · audit (0.8 `SpaceTokens` used the internal `Auth.Jwt` and its own replay checks)
 
 ### Service auth: issuing
 
@@ -629,6 +696,7 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
 | Service-auth default / max lifetime (issue) | 60 s / 5 min | AUT-63 |
 | Verifier `ClockSkew` / `MaxTokenLifetime` | 30 s / 5 min | AUT-66 |
 | `MaxTokenIdLength` | 255 chars | `jti` |
+| Space credential default / max lifetime | 10 min / 60 min | owned by [spaces.md](spaces.md#limits) (SPC-20); AUT-76 |
 
 ## Errors
 
@@ -642,6 +710,8 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
 | Sign-out partial failure | the remote failure, or `AggregateException` (local + remote) |
 | Invalid service-auth token | `ServiceAuthVerification { IsValid = false, Error = … }` (no exception) |
 | Untrusted-fetch failure during discovery | `OAuthException` wrapping `UntrustedFetchException` |
+| Space credential refused, not bound, revoked twice, space deleted | `SpaceCredentialException` with a `Reason` ([spaces.md](spaces.md#errors)) |
+| Own space write without a covering `space:` scope (AUT-80) | `XrpcAuthenticationException` with the scope named, before sending |
 
 ## Conformance and tests
 
@@ -656,7 +726,9 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
   `AuthorizationServerMetadataValidationTests`, `ConfidentialClientTests`, `DPoPProofGeneratorTests`,
   `DPoPTests`, `DPoPNonceCacheTests`, `PkceGeneratorTests`, `SecurityTests`, `AtProtoScopesTests`,
   `MetadataFetchPolicyTests`, `DynamicPdsTests`, `ServiceAuthGeneratorTests`, `ServiceAuthVerifierTests`,
-  `JwtTests` (to Primitives).
+  `JwtTests` (to Primitives); `space:` scope parsing and matching vectors from the pinned proposal;
+  credential renewal and resend scenarios from `SpaceCredentialProviderTests` and
+  `SpaceCredentialMintTests` (on `FakeTimeProvider`), shared with [spaces.md](spaces.md).
 - **Regression corpus** ([04 — Testing](../04-testing.md#regression-corpus)): K-256 key cannot
   sign an ES256 DPoP proof; service-auth time claims outside range refused not thrown; missing or
   unusable `jti` refused; forged token does not spend the genuine `jti`; audience refusal does not
@@ -686,6 +758,8 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
 | `ServiceAuthIssuer` does not dispose its key | AG-26 |
 | 0.6 and 0.8 stored sessions are read only by the one-off migration helper, not the hot path | Compatibility code stays out of the session path; users still keep their sign-ins |
 | OAuth wire DTOs internal | AUT-74 |
+| Space credentials are an authentication mechanism (`SpaceRequestHandler : IXrpcHandler`), not transport code | AUT-75; 0.8 signed Spaces requests inside `XrpcClient` |
+| `ScopeSet` parses and matches `space:` scopes | AUT-58; Spaces is a core data protocol |
 | `AutoRefreshSession = false` removed | refresh is the session's job; callers who never want refresh use the generated `createSession` and an `AnonymousHandler` with their own bearer authorizer |
 
 ## Open points
@@ -705,3 +779,6 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
    `RefreshSkew` × 2 (forcing early refresh) rather than never; 0.8 stored `null` expiry.
 6. **`ServiceAuthHandler` audience per call.** Some callers proxy to several services. Default:
    one audience per handler; use one handler per audience.
+7. **Space credentials across instances.** Several instances serving one account each mint their
+   own credentials (AUT-78). Default: accept it (credentials are cheap and short-lived); revisit if
+   an authority rate-limits `getSpaceCredential` per account.

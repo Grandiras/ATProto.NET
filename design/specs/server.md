@@ -2,12 +2,13 @@
 
 **Status:** Draft · **Package:** `ATProtoNet.AspNetCore` (replaces 0.8's `ATProtoNet.Server`;
 depends on `ATProtoNet` and the ASP.NET Core shared framework; namespaces `ATProtoNet.AspNetCore`,
-`.Xrpc`, `.Authentication`, `.OAuth`, `.Labels`, `.Tap`) · **Phase:** 9 ·
+`.Xrpc`, `.Authentication`, `.OAuth`, `.Labels`, `.Tap`, `.Spaces`) · **Phase:** 9 (Spaces server roles
+included) ·
 **Normative references:** [XRPC](https://atproto.com/specs/xrpc),
 [Event Stream](https://atproto.com/specs/event-stream),
 [OAuth](https://atproto.com/specs/oauth), [Labels](https://atproto.com/specs/label),
 [RFC 6265bis](https://datatracker.ietf.org/doc/draft-ietf-httpbis-rfc6265bis/) (cookie prefixes),
-[RFC 7617](https://www.rfc-editor.org/rfc/rfc7617) (HTTP Basic)
+[RFC 7617](https://www.rfc-editor.org/rfc/rfc7617) (HTTP Basic), Spaces server roles per [spaces.md](spaces.md)
 
 ## Scope
 
@@ -18,7 +19,11 @@ In scope:
 - the service-auth **authentication scheme** and the principal types it produces;
 - the **OAuth web login** (browser endpoints, CSRF binding, cookie sign-in, client metadata);
 - **labeler endpoints** (`com.atproto.label.queryLabels`, `com.atproto.label.subscribeLabels`);
-- the **Tap webhook** receiver.
+- the **Tap webhook** receiver;
+- the **Spaces server roles** (namespace `ATProtoNet.AspNetCore.Spaces`): space authority,
+  space repo host, `simplespace` and the write-notification receiver, plus the space-credential
+  authentication scheme they share with applications' own endpoints. They are regular features of
+  this package, registered and mapped like the ones above (SRV-65…SRV-70).
 
 Out of scope, specified elsewhere:
 
@@ -31,10 +36,9 @@ Out of scope, specified elsewhere:
 - label signing and the label frame codec: [labels.md](labels.md);
 - Tap event parsing and the acknowledgement rule: [streaming.md](streaming.md);
 - store contracts: [stores.md](stores.md);
-- the Spaces server: [spaces.md](spaces.md). Its endpoints ship in this package under
-  `[Experimental("ATPROTO001")]` (namespace `ATProtoNet.AspNetCore.Spaces`) and are built **only**
-  on the public XRPC endpoint API this spec defines; nothing outside that namespace knows about
-  Spaces.
+- the Spaces protocol rules those roles apply (token and credential verification, policy,
+  MACs, notification sequencing and retries): [spaces.md](spaces.md); this spec covers how they
+  are hosted.
 
 ## Public API sketch
 
@@ -46,10 +50,16 @@ builder.Services.AddAtProto(o => o.ServiceUrl = new Uri("https://pds.example"))
         .AddFromAssembly(typeof(Program).Assembly))
     .AddOAuthLogin(o => { o.ClientMetadata = metadata; o.ServeClientMetadata = true; })
     .AddLabeler<MyLabelSource>(o => o.LabelerDid = labelerDid)
-    .AddTapWebhook<MyTapHandler>(o => o.AdminPassword = config["Tap:AdminPassword"]);
+    .AddTapWebhook<MyTapHandler>(o => o.AdminPassword = config["Tap:AdminPassword"])
+    .AddSpaces(o => o.ServiceDid = serviceDid)                  // Spaces roles (SRV-65), spaces.md
+    .AddSpaceAuthority(o => o.SigningKey = authorityKey)
+    .AddSimpleSpace()
+    .AddSpaceRepoHost<MySpaceRepoStorage>()
+    .AddSpaceNotifications<MyNotificationHandler>();
 
 builder.Services.AddAuthentication()
-    .AddAtProtoServiceAuth(o => o.Audiences.Add(XrpcServiceRef.Parse("did:web:feed.example#bsky_fg")));
+    .AddAtProtoServiceAuth(o => o.Audiences.Add(XrpcServiceRef.Parse("did:web:feed.example#bsky_fg")))
+    .AddAtProtoSpaceCredentials();                              // SRV-67
 
 app.MapAtProtoXrpc().RequireServiceAuth();      // returns the /xrpc RouteGroupBuilder
 app.MapAtProtoOAuth();                          // {prefix}/login, /callback, /logout, client metadata
@@ -104,16 +114,19 @@ public sealed class XrpcContext
     public CancellationToken RequestAborted { get; }
     public ServiceAuthCaller? Caller { get; }            // set when service auth authenticated the request
     public AtProtoUser? User { get; }                    // set when the OAuth login authenticated the request
+    public SpaceCaller? SpaceCaller { get; }             // set when a space credential authenticated the request
     public IHeaderDictionary ResponseHeaders { get; }
 }
 
 // ── Principals ────────────────────────────────────────────────────────
 public sealed record ServiceAuthCaller(Did Issuer, XrpcServiceRef Audience, Nsid? Method, string TokenId);
 public sealed record AtProtoUser(Did Did, Handle? Handle);
+public sealed record SpaceCaller(SpaceUri Space, Did? Subject, string? ClientId, Did Audience, string CredentialId);
 public static class AtProtoPrincipalExtensions
 {
     public static ServiceAuthCaller? GetServiceAuthCaller(this ClaimsPrincipal principal);
     public static AtProtoUser? GetAtProtoUser(this ClaimsPrincipal principal);   // OAuth-login identities only
+    public static SpaceCaller? GetSpaceCaller(this ClaimsPrincipal principal);
 }
 
 // ── Labeler and Tap seams ─────────────────────────────────────────────
@@ -349,6 +362,51 @@ package.
   apply to a handler or a group respectively. *Source:* 0.8 · tests `RequireServiceAuthAttribute_NamesTheScheme`,
   `RequireServiceAuthOnGroup_AppliesToEveryHandlerButAllowAnonymous`
 
+### Spaces server roles
+
+Spaces is a core data protocol, so serving it is an ordinary feature of this package: the roles
+are XRPC handlers over the generated `com.atproto.space.*`/`simplespace.*` descriptors, with
+their protocol behaviour in [spaces.md](spaces.md).
+
+- **SRV-65** (MUST) The Spaces roles register on `AtProtoBuilder` like every other feature
+  (AG-25): `AddSpaces(…)` (shared options: the service DID, the space-credential scheme, the
+  stores), `AddSpaceAuthority(…)`, `AddSimpleSpace()`, `AddSpaceRepoHost<TStorage>()` and
+  `AddSpaceNotifications<THandler>()`. `MapAtProtoXrpc()` serves every registered Spaces method
+  with the others; there is no separate mapping call and no `[Experimental]` attribute (unless the
+  fallback in the [spaces.md](spaces.md) header applies).
+  *Source:* **Decision** (Spaces is core; maintainer review 2026-10-17) · 0.8 `AddAtProtoSpaces`,
+  `AddSpaceRepoHost<T>` (marked experimental)
+- **SRV-66** (MUST) The roles are built only on this spec's public endpoint API (handler
+  interfaces, `XrpcContext`, the error envelope, the authentication schemes). Routing, binding,
+  error mapping and the service-auth scheme contain no Spaces-specific branches; an architecture
+  test checks that only `ATProtoNet.AspNetCore.Spaces` references `ATProtoNet.Spaces.*`.
+  *Source:* **Decision** · audit (0.8 central hosting code knew the Spaces stores,
+  `InMemoryDefaultsWarning.cs:42-66`)
+- **SRV-67** (MUST) `AddAtProtoSpaceCredentials` registers an authentication scheme on
+  `AuthenticationBuilder`, parallel to the service-auth scheme. It verifies
+  `Authorization: Atproto-Space …` with the RFC 9421 signature and `Atproto-Space-Audience` per
+  [spaces.md](spaces.md) (SPC-24, SPC-44, revocation per SPC-48), using one verifier built at
+  startup. It follows SRV-37 (verifies only where authorization requires it) and SRV-39
+  (challenges are 401 envelopes, here with `WWW-Authenticate: Atproto-Space`).
+  *Source:* **Decision** (space credentials are a first-class mechanism, [auth.md](auth.md) AUT-75) ·
+  0.8 `SpaceCredentialVerifier.cs` (verification inside the repo-host endpoints only)
+- **SRV-68** (MUST) A verified credential produces a principal with authentication type
+  `AtProtoSpaceCredential` and its own claim types (`atproto:space:space`, `atproto:space:sub`,
+  `atproto:space:client`, `atproto:space:aud`, `atproto:space:jti`). `GetSpaceCaller()` returns
+  its `SpaceCaller`; `GetServiceAuthCaller()` and `GetAtProtoUser()` return `null` for it (the
+  separation SRV-42 makes for service auth). Applications may protect their own endpoints that
+  serve space data with `[RequireSpaceCredential]` / `RequireSpaceCredential()`.
+  *Source:* **Decision** (no claim sharing between schemes, SRV-42)
+- **SRV-69** (MUST) The write-notification receiver (`notifyWrite`, `notifySpaceDeleted` at a
+  syncer) uses the service-auth scheme with the audience the application registered, validates
+  input before authentication work, and dispatches to `ISpaceNotificationHandler`
+  ([spaces.md](spaces.md), SPC-40…SPC-42).
+  *Source:* audit (0.8 could register for notifications but shipped no receiver)
+- **SRV-70** (MUST) The Spaces roles use the stores selected on the builder ([stores.md](stores.md));
+  when a role falls back to an in-memory store, the per-feature startup warning of
+  [hosting.md](hosting.md) names it, as for every other feature.
+  *Source:* 0.8 `InMemoryDefaultsWarning.cs` (Spaces stores) · HST per-feature warning
+
 ### OAuth web login
 
 - **SRV-44** (MUST) `MapAtProtoOAuth()` maps, under `OAuthLoginOptions.RoutePrefix` (default
@@ -476,6 +534,7 @@ package.
 | Protocol errors on XRPC routes | envelope per SRV-8 |
 | Errors after a subscription upgrade | `{op:-1}` error frame, then close (SRV-32) |
 | Service-auth verification failure | 401 envelope with the verifier's error name; `jti` unspent if the signature did not verify (AUT) |
+| Space-credential verification failure | 401 envelope with `WWW-Authenticate: Atproto-Space` and the verifier's reason (SRV-67) |
 | Login/callback failures | redirect with `?error=<code>` (SRV-50) |
 | Logout and client-metadata request failures | envelope |
 | Tap webhook failures | 401 / 413 / 500 envelopes (SRV-61–64) |
@@ -489,7 +548,9 @@ package.
 - Port these 0.8 test classes as scenarios: `XrpcEndpointTests`, `XrpcRouteGroupTests`,
   `XrpcQueryBindingTests`, `ServiceAuthSchemeTests`, `AtProtoOAuthCallbackBindingTests`
   (minus the relay cases), `AtProtoOAuthEndpointTests`, `QueryLabelsEndpointTests`,
-  `TapWebhookTests`.
+  `TapWebhookTests`, `SpaceServerEndpointTests`, `SpaceStoreRegistrationTests`,
+  `SpaceCredentialCacheTests`, `ServiceAuthWithSpacesTests` (the protocol assertions of these stay
+  with [spaces.md](spaces.md); here they pin registration, mapping and the schemes).
 - New tests: subscription framing against the conformance label-frame vectors, `ConsumerTooSlow`
   with a stalled client, error frame after upgrade, principal separation (a service-auth token
   and an OAuth cookie for the same DID on one request), `OnValidatePrincipal`, header allow-list
@@ -511,6 +572,9 @@ package.
 | Package renamed `ATProtoNet.Server` → `ATProtoNet.AspNetCore`; the DI builder, client factory, stores, stream workers, health checks and Aspire client integration move to the base `ATProtoNet` package | Workers and console apps need only `ATProtoNet`; this package holds what genuinely needs ASP.NET Core |
 | Loopback cookie relay dropped | Q-9 |
 | Public `XrpcBooleanConverter` dropped | Generated binding handles booleans |
+| Spaces server roles are regular features (`AddSpaces(…)` and companions on the builder), not experimental | SRV-65; Spaces is a core data protocol targeting GA |
+| Space credentials have an authentication scheme and principal of their own | SRV-67, SRV-68; 0.8 verified them only inside its repo-host endpoints |
+| A notification receiver is served | SRV-69; 0.8 could register but not receive |
 
 ## Open points
 

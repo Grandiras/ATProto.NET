@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft |
 | **Package** | `ATProtoNet` (namespaces `ATProtoNet.Streaming`, `.Streaming.Firehose`, `.Streaming.Labels`, `.Streaming.Jetstream`, `.Streaming.Tap`, `.Streaming.Plc`, `.Streaming.Advanced`). In the same package, the chat moderation stream lives in `ATProtoNet.Bluesky` and the `StreamWorker<TItem>` hosted-service adapter in `ATProtoNet.Hosting` ([hosting](hosting.md)). The Tap webhook receiver is in the `ATProtoNet.AspNetCore` package ([server](server.md)). |
-| **Phase** | 7 |
+| **Phase** | 7 (together with space sync, `ATProtoNet.Spaces.Sync`, [spaces](spaces.md)) |
 | **Depends on** | [data-model](data-model.md) (`DrislReader`, `CarReader`, `Cid`), [repo](repo.md) (`SignedCommit`, `MerkleSearchTree` inversion, `RepoSnapshot`), [identity](identity.md) (`IIdentityResolver`, `UntrustedFetchPolicy`), [xrpc-client](xrpc-client.md) (`XrpcInvoker`, `IXrpcHandler`), [labels](labels.md) (`LabelVerifier`, `LabelFrameCodec`), [stores](stores.md) (durable `ICursorStore`, `IRepoSyncStateStore`) |
 | **Normative references** | [Event Stream](https://atproto.com/specs/event-stream) · [Sync](https://atproto.com/specs/sync) (firehose, Sync 1.1, validation checklist, record-level synchronization) · [Repository](https://atproto.com/specs/repository) · `com.atproto.sync.subscribeRepos`, `com.atproto.label.subscribeLabels`, `chat.bsky.moderation.subscribeModEvents` Lexicons · [Jetstream](https://github.com/bluesky-social/jetstream) v1 and the v2 `network.bsky.jetstream.*` Lexicons · [Tap](https://github.com/bluesky-social/indigo/tree/main/cmd/tap) and `@atproto/tap` · PLC directory `/export` and `/export/stream` |
 
@@ -17,12 +17,17 @@ top of it: `FirehoseStream` (with the optional Sync 1.1 verification and resync 
 segment reader), the generic backfill-then-live cutover combinator (`StreamCutover`) and the
 Jetstream replay built on it, `TapStream` and `TapClient` (admin API), `PlcExportStream`, and
 the chat moderation stream (in the `ATProtoNet.Bluesky` namespace, on the same runtime). The
-`ICursorStore` and `IRepoSyncStateStore` interfaces with their in-memory implementations.
+`ICursorStore` and `IRepoSyncStateStore` interfaces with their in-memory implementations. The
+infrastructure space sync shares with the streams: `ICursorStore` for space-sync checkpoints, the
+reconnect/backoff policy, the `#account`/`#identity` events the syncer follows, and the
+diagnostics conventions (STR-96…STR-99).
 
 **Out:** serving subscriptions (`subscribeLabels`, user subscriptions) ([server](server.md));
 durable store implementations ([stores](stores.md)); label signing and verification rules
 ([labels](labels.md)); MST, commit and snapshot verification ([repo](repo.md), which this spec
-*uses*); Spaces sync, which is pull-based ([spaces](spaces.md)); hosted-service adapters
+*uses*); the space syncer's protocol logic (`listRepoOps`, `listRepos`, recovery, write
+notifications; [spaces](spaces.md)), which is a peer sync mechanism at the same layer rather than
+a stream on this runtime, because the Spaces protocol has no firehose; hosted-service adapters
 ([hosting](hosting.md)).
 
 ## Public API sketch
@@ -775,6 +780,40 @@ of `FirehoseStream`, also usable on its own.
   delivery use a non-cancelled token.
   *Source:* 0.8 `TypedFirehoseConsumer.cs:267`, `RepoSyncVerifier.ApplyAsync`
 
+### Space sync alongside the streams
+
+Spaces have no firehose: an application keeps its copy of space data current by pulling
+(`listRepoOps`, `listRepos`) and by receiving sequenced write notifications. That is a different
+transport, but the same job as following the firehose, so the two share infrastructure instead of
+growing parallel copies.
+
+- **STR-96** (MUST) Space sync (`ATProtoNet.Spaces.Sync`) and the streams of this spec are peers in
+  layer 3. Space sync does not run on `StreamLoop` (it is request/response, not a frame stream) and
+  the stream codecs know nothing about spaces; both use the shared pieces of STR-97…STR-99 rather
+  than their own copies.
+  *Source:* **Decision** (Spaces is core; maintainer review 2026-10-17) · [spaces](spaces.md#syncer)
+- **STR-97** (MUST) A space's `listRepos` checkpoint (an exclusive space revision) is stored
+  through `ICursorStore` under the stream ID `space:{spaceUri}`, as an opaque string (STR-25).
+  Per-repo sync state, which carries LtHash state as well as a revision, is not an `ICursorStore`
+  value; [spaces](spaces.md) owns it. A durable cursor store therefore serves firehose, Jetstream
+  and space-sync workers alike.
+  *Source:* **Decision** · [SPC-38](spaces.md#syncer) · 0.8 `SpaceSyncer.cs:189-221` (the caller
+  kept the checkpoint)
+- **STR-98** (MUST) Retries in space sync that wait (re-registration with `registerNotify`,
+  catch-up after a failed page, notification forwarding at a host) use the same backoff
+  calculator as STR-32 (doubling up to a cap, random jitter, waiting on the injected
+  `TimeProvider`); only the base delay, cap and jitter range are their own option values, set
+  where [spaces](spaces.md) defines them.
+  *Source:* **Decision** (one backoff implementation) · STR-32 · 0.8 `SpaceWriteNotifier.cs:202-208`
+  (its own backoff on `Task.Delay` and the wall clock)
+- **STR-99** (MUST) `#account` and `#identity` events (from `FirehoseStream`, or from Jetstream's
+  account and identity events) are the signal the syncer uses to stop or resume following an
+  author's space repos ([SPC-76](spaces.md#account-lifecycle)). The streams expose them unchanged;
+  the mapping to space repos is the syncer's, so a firehose consumer that does not use Spaces pays
+  nothing. Space sync emits its metrics (`ATProtoNet.Spaces` meter: repos synced, recoveries,
+  catch-ups, notifications received and dropped) with the instrument conventions of STR-94.
+  *Source:* Proposal 0016, *Account lifecycle* · AG-32
+
 ### Diagnostics and hosting
 
 - **STR-94** (MUST) The `ATProtoNet.Streaming` `ActivitySource` emits one activity per
@@ -872,6 +911,7 @@ verification.
 | Firehose envelopes bound directly from CBOR | D-10; 0.8 base64-encodes up to 2 MB of blocks per commit through JSON |
 | One `StreamException`; `JetstreamException`, `TapException`, `RepoFetchException` removed | D-23 |
 | `ICursorStore` stores opaque strings | chat moderation (`rev`) and future cursor kinds fit; 0.8 stores `long` only |
+| Space-sync checkpoints use `ICursorStore`; space-sync retries use the stream backoff rules | STR-97, STR-98; 0.8's syncer left checkpoints to the caller and its notifier had its own backoff |
 | `VerifyCids` option removed | integrity without authenticity; CID checks are part of Sync 1.1 verification |
 | Tap unreadable events are acknowledged on the channel too (STR-86) | the 0.8 channel stalls the repository forever |
 | Tap auto-acknowledgement mode (default) | same at-least-once model as cursors; manual mode kept |

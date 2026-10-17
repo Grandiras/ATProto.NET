@@ -3,7 +3,7 @@
 **Status:** Draft · **Packages:** `ATProtoNet` (namespace `ATProtoNet.Hosting`; registration
 extension methods in `Microsoft.Extensions.DependencyInjection` and, for Aspire,
 `Microsoft.Extensions.Hosting`), `ATProtoNet.Blazor`, `ATProtoNet.Aspire.Hosting` ·
-**Phase:** 9 (hosting layer, Blazor), 11 (Aspire.Hosting port) ·
+**Phase:** 9 (hosting layer including Spaces registration, Blazor), 11 (Aspire.Hosting port) ·
 **Normative references:** [.NET generic host](https://learn.microsoft.com/dotnet/core/extensions/generic-host),
 [Options pattern](https://learn.microsoft.com/dotnet/core/extensions/options),
 [`IHttpClientFactory`](https://learn.microsoft.com/dotnet/core/extensions/httpclient-factory),
@@ -18,8 +18,9 @@ In scope:
   `services.AddAtProto()` builder and its verbs, options binding and validation, the named
   `HttpClient` registry, the per-user client factory, session-store selection, the file session
   store and distributed-cache OAuth state store, refresh coordination, identity registration, PDS
-  admin registration, stream workers, health checks, in-memory fallback warnings, telemetry
-  wiring, and the Aspire **client** integration. For it, `ATProtoNet` depends on small
+  admin registration, stream workers, Spaces registration (`AddSpaces(…)`: credential provider,
+  space-scoped clients, the space syncer and its worker; HST-50…HST-53), health checks, in-memory
+  fallback warnings, telemetry wiring, and the Aspire **client** integration. For it, `ATProtoNet` depends on small
   `Microsoft.Extensions.*` packages (Logging, Caching and DependencyInjection abstractions,
   Options, Http, Hosting.Abstractions, Diagnostics.HealthChecks.Abstractions) and
   `Microsoft.AspNetCore.DataProtection.Abstractions` (the encrypted file store), never on the
@@ -29,8 +30,9 @@ In scope:
 - `ATProtoNet.Aspire.Hosting`: AppHost resources for the official Bluesky PDS and Tranquil PDS
   containers.
 
-Out of scope: XRPC endpoints, the service-auth scheme, the OAuth web login, labeler and Tap
-endpoints ([server.md](server.md)); store contracts and the file/distributed/EF implementations
+Out of scope: XRPC endpoints, the service-auth and space-credential schemes, the OAuth web login,
+labeler, Tap and Spaces server-role endpoints ([server.md](server.md)); Spaces protocol behaviour
+([spaces.md](spaces.md)); store contracts and the file/distributed/EF implementations
 ([stores.md](stores.md)); stream semantics ([streaming.md](streaming.md)); session and OAuth
 behaviour ([auth.md](auth.md)).
 
@@ -45,6 +47,8 @@ builder.Services.AddAtProto(o => o.ServiceUrl = new Uri("https://bsky.social")) 
     .AddIdentity(o => o.Cache.DocumentTtl = TimeSpan.FromHours(1))
     .AddPdsAdmin()                                        // binds "AtProto:Pds"
     .AddStreamWorker<FirehoseItem, MyFirehoseHandler>(o => o.StreamId = "firehose")   // TEvent: the stream's union
+    .AddSpaces()                                          // credential provider, space clients (HST-50)
+    .AddSpaceSyncWorker<MySpaceRepoStore>(o => o.Follow(spaceUri))   // HST-51
     .AddHealthChecks()                                    // atproto-pds
     .ConfigureHttpClients((name, http) => http.AddHttpMessageHandler<MyLoggingHandler>());
 
@@ -60,7 +64,7 @@ public static class AtProtoHttpClientNames
     public const string OAuth = "ATProtoNet.OAuth";         // SSRF-guarded primary handler
     public const string Streaming = "ATProtoNet.Streaming";
     public const string Admin = "ATProtoNet.Admin";
-    public const string Spaces = "ATProtoNet.Spaces";       // registered only when an experimental Spaces feature is added
+    public const string Spaces = "ATProtoNet.Spaces";       // SSRF-guarded primary handler; space hosts come from DID documents
     public static IReadOnlyList<string> All { get; }
 }
 
@@ -124,7 +128,7 @@ applies to the SDK's DI builder, not to AppHost resource builders.
 - **HST-3** (MUST) Every registration extension method of `ATProtoNet` (its hosting layer),
   `ATProtoNet.AspNetCore`, `ATProtoNet.EntityFrameworkCore` and `ATProtoNet.Blazor` hangs off
   `AtProtoBuilder`, except
-  `AddAtProtoServiceAuth` (on `AuthenticationBuilder`), `MapAtProto*` (on
+  `AddAtProtoServiceAuth` and `AddAtProtoSpaceCredentials` (on `AuthenticationBuilder`), `MapAtProto*` (on
   `IEndpointRouteBuilder`) and `AddAtProtoClient` (on `IHostApplicationBuilder`, Aspire
   convention). *Source:* **Decision**: 0.8 has 32 entry points on 7 receivers with mixed verbs.
 - **HST-4** (MUST) `AddAtProto()` registers `AtProtoClient` as a singleton built on an
@@ -172,10 +176,11 @@ applies to the SDK's DI builder, not to AppHost resource builders.
   `AtProtoHttpClientNames`. The SDK registers each one it needs; `ConfigureHttpClients` applies a
   configuration callback to all of them. *Source:* **Decision**: 0.8 has four ad-hoc names
   (`"ATProtoNet"`, `"ATProtoNet.OAuth"`, `"AtProtoSpaces"`, `nameof(PdsAdminClient)`).
-- **HST-10** (MUST) The `Identity` and `OAuth` clients use the untrusted-fetch primary handler
+- **HST-10** (MUST) The `Identity`, `OAuth` and `Spaces` clients use the untrusted-fetch primary handler
   ([identity.md](identity.md#network-policy)); `ConfigureHttpClients` may add delegating
   handlers to them but cannot replace that primary handler unless the identity options allow
-  private networks. *Source:* 0.8 · test `WithOAuth_TheIdentityOptionsAllowPrivateNetworks_LiftsTheAddressCheck`
+  private networks. *Source:* 0.8 · test `WithOAuth_TheIdentityOptionsAllowPrivateNetworks_LiftsTheAddressCheck` ·
+  0.8 `SpaceServerExtensions.cs:67-78` (the Spaces client already used the identity network policy)
 - **HST-11** (MUST NOT) The SDK never adds a resilience or retry handler to its clients.
   *Source:* 0.7 #136 (resilience handlers resend POSTs and spend DPoP proofs) · test
   `AddAtProtoClient_AddsNoResilienceHandler`
@@ -269,12 +274,43 @@ applies to the SDK's DI builder, not to AppHost resource builders.
 
 - **HST-29** (MUST) Each feature that falls back to an in-memory store contributes its own
   startup warning through `IAtProtoStartupDiagnostic`; no central component knows every store
-  (0.8's `InMemoryDefaultsWarning` knows Spaces and service-auth stores). An explicitly chosen
+  (0.8's `InMemoryDefaultsWarning` knows Spaces and service-auth stores; in 0.9 the Spaces
+  features contribute their own warnings like every other feature). An explicitly chosen
   store, including an explicitly chosen in-memory one, logs nothing. *Source:* 0.8 · tests
   `WithClientFactory_TheDefaultInMemoryStore_WarnsAtStartup`, `WithClientFactory_AChosenStore_StartsWithoutAWarning`
 - **HST-30** (MUST NOT) Warning checks never resolve stores (scoped stores under scope
   validation must not fail startup). *Source:* 0.8 · test
   `HostStart_WithAScopedReplayStore_UnderScopeValidation_StartsWithoutAWarning`
+
+### Spaces registration
+
+Spaces is a core data protocol, so its client side registers on the same builder as everything
+else and needs only `ATProtoNet`; the server roles and EF stores add to the same builder from
+their packages ([server.md](server.md#spaces-server-roles), [stores.md](stores.md)).
+
+- **HST-50** (MUST) `AddSpaces(…)` registers the `Spaces` named client, a
+  `SpaceCredentialProvider` per account client (created by `IAtProtoClientFactory` alongside the
+  user's client, disposed with it), and the options shared by every Spaces feature (service DID,
+  client attestation factory, lifetimes and limits from [spaces.md](spaces.md#limits)). It is
+  idempotent like `AddAtProto()` (HST-1). `ATProtoNet.AspNetCore`'s `AddSpaceAuthority`,
+  `AddSimpleSpace`, `AddSpaceRepoHost<T>` and `AddSpaceNotifications<T>` call it.
+  *Source:* **Decision** (Spaces is core; maintainer review 2026-10-17) · 0.8 `AddAtProtoSpaces`
+  (in the ASP.NET Core package only)
+- **HST-51** (MUST) `AddSpaceSyncWorker<TStore>(…)` runs the space syncer as a hosted service:
+  it catches up the followed spaces through `listRepos` from the checkpoint in the registered
+  `ICursorStore` ([streaming.md](streaming.md), STR-97), syncs each changed repo into the
+  `ISpaceRepoStore` `TStore`, and reacts to notifications that `AddSpaceNotifications<T>`
+  delivers. It follows the stream workers' rules (HST-21…HST-23) for stop, flush, error
+  policy and duplicate IDs, and needs no ASP.NET Core unless notifications are received.
+  *Source:* **Decision** · 0.8 `SpaceSyncer` (no hosted integration)
+- **HST-52** (MUST) Spaces stores are selected with `Use*` verbs (`UseSpaceRepoStore<T>()`,
+  and from `ATProtoNet.EntityFrameworkCore` `UseEfCoreSpaceStores<TContext>()`), with replace
+  semantics (HST-2). A Spaces feature that falls back to an in-memory store contributes its own
+  startup warning (HST-29).
+  *Source:* HST-2, HST-29 · 0.8 `SpaceStoreExtensions.cs`
+- **HST-53** (MUST) Spaces features add their activities and metrics (`ATProtoNet.Spaces`) to the
+  telemetry wiring of HST-31 like every other area; nothing extra to enable.
+  *Source:* AG-32
 
 ### Telemetry
 
@@ -408,7 +444,8 @@ applies to the SDK's DI builder, not to AppHost resource builders.
   CI with `ATPROTO_REQUIRE_INTEGRATION=1` and `TreatNoTestsAsError`
   ([04 — Testing](../04-testing.md#ci-shape)).
 - Port these 0.8 test classes as scenarios: `AtProtoBuilderTests` (minus `WithLifetime`),
-  `AtProtoClientFactoryTests`, `InMemoryDefaultsWarningTests` (minus Spaces), `PdsAdminExtensionsTests`,
+  `AtProtoClientFactoryTests`, `InMemoryDefaultsWarningTests` (its Spaces cases move to the Spaces
+  features' own warnings), `SpaceStoreRegistrationTests`, `PdsAdminExtensionsTests`,
   `IdentityServiceCollectionExtensionsTests`, `AtProtoAspireExtensionsTests`,
   `AtProtoPdsHealthCheckTests`, `AtProtoPdsHostingExtensionsTests`,
   `AtProtoTranquilPdsHostingExtensionsTests`, `AtProtoUserClientAccessorTests`, `LoginFormTests`.
@@ -425,7 +462,8 @@ applies to the SDK's DI builder, not to AppHost resource builders.
 | `Add*`/`Use*` on one builder; no `With*`, no `WithLifetime` | AG-25; immutable clients |
 | Factory keyed by `Did`; principal adapter in AspNetCore | Hosting has no ASP.NET dependency; one OAuth-only rule |
 | Named-client registry and `ConfigureHttpClients` | One place to configure every SDK client; Aspire removes retries from all |
-| Per-feature startup warnings | Stable code carries no Spaces knowledge outside the experimental Spaces namespaces (D-08) |
+| Per-feature startup warnings | No central component knows every feature's stores; Spaces features warn for themselves like the rest |
+| `AddSpaces(…)`, the space sync worker and Spaces store selection live on the one builder in the base package | Spaces is a core data protocol; 0.8 registered Spaces only from the ASP.NET Core package |
 | Stream workers (new) | 0.8 consumers have no hosted-service integration |
 | Telemetry | 0.8 has none |
 | Pinned image tags; secrets as parameters only; invariant formatting; consistent AppHost names | Reproducibility and security |

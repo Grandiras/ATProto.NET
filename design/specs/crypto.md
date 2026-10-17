@@ -28,7 +28,7 @@ the space commitment scheme of [spaces.md](spaces.md) (key agreement)
 - JOSE primitives: compact JWS encode/decode/sign/verify, `JsonWebKey`, RFC 7638 thumbprints;
 - signing and verifying `SignedObject`s;
 - BLAKE3 (hash and extendable output);
-- key-agreement keys and key encapsulation, kept apart from signing keys (the space commitment
+- key-encapsulation (KEM) keys and shared secrets, kept apart from signing keys (the space commitment
   scheme establishes a shared secret with a repository host's published key);
 - HTTP message signatures (RFC 9421) and the RFC 8941 structured fields they are carried in;
 - the key-ownership rule.
@@ -144,23 +144,24 @@ public static class Blake3
     public static Blake3Hasher CreateHasher();                              // incremental
 }
 
-// Key agreement: never the same key material as a SigningKey (CRY-50).
-public enum KeyAgreementAlgorithm { /* pinned by the GA space commitment scheme: ECDH today, ML-KEM later */ }
-public sealed class KeyAgreementPublicKey : IEquatable<KeyAgreementPublicKey>
+// Key encapsulation (KEM): never the same key material as a SigningKey (CRY-50).
+public closed record KemAlgorithm { /* pinned by the GA space commitment scheme: ECDH-based today, ML-KEM later */ }
+public sealed class KemPublicKey : IEquatable<KemPublicKey>
 {
-    public KeyAgreementAlgorithm Algorithm { get; }
+    public KemAlgorithm Algorithm { get; }
     public string Multikey { get; }                                         // as published in a DID document
-    public static KeyAgreementPublicKey FromMultikey(string multikey);
-    public KeyEncapsulation Encapsulate();                                  // fresh shared secret + ciphertext for the holder
+    public static KemPublicKey FromMultikey(string multikey);
+    public KemEncapsulation Encapsulate();                                  // fresh shared secret + ciphertext for the holder
 }
-public sealed class KeyAgreementKey : IDisposable                           // private; ToString is redacted
+public sealed class KemPrivateKey : IDisposable                             // ToString is redacted
 {
-    public static KeyAgreementKey Generate(KeyAgreementAlgorithm algorithm);
-    public static KeyAgreementKey ImportPkcs8(ReadOnlySpan<byte> pkcs8, KeyAgreementAlgorithm algorithm);
-    public KeyAgreementPublicKey PublicKey { get; }
-    public byte[] Decapsulate(ReadOnlySpan<byte> encapsulation);           // the shared secret
+    public static KemPrivateKey Generate(KemAlgorithm algorithm);
+    public static KemPrivateKey ImportPkcs8(ReadOnlySpan<byte> pkcs8, KemAlgorithm algorithm);
+    public KemPublicKey PublicKey { get; }
+    public SharedSecret Decapsulate(ReadOnlySpan<byte> ciphertext);
 }
-public readonly record struct KeyEncapsulation(byte[] SharedSecret, byte[] Encapsulation);
+public sealed class SharedSecret : IDisposable { /* zeroed on disposal; only HKDF reads it (CRY-52) */ }
+public sealed record KemEncapsulation(SharedSecret Secret, ReadOnlyMemory<byte> Ciphertext);
 
 namespace ATProtoNet.Crypto.HttpSignatures;
 
@@ -171,9 +172,12 @@ public sealed record HttpSignatureParameters
     public string? KeyId { get; init; }
     public DateTimeOffset? Created { get; init; }
 }
-public static class HttpMessageSignature
+public static class HttpMessageSigner
 {
     public static void Sign(HttpRequestMessage request, HttpSignatureParameters parameters, SigningKey key);
+}
+public static class HttpMessageSignatureVerifier
+{
     public static HttpSignatureVerdict Verify(HttpSignatureRequest request, string label,
         IReadOnlyList<string> requiredComponents, VerificationKey key);
 }
@@ -378,10 +382,9 @@ public static class StructuredFields { /* RFC 8941 parse and serialize: items, l
   path) and allocation-free for one-shot hashing.
   *Source:* 0.8 #112 (vectorised BLAKE3 and LtHash)
 
-### Key agreement
+### Key encapsulation
 
-- **CRY-50** (MUST) Key-agreement keys are their own types (`KeyAgreementKey`,
-  `KeyAgreementPublicKey`). The SDK never derives one from, or uses one as, a `SigningKey`:
+- **CRY-50** (MUST) KEM keys are their own types (`KemPrivateKey`, `KemPublicKey`). The SDK never derives one from, or uses one as, a `SigningKey`:
   using the same material for ECDSA and key agreement is unsound, which is why upstream adds a
   separate key to DID documents for the space commitment scheme.
   *Source:* forum "Space commitment changes" (2026-10-12: shared secret via a KEM; "you're not
@@ -397,19 +400,19 @@ public static class StructuredFields { /* RFC 8941 parse and serialize: items, l
   Secrets and private keys are redacted in `ToString()` and zeroed on disposal where the platform
   allows.
   *Source:* RFC 5869 · 0.8 `SpaceCommit` (HKDF-Expand over a context) · CRY-46 by analogy
-- **CRY-53** (MUST) A key-agreement public key round-trips through its DID-document encoding
+- **CRY-53** (MUST) A `KemPublicKey` round-trips through its DID-document encoding
   (multikey) exactly; a key of an algorithm not in CRY-51's set is a `FormatException`.
   *Source:* **Decision** · DID-document publication per [identity.md](identity.md)
 
 ### HTTP message signatures
 
-- **CRY-54** (MUST) `HttpMessageSignature` builds the RFC 9421 signature base from exactly the
+- **CRY-54** (MUST) `HttpMessageSigner` builds the RFC 9421 signature base from exactly the
   components and parameters given, in the given order, and writes `Signature-Input` and
   `Signature` as RFC 8941 dictionaries under the given label. Which components a protocol signs
   is that protocol's decision ([spaces.md](spaces.md)), not this layer's.
   *Source:* RFC 9421 §2.5, §4 · 0.8 `Spaces/SpaceHttpSignature.cs` · tests `SpaceHttpSignatureTests`
   (vectors from atproto@679724ad)
-- **CRY-55** (MUST) Signatures are ES256 or ES256K as 64-byte `r‖s`. Verification rejects DER,
+- **CRY-55** (MUST) Signatures are ES256 or ES256K as 64-byte `r‖s`. `HttpMessageSignatureVerifier` rejects DER,
   accepts high-S (`SignaturePolicy.AcceptHighS`), refuses a label that appears more than once,
   refuses a signature whose covered components do not include every required component, and
   refuses a `keyid` parameter that does not name the expected key.
@@ -445,9 +448,9 @@ public static class StructuredFields { /* RFC 8941 parse and serialize: items, l
 | Algorithm/curve mismatch in a JWS | `false` from `Verify` |
 | Signed-object bytes not strict DRISL | `FormatException` |
 | K-256 signing unsupported by the platform | `PlatformNotSupportedException` |
-| Disposed `SigningKey` or `KeyAgreementKey` | `ObjectDisposedException` |
-| Malformed structured field, duplicate signature label, missing covered component | verdict with a reason from `HttpMessageSignature.Verify`, never an exception |
-| Key-agreement algorithm not in the pinned set | `FormatException` |
+| Disposed `SigningKey`, `KemPrivateKey` or `SharedSecret` | `ObjectDisposedException` |
+| Malformed structured field, duplicate signature label, missing covered component | verdict with a reason from `HttpMessageSignatureVerifier.Verify`, never an exception |
+| KEM algorithm not in the pinned set | `FormatException` |
 
 ## Conformance and tests
 
@@ -459,7 +462,7 @@ A pinned PLC genesis operation vector is added (none exists in 0.8; see identity
 
 **More vectors:** the official BLAKE3 vectors (today pasted into `Spaces/Blake3Tests`), the HTTP
 WG structured-field test suite, the RFC 9421 examples, the atproto@679724ad HTTP-signature
-vectors (refreshed at each spaces pin), and key-agreement vectors from the pinned space
+vectors (refreshed at each spaces pin), and KEM vectors from the pinned space
 commitment scheme.
 
 **0.8 test classes whose scenarios are ported:** `AtProtoCryptoTests`,
@@ -481,7 +484,7 @@ scenarios currently covered through `DPoPProofGeneratorTests` and `ServiceAuthVe
 | The SDK never disposes keys it is given. | One ownership rule. |
 | JWS token length cap. | Principle 2. |
 | BLAKE3, RFC 9421 HTTP message signatures and RFC 8941 structured fields move into `ATProtoNet.Crypto` (public). | General primitives used by Spaces, the core data protocol for non-public data; 0.8 kept them internal under `Spaces/`. |
-| Key-agreement keys and a KEM API are added. | The space commitment scheme moves to a shared secret established with the repository host's published key. |
+| KEM keys (`KemPublicKey`, `KemPrivateKey`) and `SharedSecret` are added. | The space commitment scheme moves to a shared secret established with the repository host's published key. |
 
 ## Open points
 
@@ -493,7 +496,7 @@ scenarios currently covered through `DPoPProofGeneratorTests` and `ServiceAuthVe
 2. **Raw private-scalar import.** PDS rotation keys and similar are often configured as hex
    scalars (`PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`). *Proposed default:* keep
    `ImportRawPrivateScalar`, validated as `1 ≤ d < n`.
-3. **Key-agreement algorithms.** Upstream proposes an elliptic-curve KEM now and ML-KEM later,
+3. **KEM algorithms.** Upstream proposes an elliptic-curve KEM now and ML-KEM later,
    with the exact curve, KDF and multikey codec still in review (proposal PR "Move space repo
    commit to a shared secret"). .NET 10+ ships `MLKem`, available where the platform provides it
    (OpenSSL 3.5+, recent Windows). *Proposed default:* implement exactly the GA algorithm set;

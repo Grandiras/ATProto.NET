@@ -1,11 +1,12 @@
 # Stores — spec
 
 **Status:** Draft · **Packages:** `ATProtoNet` holds the interfaces and in-memory
-implementations next to their consumers (namespaces `ATProtoNet.Auth`, `ATProtoNet.Streaming`) and
-the file and distributed-cache implementations (namespace `ATProtoNet.Hosting`);
-`ATProtoNet.EntityFrameworkCore` holds the EF Core implementations, including the experimental
-Spaces stores · **Phase:** interfaces with their consumers (5, 6, 7); file, distributed and EF
-implementations in 9 ·
+implementations next to their consumers (namespaces `ATProtoNet.Auth`, `ATProtoNet.Streaming`,
+`ATProtoNet.Spaces.Access`, `ATProtoNet.Spaces.Sync`) and the file and distributed-cache
+implementations (namespace `ATProtoNet.Hosting`); `ATProtoNet.EntityFrameworkCore` holds the EF
+Core implementations, the Spaces stores among them · **Phase:** interfaces with their consumers
+(5, 6, 7, including the Spaces client and sync stores); file, distributed and EF implementations,
+and the Spaces server-role stores, in 9 ·
 **Normative references:** [D-15](../06-decisions.md#d-15-store-interfaces-live-next-to-their-consumers-implementations-live-with-their-dependencies),
 [D-22](../06-decisions.md#d-22-session-stores-support-compare-and-swap),
 [ASP.NET Core Data Protection](https://learn.microsoft.com/aspnet/core/security/data-protection/introduction)
@@ -19,15 +20,21 @@ implementations ship, how they encrypt, and the contract test suites every imple
 |---|---|---|---|---|---|---|
 | `ISessionStore` | `ATProtoNet` (`ATProtoNet.Auth`) | sessions, client factory, OAuth login | yes | yes | **no** (STO-5) | yes |
 | `IOAuthStateStore` | `ATProtoNet` (`ATProtoNet.Auth.OAuth`) | `OAuthClient` | yes | no | yes | yes |
-| `IReplayStore` | `ATProtoNet` (`ATProtoNet.Auth.ServiceAuth`) | `ServiceAuthVerifier`, Spaces | yes | no | no | yes |
+| `IReplayStore` | `ATProtoNet` (`ATProtoNet.Auth.ServiceAuth`) | `ServiceAuthVerifier`, space token verification (single-use delegation tokens and attestations) | yes | no | no | yes |
 | `ICursorStore` | `ATProtoNet.Streaming` | stream runtime, stream workers | yes | yes | no | yes |
 | `IRepoSyncStateStore` | `ATProtoNet.Streaming` (`.Firehose`) | Sync 1.1 verifier and resync | yes | no | no | yes |
+| `ISpaceRepoStore` | `ATProtoNet` (`ATProtoNet.Spaces.Sync`) | space syncer (the application's copy of space data) | yes | no | no | no (application data) |
+| `ISpaceAuthorityStore` | `ATProtoNet` (`ATProtoNet.Spaces.Access`) | space authority (spaces, writer set, space revisions, notification registrations) | yes | no | no | yes |
+| `ISimpleSpaceStore` | `ATProtoNet` (`ATProtoNet.Spaces.Access`) | `simplespace` policy (spaces, policies, members) | yes | no | no | yes |
+| `ISpaceCredentialRevocationStore` | `ATProtoNet` (`ATProtoNet.Spaces.Access`) | repo host credential verification | yes | no | no | yes |
+| `ISpaceNotifyRetryStore` | `ATProtoNet` (`ATProtoNet.Spaces.Access`) | repo host write notifications to the authority | yes | no | no | yes |
 
-Spaces stores (authority, `simplespace`, credential revocation) are specified in
-[spaces.md](spaces.md); they follow the rules of this spec, live in the `ATProtoNet.Spaces`
-namespaces (interfaces in `ATProtoNet`, EF implementations in `ATProtoNet.EntityFrameworkCore`)
-and are `[Experimental("ATPROTO001")]`
-([D-08](../06-decisions.md#d-08-spaces-is-experimental)).
+The Spaces stores are regular stores of the stable API: [spaces.md](spaces.md) defines what they
+hold and when the protocol reads and writes them, this spec defines their storage contract
+(STO-38…STO-43). Their interfaces live in the base package so that the EF package can implement
+them without referencing `ATProtoNet.AspNetCore`, where the server roles that consume most of them
+run. `ISpaceRepoHostStorage` (the repo host's record and blob storage, SPC-75) is application data
+like `ISpaceRepoStore`'s: the SDK ships only an in-memory implementation for tests and samples.
 
 Out of scope: caches that are not stores (DID document cache, handle cache, DPoP nonce cache),
 which are specified with their consumers.
@@ -92,10 +99,11 @@ builder.Services.AddAtProto()
     .UseDistributedOAuthStateStore()
     .UseEfCoreReplayStore<AppDbContext>()
     .UseEfCoreCursorStore<AppDbContext>()
-    .UseEfCoreRepoSyncStateStore<AppDbContext>();
+    .UseEfCoreRepoSyncStateStore<AppDbContext>()
+    .UseEfCoreSpaceStores<AppDbContext>();                   // authority, simplespace, revocation, notify retry
 
 // Each EF feature ships a DbContext and a model helper for the application's own context:
-modelBuilder.ConfigureAtProtoSessions();      // also ConfigureAtProtoOAuthState(), …Replay(), …Cursors(), …RepoSyncState()
+modelBuilder.ConfigureAtProtoSessions();      // also ConfigureAtProtoOAuthState(), …Replay(), …Cursors(), …RepoSyncState(), …Spaces()
 ```
 
 ## Requirements
@@ -262,6 +270,41 @@ modelBuilder.ConfigureAtProtoSessions();      // also ConfigureAtProtoOAuthState
 - **STO-37** (MUST) Stores use `ExecuteUpdate`/`ExecuteDelete`, so their tests run on SQLite
   in memory, not the EF in-memory provider. *Source:* 0.8 practice (CLAUDE.md)
 
+### Spaces stores
+
+- **STO-38** (MUST) The Spaces stores follow the general rules of this spec (STO-1, STO-2 and the
+  EF packaging rules STO-35…STO-37), each ships an in-memory and (except `ISpaceRepoStore`) an EF
+  Core implementation, and each has a contract suite in `ATProtoNet.TestKit` that every
+  implementation passes. They carry no experimental marker.
+  *Source:* **Decision** (Spaces is core; maintainer review 2026-10-17) · 0.8 `EfCoreSpaceStoreTests`,
+  `EfCoreSpaceCredentialRevocationStoreTests`
+- **STO-39** (MUST) `ISpaceAuthorityStore` assigns space revisions that strictly increase per
+  space under concurrent writes, across store instances; ignores a repo `rev` that does not
+  increase for its `(space, repo)`; and drops notification registrations once their expiry has
+  passed ([spaces.md](spaces.md), SPC-46, SPC-47).
+  *Source:* Proposal 0016, *Write notifications* · 0.8 `ISpaceAuthorityStore.RecordWriteAsync` ·
+  tests `SimpleSpaceAuthorityStoreTests`, `EfCoreSpaceStoreTests`
+- **STO-40** (MUST) `ISpaceCredentialRevocationStore.IsRevokedAsync` is true for a revoked
+  `(space, credential id)` from the moment `RevokeAsync` completes, on every instance, until at
+  least the retention the caller passes (`RevocationRetention`, SPC-48); sweeps follow STO-27's
+  whole-second rule.
+  *Source:* 0.8 `ISpaceCredentialRevocationStore.cs` · tests `SpaceCredentialRevocationStoreContractTests`
+- **STO-41** (MUST) `ISpaceNotifyRetryStore` makes pending notifications durable: an entry
+  survives a restart, entries coalesce per `(space, repo)` to the latest revision, and an entry
+  whose retry window (`NotifyRetryWindow`, SPC-47) has ended is removed. Two instances never
+  deliver the same pending entry concurrently (claim with a lease).
+  *Source:* **Decision** (SPC-47: 0.8 kept retry state in memory, `SpaceWriteNotifier.cs:18-26`)
+- **STO-42** (MUST) `ISpaceRepoStore` implementations apply `PutAsync`, `DeleteAsync`,
+  `ReplaceAllAsync` and `DeleteSpaceAsync` atomically per call, so a recovery that replaces a repo
+  is never seen half applied. The SDK ships only the in-memory implementation; the application's
+  own storage implements the interface and runs the contract suite.
+  *Source:* [spaces.md](spaces.md#syncer) (SPC-34, SPC-70)
+- **STO-43** (MUST) EF tables: `AtProtoSpaces`, `AtProtoSpaceWriters`, `AtProtoSpaceSubscribers`,
+  `AtProtoSimpleSpaces`, `AtProtoSimpleSpaceMembers`, `AtProtoSpaceCredentialRevocations` (as in
+  0.8) and the new `AtProtoSpaceNotifyRetries`. `ConfigureAtProtoSpaces()` configures only these
+  tables; the replay table comes from `ConfigureAtProtoReplay()` (STO-36).
+  *Source:* 0.8 `SpaceDbContext.cs:84-176` · STO-36
+
 ## Limits
 
 | Constant | Value | Applies to |
@@ -304,6 +347,10 @@ every implementation derives a test class from the matching contract:
 - **Cursor contract (new):** round trip, ordering of sequential writes, opaque values
   (long sequences, microsecond timestamps, TID strings).
 - **Repo sync state contract:** ported from 0.8 `RepoSyncStateStoreContractTests`.
+- **Spaces contracts:** authority store (revision order under concurrency, stale `rev`,
+  registration expiry), `simplespace` store, revocation store (ported from 0.8
+  `SpaceCredentialRevocationStoreContractTests`), notify-retry store (new: restart, coalescing,
+  window, lease across two instances), space repo store (atomic replace).
 - File-store specifics: atomic rewrite under concurrent reads, Unix modes, lock file across two
   processes. EF specifics: SQLite in memory, two store instances over one database.
 
@@ -321,6 +368,8 @@ every implementation derives a test class from the matching contract:
 | Repo sync state EF store no longer needs ASP.NET Core | Firehose workers |
 | `TimeProvider` everywhere; explicit `PurgeAsync` | AG-27, AG-28 |
 | Table names `AtProtoSessions`, `AtProtoReplay`, `AtProtoStreamCursors`, `AtProtoOAuthStates` | Names match the concepts (0.8 says "Token" for sessions) |
+| Spaces stores are regular stores with contract suites; their interfaces move to the base package | Spaces is a core data protocol; the EF package must implement them without ASP.NET Core (0.8 defined them in `ATProtoNet.Server`) |
+| Durable notify-retry store (new) | SPC-47; 0.8 lost pending notifications on restart |
 
 ## Open points
 

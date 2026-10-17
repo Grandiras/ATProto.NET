@@ -15,7 +15,8 @@
 ## Scope
 
 **In:** the vocabulary types `Did`, `Handle`, `AtIdentifier`, `Nsid`, `RecordKey`, `Tid`,
-`TidGenerator`, `AtUri`, `SpaceUri` (addresses of spaces and of records in spaces), `AtDatetime`,
+`TidGenerator`, `AtUri`, `SpaceUri` and `SpaceRecordUri` (addresses of spaces and of records in
+spaces), the `AtAddress` union over all three, `AtDatetime`,
 `Language`; the string syntax of `Cid`; the generic
 Lexicon `uri` format check; the System.Text.Json converters for all of them; the public
 `IAtIdentifier<TSelf>` constraint.
@@ -103,24 +104,29 @@ public sealed class AtUri : IAtIdentifier<AtUri>
     public static AtUri Create(AtIdentifier authority, Nsid? collection = null, RecordKey? recordKey = null);
 }
 
-// A space, or a record in a space (SYN-74…SYN-80). Parsed by the same scanner as AtUri.
-public sealed class SpaceUri : IAtIdentifier<SpaceUri>
+// Space addresses (SYN-74…SYN-81). Parsed by the same scanner as AtUri.
+public sealed class SpaceUri : IAtIdentifier<SpaceUri>              // a space
 {
     public Did Authority { get; }                       // the space authority (never a handle)
     public Nsid SpaceType { get; }
-    public RecordKey SpaceKey { get; }
-    public Did? Author { get; }                         // null for a space reference
-    public Nsid? Collection { get; }
-    public RecordKey? RecordKey { get; }
-    public bool IsRecord { get; }
-    public SpaceUri Space { get; }                      // the space part of a record address
-    public static SpaceUri ForSpace(Did authority, Nsid spaceType, RecordKey spaceKey);
-    public SpaceUri ForRecord(Did author, Nsid collection, RecordKey recordKey);
+    public RecordKey Skey { get; }
+    public static SpaceUri Create(Did authority, Nsid spaceType, RecordKey skey);
+    public SpaceRecordUri Record(Did author, Nsid collection, RecordKey rkey);
+}
+public sealed class SpaceRecordUri : IAtIdentifier<SpaceRecordUri>  // a record in a space
+{
+    public SpaceUri Space { get; }
+    public Did Author { get; }                          // never a handle
+    public Nsid Collection { get; }
+    public RecordKey Rkey { get; }
+    public string Path { get; }                         // "{collection}/{rkey}"
 }
 
-public static class AtProtoUri                          // one entry point for both address kinds
+// Any atproto address: one entry point for both data protocols (SYN-75, SYN-81).
+public union AtAddress(AtUri, SpaceUri, SpaceRecordUri)
 {
-    public static bool TryParse(ReadOnlySpan<char> value, out AtUri? publicUri, out SpaceUri? spaceUri);
+    public static AtAddress Parse(string value);
+    public static bool TryParse([NotNullWhen(true)] string? value, out AtAddress address);
 }
 
 public sealed class AtDatetime : IAtIdentifier<AtDatetime>, IComparable<AtDatetime>
@@ -333,48 +339,55 @@ public static class UriFormat
 ### Space addresses
 
 Spaces are part of the protocol's core vocabulary: a space and every record in it have an
-address, and Lexicons refer to them with the `space-ref` format (mapped to `SpaceUri`,
-[lexicon.md](lexicon.md)).
+address. `SpaceUri` names a space, `SpaceRecordUri` a record in one, and `AtAddress` is the C# 15
+union of those two and `AtUri`, for places that accept an address from either data protocol
+([xrpc-client.md](xrpc-client.md#records-in-spaces), [lexicon.md](lexicon.md)).
 
-- **SYN-74** (MUST) A `SpaceUri` addresses either a space,
-  `at://{authority}/space/{spaceType}/{spaceKey}`, or a record in a space,
-  `at://{authority}/space/{spaceType}/{spaceKey}/{author}/{collection}/{rkey}`, where authority and
-  author are DIDs (never handles), spaceType and collection are NSIDs, and spaceKey and rkey are
-  record keys. The literal segment `space` cannot be an NSID (an NSID has at least two dots), so
-  space addresses never collide with public AT URIs.
+- **SYN-74** (MUST) A `SpaceUri` is `at://{authority}/space/{spaceType}/{skey}` and a
+  `SpaceRecordUri` is `at://{authority}/space/{spaceType}/{skey}/{author}/{collection}/{rkey}`,
+  where authority and author are DIDs (never handles), spaceType and collection are NSIDs, and
+  skey and rkey are record keys. The literal segment `space` cannot be an NSID (an NSID has at
+  least two dots), so space addresses never collide with public AT URIs.
   *Source:* proposal 0016 (at the pin in [spaces.md](spaces.md)) · forum thread "Bringing back
-  at://" (2026-07) · 0.8 `Spaces/SpaceUri.cs` · tests
+  at://" · 0.8 `Spaces/SpaceUri.cs` · tests
   `SpaceUriTests.Parse_SpaceRef_SplitsItsThreeComponents`, `Parse_RecordUri_SplitsAllSixComponents`,
   `TryParse_RejectsAHandleAuthority`
-- **SYN-75** (MUST) One scanner parses both kinds of address. `AtUri.Parse` rejects space
-  addresses with a `FormatException` naming `SpaceUri`, `SpaceUri.Parse` rejects public AT URIs,
-  and `AtProtoUri.TryParse` classifies any at-URI as one or the other without a second scan.
-  The scheme, the marker segment and the segment layout are constants in exactly one place, so an
-  upstream change to the space address syntax (SYN-80) is a change in one file.
-  *Source:* **Decision** (0.8 parses them in two unrelated types) · tests
-  `SpaceUriTests.Parse_RecordUri_IsRejectedAsASpaceRef`, `IsSpaceUri_DistinguishesPermissionedFromPublic`
+- **SYN-75** (MUST) One scanner parses all three kinds of address. `AtUri.Parse` rejects space
+  addresses with a `FormatException` naming the space type, `SpaceUri.Parse` rejects record
+  addresses and public AT URIs, `SpaceRecordUri.Parse` rejects space and public addresses, and
+  `AtAddress.TryParse` classifies any address without a second scan. The scheme, the marker segment
+  and the segment layout are constants in exactly one place, so an upstream change to the space
+  address syntax (SYN-80) is a change in one file.
+  *Source:* **Decision** (0.8 parses public and space addresses in unrelated types) · tests
+  `SpaceUriTests.Parse_RecordUri_IsRejectedAsASpaceRef`, `Parse_SpaceRef_IsRejectedAsARecordUri`,
+  `IsSpaceUri_DistinguishesPermissionedFromPublic`
 - **SYN-76** (MUST) Space addresses follow the AT URI restrictions of SYN-36 (no query, fragment,
   trailing slash, empty segment, whitespace or line break) and the same maximum length.
   *Source:* 0.8 `Spaces/SpaceUri.cs` · tests `SpaceUriTests.TryParse_InvalidSpaceRef_ReturnsFalse`,
-  `TryParse_InvalidRecordUri_ReturnsFalse`, `TryParse_RejectsASpaceKeyOverTheLengthLimit`
+  `TryParse_InvalidRecordUri_ReturnsFalse`, `TryParse_RejectsASpaceKeyOverTheLengthLimit`,
+  `Create_AcceptsASpaceKeyAtTheLengthLimit`
 - **SYN-77** (MUST) `Value` keeps the text exactly as given; equality is ordinal on `Value`.
-  `Space` of a record address equals the `SpaceUri` that `ForSpace` builds from the same parts, and
-  `ForRecord` builds the address `Parse` would read back.
+  `SpaceUri.Record` builds the `SpaceRecordUri` that `Parse` would read back, and its `Space`
+  equals the `SpaceUri` it was built from.
   *Source:* 0.8 `Spaces/SpaceUri.cs` · tests `SpaceUriTests.Record_BuildsTheSameUriAsParsingOne`,
   `Create_RoundTripsThroughParse`, `Equality_IsByValue`
-- **SYN-78** (MUST) The JSON converter (SYN-70) treats `SpaceUri` like every other identifier:
-  invalid text fails deserialization with the JSON path.
+- **SYN-78** (MUST) The JSON converter (SYN-70) treats `SpaceUri` and `SpaceRecordUri` like every
+  other identifier, and `AtAddress` as a string that must parse as one of its three cases: invalid
+  text fails deserialization with the JSON path.
   *Source:* 0.8 `IdentifierJsonConverter<SpaceUri>`
-- **SYN-79** (SHOULD) Code that accepts "any atproto address" (for example a generic `at-uri`
-  field that may point into a space once upstream settles SYN-80) uses `AtProtoUri.TryParse`, not
-  string inspection.
+- **SYN-79** (SHOULD) Code that accepts "any atproto address" uses `AtAddress`, not string
+  inspection.
   *Source:* **Decision**
-- **SYN-80** (MUST) The space address syntax is pinned to the proposal revision recorded in
-  [spaces.md](spaces.md). Upstream is still debating the scheme (`at://…/space/…` versus a
-  distinct scheme such as `ats://`) and whether to drop the `//`; a change is absorbed by the
-  single implementation point of SYN-75 and its vectors, before 0.9.0 if the GA specification
-  settles it.
-  *Source:* forum "Post-alpha plans" (URI scheme, 2026-10-08: "still furiously debating")
+- **SYN-80** (MUST) The space address syntax is pinned to the protocol revision recorded in
+  [spaces.md](spaces.md) (the proposal until the GA specification is published). Upstream is still
+  debating the scheme (`at://…/space/…` versus a distinct scheme such as `ats://`); a change is
+  absorbed by the single implementation point of SYN-75 and its vectors.
+  *Source:* forum "Post-alpha plans" (URI scheme, 2026-10-08: "still furiously debating") ·
+  [SPC-51](spaces.md#addressing-implementation)
+- **SYN-81** (MUST) `AtAddress` is a C# 15 `union` (no shared base, AG-6a): a `switch` over it
+  handles `AtUri`, `SpaceUri` and `SpaceRecordUri`, and its `ToString()` is the case's canonical
+  text.
+  *Source:* **Decision** · [SPC-52](spaces.md#addressing-implementation)
 
 ### Generic URI format
 
@@ -494,7 +507,7 @@ address, and Lexicons refer to them with the `space-ref` format (mapped to `Spac
 | `TidGenerator.MaxClockId` | 1,023 | SYN-32 |
 | `TidGenerator.MaxTimestamp` | 2⁵³ − 1 µs | SYN-33 |
 | `AtUri.MaxLength` | 8,192 | SYN-36 |
-| `SpaceUri.MaxLength` | 8,192 | SYN-76 |
+| `SpaceUri.MaxLength`, `SpaceRecordUri.MaxLength` | 8,192 | SYN-76 |
 | `UriFormat.MaxLength` | 8,192 | SYN-40 |
 | `AtDatetime.MaxLength` | 64 | SYN-41 |
 | `AtDatetime.MaxFractionDigits` | 20 | SYN-41 |
@@ -513,7 +526,7 @@ address, and Lexicons refer to them with the `space-ref` format (mapped to `Spac
 | Clock identifier outside 0–1023 | `ArgumentOutOfRangeException` |
 | TID timestamp past 53 bits | `InvalidOperationException` |
 | `AtUri.Create` with a record key but no collection | `ArgumentException` |
-| Space address passed to `AtUri.Parse`, or public AT URI to `SpaceUri.Parse` | `FormatException` naming the other type |
+| Address of the wrong kind passed to `AtUri.Parse`, `SpaceUri.Parse` or `SpaceRecordUri.Parse` | `FormatException` naming the type it is |
 
 ## Conformance and tests
 
@@ -545,7 +558,7 @@ scenarios), `IdentitySerializationTests`.
 | `RecordKey.NewTid()` and `Tid.NextString()` removed. | Duplicates of `RecordKey.From(Tid.Next())` and `Tid.Next().Value`. |
 | `IAtIdentifier<TSelf>` public; `TidGenerator.Default` public. | Generic code and explicit generator use need them; both were internal. |
 | `Language` type and `UriFormat` added; their vectors asserted. | 0.8 vendored `language_*` and `uri_*` vectors without asserting them. |
-| `SpaceUri` moves to the root namespace and shares one scanner with `AtUri` (`AtProtoUri.TryParse` classifies an address). | Spaces are core protocol vocabulary; 0.8 kept `SpaceUri` in `ATProtoNet.Spaces` with its own parser and the internal `IIdentifier`. |
+| `SpaceUri` and `SpaceRecordUri` move to the root namespace, share one scanner with `AtUri`, and lose `explicit operator SpaceUri(string)` (AG-8); `AtAddress` is new. | Spaces are core protocol vocabulary; 0.8 kept both in `ATProtoNet.Spaces` with their own parser and the internal `IIdentifier`. |
 
 ## Open points
 
@@ -565,6 +578,6 @@ scenarios), `IdentitySerializationTests`.
 5. **Space address scheme.** Upstream has not settled `at://{authority}/space/…` versus a
    separate scheme (`ats://`), nor whether space URIs may later address blobs or record versions.
    *Proposed default:* implement the pinned form (SYN-74) behind the single implementation point
-   (SYN-75) and follow the GA specification; keep `SpaceUri` a distinct type even if the scheme
+   (SYN-75) and follow the GA specification; keep the space types distinct even if the scheme
    becomes `at://`, because public and space addresses resolve differently and must not be
    confused in APIs.
