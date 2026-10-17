@@ -1,6 +1,6 @@
 # Cryptography and JOSE — spec
 
-**Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet.Crypto`,
+**Status:** Accepted (maintainer, 2026-10-17) · **Package:** `ATProtoNet` (namespaces `ATProtoNet.Crypto`,
 `ATProtoNet.Crypto.Jose`, `ATProtoNet.Crypto.HttpSignatures`; foundation layer) · **Phase:** 1
 
 **Normative references:** [Cryptography](https://atproto.com/specs/cryptography) ·
@@ -488,17 +488,21 @@ scenarios currently covered through `DPoPProofGeneratorTests` and `ServiceAuthVe
 
 ## Open points
 
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
 1. **Managed K-256 verification (CRY-16).** It needs a reviewed implementation of secp256k1
-   point arithmetic. *Proposed default:* include it, verification only, in its own internal file
+   point arithmetic. *Default:* include it, verification only, in its own internal file
    with the W3C and interop vectors plus cross-checks against the platform implementation on
    Linux in CI. If the review cost is judged too high, the fallback is deferred (K-256
    verification is then unavailable on such platforms) and CRY-16 drops to SHOULD.
 2. **Raw private-scalar import.** PDS rotation keys and similar are often configured as hex
-   scalars (`PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`). *Proposed default:* keep
+   scalars (`PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`). *Default:* keep
    `ImportRawPrivateScalar`, validated as `1 ≤ d < n`.
 3. **KEM algorithms.** Upstream proposes an elliptic-curve KEM now and ML-KEM later,
    with the exact curve, KDF and multikey codec still in review (proposal PR "Move space repo
    commit to a shared secret"). .NET 10+ ships `MLKem`, available where the platform provides it
-   (OpenSSL 3.5+, recent Windows). *Proposed default:* implement exactly the GA algorithm set;
+   (OpenSSL 3.5+, recent Windows). *Default:* implement exactly the GA algorithm set;
    if ML-KEM is part of it and the platform lacks it, fail with `PlatformNotSupportedException`
    rather than falling back silently.

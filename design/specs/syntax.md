@@ -1,6 +1,6 @@
 # Identifier syntax — spec
 
-**Status:** Draft · **Package:** `ATProtoNet` (namespace `ATProtoNet`, foundation layer) · **Phase:** 1 (space addresses included)
+**Status:** Accepted (maintainer, 2026-10-17) · **Package:** `ATProtoNet` (namespace `ATProtoNet`, foundation layer) · **Phase:** 1 (space addresses included)
 
 **Normative references:** [DID](https://atproto.com/specs/did) ·
 [Handle](https://atproto.com/specs/handle) · [NSID](https://atproto.com/specs/nsid) ·
@@ -627,22 +627,26 @@ scenarios), `IdentitySerializationTests`.
 
 ## Open points
 
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
 1. **NSID case.** The NSID spec treats the authority as a domain (case-insensitive). 0.8 neither
-   normalises nor compares case-insensitively. *Proposed default:* keep 0.8 behaviour (no
+   normalises nor compares case-insensitively. *Default:* keep 0.8 behaviour (no
    normalisation, ordinal equality), because Lexicon resolution and `$type` matching are
    ordinal upstream.
 2. **AT URI equality with handle authorities.** Two URIs whose handle authorities differ only in
-   case compare unequal (SYN-37). *Proposed default:* keep (ordinal on `Value`), since records
+   case compare unequal (SYN-37). *Default:* keep (ordinal on `Value`), since records
    are addressed by DID in practice.
 3. **Generated code for `language` and `uri` formats.** 0.8 maps both to `string`.
-   *Proposed default:* keep `string` in generated models (a malformed `langs` entry written by
+   *Default:* keep `string` in generated models (a malformed `langs` entry written by
    some client must not fail a whole feed page) and validate through `Language` and `UriFormat`
    in Lexicon validation. Decide in [lexicon.md](lexicon.md).
-4. **`Tid` as a struct.** AG-8 allows it because `default` is valid. *Proposed default:* struct;
+4. **`Tid` as a struct.** AG-8 allows it because `default` is valid. *Default:* struct;
    revisit only if the generic `IAtIdentifier<TSelf>` code paths box it heavily.
 5. **Space address scheme.** Upstream has not settled `at://{authority}/space/…` versus a
    separate scheme (`ats://`), nor whether space URIs may later address blobs or record versions.
-   *Proposed default:* implement the pinned form (SYN-74) behind the single implementation point
+   *Default:* implement the pinned form (SYN-74) behind the single implementation point
    (SYN-75) and follow the GA specification (Q-15); keep the space types distinct even if the scheme
    becomes `at://`, because public and space addresses resolve differently and must not be
    confused in APIs.

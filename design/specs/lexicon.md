@@ -1,6 +1,6 @@
 # Lexicon: schema model, validation, code generation
 
-**Status:** Draft · **Package:** `ATProtoNet` — namespaces `ATProtoNet.Lexicon` (schema model,
+**Status:** Accepted (maintainer, 2026-10-17) · **Package:** `ATProtoNet` — namespaces `ATProtoNet.Lexicon` (schema model,
 catalog, lint and compatibility rules, validation), `ATProtoNet.Lexicon.Runtime` (generated-code
 runtime), `ATProtoNet.LexiconResolution` (runtime resolution), and the generated
 `ATProtoNet.Lexicons.*` families checked in under `src/ATProtoNet/Generated/`. Internal build
@@ -1085,7 +1085,11 @@ success-body cap already bounds that object ([xrpc-client.md](xrpc-client.md)).
 
 ## Open points
 
-| # | Question | Proposed default |
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
+| # | Question | Default |
 |---|---|---|
 | LEX-O1 | Align `lexicons.json` exactly with `@atproto/lex`'s manifest (`version`, `lexicons`, `resolvers`, `resolutions`) so one manifest serves several SDKs? | Yes where the formats overlap; our extra fields (CID-in-record-form, provenance) go under an `x-atprotonet` key. Verify against `@atproto/lex-installer` at phase 3 start. |
 | LEX-O2 | Closed `enum` as an open struct (LEX-47) or a C# `enum`? | Open struct, lenient read, validator-enforced; a C# enum breaks readers when upstream breaks the rule. |

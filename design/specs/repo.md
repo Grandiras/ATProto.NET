@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft |
+| **Status** | Accepted (maintainer, 2026-10-17) |
 | **Package** | `ATProtoNet` (namespace `ATProtoNet.Repo`, foundation layer) |
 | **Phase** | 2 (together with space repositories, [spaces](spaces.md)) |
 | **Depends on** | [syntax](syntax.md), [data-model](data-model.md) (DRISL-CBOR, `Cid`, CAR), [crypto](crypto.md) (`SigningKey`, `VerificationKey`, `SignedObject`) |
@@ -381,9 +381,9 @@ Every check below runs on the node as it is read, before its contents are used.
 |---|---|---|
 | `MstKey.MaxLength` | 1,024 characters | REP-1 |
 | `MerkleSearchTree.MaxTreeDepth` | 64 layers | REP-14 (0.8 `MaxTreeDepth = 64`) |
-| `MerkleSearchTree.MaxEntriesPerNode` | 1,024 | malformed beyond (proposed; see open points) |
+| `MerkleSearchTree.MaxEntriesPerNode` | 1,024 | malformed beyond (see open points) |
 | `RepoLimits.MaxCarBytes` (default) | 256 MiB | REP-41 (matches 0.8 resync and Spaces bounds) |
-| `RepoLimits.MaxBlockCount` (default) | 2,000,000 | REP-41 (proposed) |
+| `RepoLimits.MaxBlockCount` (default) | 2,000,000 | REP-41 |
 | `RepoLimits.MaxRecordBytes` (default) | 1,000,000 bytes | REP-41 (Sync 1.1 record bound, 0.8 `RepoSyncVerifier`) |
 | CAR header, varint and block bounds | see [data-model](data-model.md) | all CAR input |
 | DRISL nesting depth | see [data-model](data-model.md) | node and commit decoding |
@@ -430,14 +430,18 @@ hostile-input cases (REP-11..REP-14, REP-27) join the regression corpus.
 
 ## Open points
 
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
 1. **Per-node entry cap.** The reference has none; a hostile node with millions of entries is
-   bounded only by block size. Proposed: reject nodes over 1,024 entries (far above any real
+   bounded only by block size. Default: reject nodes over 1,024 entries (far above any real
    fanout-4 node) and record the choice here.
 2. **Snapshot defaults.** `MaxBlockCount = 2,000,000` is a proposal; confirm against the largest
    real repositories during phase 2 and against what streaming resync (`ATProtoNet.Streaming.Firehose`) needs.
 3. **Record body decoding in snapshots** (REP-42): expose raw blocks only, or also a
-   `DataModelValue` view? Proposed: raw block plus `DecodeAs<T>()` via the Lexicon contracts.
+   `DataModelValue` view? Default: raw block plus `DecodeAs<T>()` via the Lexicon contracts.
 4. **Writable repository helper.** 0.8 has no PDS-side "apply writes and produce a commit + diff"
-   type beyond `RepoWritePathTests`. Proposed: a small `RepoWriter` (tree + block store + signer →
+   type beyond `RepoWritePathTests`. Default: a small `RepoWriter` (tree + block store + signer →
    `SignedCommit` + diff blocks) in phase 2, since test fixtures and the repository-host side of
    the server need it (space repositories get the equivalent writer in spaces.md).

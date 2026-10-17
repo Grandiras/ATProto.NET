@@ -1,6 +1,6 @@
 # Tooling: `atproto-lexgen`
 
-**Status:** Draft · **Package:** `atproto-lexgen` `dotnet tool` (`tools/ATProtoNet.Lexicon.Cli`), the
+**Status:** Accepted (maintainer, 2026-10-17) · **Package:** `atproto-lexgen` `dotnet tool` (`tools/ATProtoNet.Lexicon.Cli`), the
 one SDK package that is not a library. It depends on the internal `ATProtoNet.Lexicon.CodeGen`
 project (the same emitter the analyzer inside `ATProtoNet` uses), the `ATProtoNet` package
 (schema model in the `ATProtoNet.Lexicon` namespace; network commands) and `System.CommandLine` · **Phase:** 3 (`generate`, `lint`, `install`/`update` from git and
@@ -255,7 +255,11 @@ input errors, the NSID and XRPC error name for remote errors. Stack traces print
 
 ## Open points
 
-| # | Question | Proposed default |
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
+| # | Question | Default |
 |---|---|---|
 | TOO-O1 | Offer OAuth (loopback redirect) for `publish` instead of app passwords? | Not for 0.9; app passwords from the environment are enough for CI. |
 | TOO-O2 | A `diff --baseline git:<ref>` convenience that reads the manifest's Lexicons at a git ref? | Add it if `diff` against a checked-out directory proves clumsy in CI. |

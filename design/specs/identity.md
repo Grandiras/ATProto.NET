@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft |
+| **Status** | Accepted (maintainer, 2026-10-17) |
 | **Package** | `ATProtoNet` (namespaces `ATProtoNet.Net`, `ATProtoNet.Identity`, `ATProtoNet.Identity.Plc`; network layer, above the foundation namespaces) |
 | **Phase** | 4 (space host and KEM key lookups included) |
 | **Depends on** | [syntax](syntax.md), [data-model](data-model.md) (DRISL for PLC operations), [crypto](crypto.md) (`DidKey`, `VerificationKey`, `SigningKey`, `SignedObject`) |
@@ -571,20 +571,24 @@ served through the real resolvers instead of resolver substitutes ([04 — Testi
 
 ## Open points
 
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
 1. **Native DNS.** Ship a UDP/TCP DNS TXT resolver against the system's configured resolvers as a
-   second `IDnsTxtResolver`, to avoid disclosing handles to a DoH provider? Proposed: not in 0.9;
+   second `IDnsTxtResolver`, to avoid disclosing handles to a DoH provider? Default: not in 0.9;
    keep the seam and document the privacy trade-off (IDN-11a).
 2. **PLC audit-chain verification.** Verify a DID's full operation log (signatures by rotation
-   keys in force, `prev` chain, the 72-hour recovery window for higher-priority keys)? Proposed:
+   keys in force, `prev` chain, the 72-hour recovery window for higher-priority keys)? Default:
    phase 4 ships per-operation verification (IDN-54); full chain verification is a later addition
    behind `PlcAuditVerifier`.
 3. **PLC operation size and field limits** enforced by the directory (operation byte size,
    `alsoKnownAs` and service counts): mirror them client-side so a bad operation fails before
-   submission? Proposed: yes, as named constants confirmed against the directory implementation in
+   submission? Default: yes, as named constants confirmed against the directory implementation in
    phase 4.
 4. **WASM behaviour.** Should `UntrustedHttp` refuse to run when `IsEnforced` is false unless the
-   caller opts in? Proposed: no (browser apps cannot do otherwise); log and expose the flag.
+   caller opts in? Default: no (browser apps cannot do otherwise); log and expose the flag.
 5. **Spaces DID-document identifiers.** Dedicated `#atproto_space_host` / `#atproto_space`
    entries versus reusing `#atproto_pds` / `#atproto`, the `#atproto_kem` key type, and a
-   space authority's account status are open upstream (IDN-59). Proposed: implement the pinned
+   space authority's account status are open upstream (IDN-59). Default: implement the pinned
    proposal and switch to the GA identifiers before 0.9.0; cover both in identity vectors.

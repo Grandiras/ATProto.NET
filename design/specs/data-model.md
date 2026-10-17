@@ -1,6 +1,6 @@
 # Data model: DRISL-CBOR, JSON, CID, CAR, STAR — spec
 
-**Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet`,
+**Status:** Accepted (maintainer, 2026-10-17) · **Package:** `ATProtoNet` (namespaces `ATProtoNet`,
 `ATProtoNet.Data`, `ATProtoNet.Data.Car`, `ATProtoNet.Data.Star`; foundation layer) · **Phase:** 1
 
 **Normative references:** [Data Model](https://atproto.com/specs/data-model) ·
@@ -532,18 +532,22 @@ scenarios), `CarReaderTests`, `CarWriterTests`, `CommitBlockTests` (the splice s
 
 ## Open points
 
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
 1. **Bare base64 for `bytes` fields.** 0.8's `LexBytesJsonConverter` also accepts a bare base64
-   string where a `{"$bytes"}` object is expected. *Proposed default:* drop it (wire fidelity,
+   string where a `{"$bytes"}` object is expected. *Default:* drop it (wire fidelity,
    D-20), unless the conformance suite finds a real producer that relies on it.
-2. **Strict reading of record bodies when verification is off.** *Proposed default:* lenient
+2. **Strict reading of record bodies when verification is off.** *Default:* lenient
    only by explicit stream option (DAT-28). Strict is the default even for display, because
    upstream PDSs validate records on write and canonical encoding is required by the repository
    spec.
-3. **`DataModelValue` key order.** Kept as encoded for display. Writing always re-sorts. *Proposed
-   default:* keep. Revisit if users need ordered round trips of non-canonical JSON (they should
+3. **`DataModelValue` key order.** Kept as encoded for display. Writing always re-sorts. *Default:*
+   keep. Revisit if users need ordered round trips of non-canonical JSON (they should
    not, since canonical order is the protocol's).
 4. **STAR variant for spaces.** STAR has a flat key-record variant (STAR-lite) and MST variants;
    upstream has not published which framing and header the GA space repositories use, nor
-   whether a multi-repository bundle (for account migration) follows. *Proposed default:*
+   whether a multi-repository bundle (for account migration) follows. *Default:*
    implement the flat variant as the pinned reference implementation emits it (DAT-78); add a
    multi-repository reader only when the GA specification defines one.

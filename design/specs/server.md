@@ -1,6 +1,6 @@
 # XRPC server and ASP.NET Core — spec
 
-**Status:** Draft · **Package:** `ATProtoNet.AspNetCore` (replaces 0.8's `ATProtoNet.Server`;
+**Status:** Accepted (maintainer, 2026-10-17) · **Package:** `ATProtoNet.AspNetCore` (replaces 0.8's `ATProtoNet.Server`;
 depends on `ATProtoNet` and the ASP.NET Core shared framework; namespaces `ATProtoNet.AspNetCore`,
 `.Xrpc`, `.Authentication`, `.OAuth`, `.Labels`, `.Tap`, `.Spaces`) · **Phase:** 9 (Spaces server roles
 included) ·
@@ -578,13 +578,17 @@ their protocol behaviour in [spaces.md](spaces.md).
 
 ## Open points
 
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
 - **Tap acknowledgement of unreadable events** follows STR (acknowledge, warn, count). If STR's
   rule changes, SRV-64 changes with it.
 - **Generated `{Method}.IHandler` stubs** for users' Lexicons when the project references this
-  package. Proposed: yes, emitted by the source generator only; LEX to confirm.
-- **Input validation opt-out.** Proposed: `[SkipLexiconValidation]` attribute per handler for hot
+  package. Default: yes, emitted by the source generator only; LEX to confirm.
+- **Input validation opt-out.** Default: `[SkipLexiconValidation]` attribute per handler for hot
   paths; on by default.
 - **`subscribeRepos` serving.** Not in scope (no PDS implementation); the subscription support
-  makes it possible for users. Proposed: no SDK handler.
-- **Subscription upgrade without WebSocket** (SRV-31): 400 vs 426 `Upgrade Required`. Proposed:
+  makes it possible for users. Default: no SDK handler.
+- **Subscription upgrade without WebSocket** (SRV-31): 400 vs 426 `Upgrade Required`. Default:
   400 envelope, to keep the XRPC status set.

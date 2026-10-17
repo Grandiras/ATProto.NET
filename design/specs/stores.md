@@ -1,6 +1,6 @@
 # Stores — spec
 
-**Status:** Draft · **Packages:** `ATProtoNet` holds the interfaces and in-memory
+**Status:** Accepted (maintainer, 2026-10-17) · **Packages:** `ATProtoNet` holds the interfaces and in-memory
 implementations next to their consumers (namespaces `ATProtoNet.Auth`, `ATProtoNet.Streaming`,
 `ATProtoNet.Spaces.Access`, `ATProtoNet.Spaces.Sync`) and the file and distributed-cache
 implementations (namespace `ATProtoNet.Hosting`); `ATProtoNet.EntityFrameworkCore` holds the EF
@@ -373,13 +373,17 @@ every implementation derives a test class from the matching contract:
 
 ## Open points
 
-- **0.6/0.8 stored-data compatibility.** Proposed: the hot path reads only the 0.9 format; a
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
+- **0.6/0.8 stored-data compatibility.** Default: the hot path reads only the 0.9 format; a
   one-off `AtProtoStoreMigration` helper (in `ATProtoNet`'s `ATProtoNet.Hosting` namespace for
   files, and in `ATProtoNet.EntityFrameworkCore` for tables) reads 0.8 files (purpose
   `ATProtoNet.TokenStore`, `.dat`, including 0.6-format payloads) and 0.8 tables (`AtProtoTokens`,
   `AtProtoJtiReplay`, `AtProtoRepoSyncStates`) and writes 0.9 entries, so signed-in users survive the upgrade. The
   alternative is keeping 0.8 purposes and table names and reading the old format forever.
 - **In-memory replay store at capacity** (fail closed with `false`) vs evicting unexpired
-  entries (which would reopen replay). Proposed: fail closed, as in the limits table.
-- **EF OAuth state store** is new in 0.9. Proposed: ship it, since multi-instance deployments
+  entries (which would reopen replay). Default: fail closed, as in the limits table.
+- **EF OAuth state store** is new in 0.9. Default: ship it, since multi-instance deployments
   without a distributed cache need one.

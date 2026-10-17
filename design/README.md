@@ -5,9 +5,10 @@ cleaner, layered and largely generated shape, released as 0.9. It is the input f
 itself: each phase of the plan names the specs it implements, and each spec lists testable
 requirements.
 
-**Status: reviewed; ready for phase 0.** The maintainer's reviews (2026-10-17) accepted every
-decision record and resolved every open question in
-[06 — Decisions](06-decisions.md#open-questions).
+**Status: accepted; ready for phase 0.** The maintainer's reviews (2026-10-17) accepted every
+decision record and every spec, including the defaults in the specs' open points, and resolved
+every open question in [06 — Decisions](06-decisions.md#open-questions). Phases need no further
+design sign-off ([specs/README.md](specs/README.md#status)).
 
 ## Reading order
 

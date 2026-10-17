@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft |
+| **Status** | Accepted (maintainer, 2026-10-17) |
 | **Package** | `ATProtoNet` (namespaces `ATProtoNet.Streaming`, `.Streaming.Firehose`, `.Streaming.Labels`, `.Streaming.Jetstream`, `.Streaming.Tap`, `.Streaming.Plc`, `.Streaming.Advanced`). In the same package, the chat moderation stream lives in `ATProtoNet.Bluesky` and the `StreamWorker<TItem>` hosted-service adapter in `ATProtoNet.Hosting` ([hosting](hosting.md)). The Tap webhook receiver is in the `ATProtoNet.AspNetCore` package ([server](server.md)). |
 | **Phase** | 7 (together with space sync, `ATProtoNet.Spaces.Sync`, [spaces](spaces.md)) |
 | **Depends on** | [data-model](data-model.md) (`DrislReader`, `CarReader`, `Cid`), [repo](repo.md) (`SignedCommit`, `MerkleSearchTree` inversion, `RepoSnapshot`), [identity](identity.md) (`IIdentityResolver`, `UntrustedFetchPolicy`), [xrpc-client](xrpc-client.md) (`XrpcInvoker`, `IXrpcHandler`), [labels](labels.md) (`LabelVerifier`, `LabelFrameCodec`), [stores](stores.md) (durable `ICursorStore`, `IRepoSyncStateStore`) |
@@ -926,9 +926,13 @@ verification.
 
 ## Open points
 
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
 1. **Account hosting status.** The Sync spec says consumers should ignore `#commit`/`#sync` for
    accounts whose status is not `active`, and for accounts whose authoritative PDS is not the
-   connected host (when subscribing to a PDS directly). 0.8 does neither. *Proposed default:* the
+   connected host (when subscribing to a PDS directly). 0.8 does neither. *Default:* the
    verifier records `#account` status in `RepoSyncState` (new `Active` field) and drops
    `#commit`/`#sync` for inactive accounts as `VerificationFailed`; host binding is deferred until
    someone subscribes to PDSes directly.
@@ -936,10 +940,10 @@ verification.
    `System.IO.Compression`; STR-69 uses it and the seam is gone.
 3. **PLC catch-up.** Automatic catch-up through paged `/export` on `OutdatedCursor`
    (STR-90) assumes the directory's paged export accepts the stream's `seq` as `after`.
-   *Proposed default:* verify against plc.directory in phase 7; if unsupported, yield the notice
+   *Default:* verify against plc.directory in phase 7; if unsupported, yield the notice
    and throw a non-retryable `StreamException`.
-4. **Tap admin error shape.** Tap answers admin failures with a status and a small body. *Proposed
-   default:* `StreamException` with `StatusCode` and the body (bounded) as `Message`; revisit if
+4. **Tap admin error shape.** Tap answers admin failures with a status and a small body. *Default:*
+   `StreamException` with `StatusCode` and the body (bounded) as `Message`; revisit if
    Tap adopts the XRPC `{error,message}` envelope.
 5. ~~**Notice interfaces.**~~ Resolved by C# 15 unions: each stream's item type is a union that
    lists its events and notices (STR-26); codecs elsewhere declare their own union and map notices

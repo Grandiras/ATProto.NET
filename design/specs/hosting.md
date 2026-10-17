@@ -1,6 +1,6 @@
 # Hosting, DI and integrations — spec
 
-**Status:** Draft · **Packages:** `ATProtoNet` (namespace `ATProtoNet.Hosting`; registration
+**Status:** Accepted (maintainer, 2026-10-17) · **Packages:** `ATProtoNet` (namespace `ATProtoNet.Hosting`; registration
 extension methods in `Microsoft.Extensions.DependencyInjection` and, for Aspire,
 `Microsoft.Extensions.Hosting`), `ATProtoNet.Aspire.Hosting` ·
 **Phase:** 9 (hosting layer including Spaces registration), 11 (Aspire.Hosting port) ·
@@ -466,9 +466,13 @@ routes).
 
 ## Open points
 
-- **Stream worker error policy** default: stop vs skip-and-log. Proposed: stop, because skipping
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
+- **Stream worker error policy** default: stop vs skip-and-log. Default: stop, because skipping
   silently loses data and at-least-once redelivery after restart is the safe default.
-- **`AddAtProtoClient` return type**: `AtProtoBuilder` (proposed) vs Aspire's usual `void`.
+- **`AddAtProtoClient` return type**: `AtProtoBuilder` (default) vs Aspire's usual `void`.
   Returning the builder lets service projects chain `AddClientFactory()` and stores.
 - **Tranquil `WithS3BlobStorage`** keeps its 0.8 shape (backend switch and credentials as
-  parameters). Proposed: keep, with credentials as secret parameters (HST-38).
+  parameters). Default: keep, with credentials as secret parameters (HST-38).

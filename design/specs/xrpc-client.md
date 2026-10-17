@@ -1,6 +1,6 @@
 # XRPC client — spec
 
-**Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet` for `AtProtoClient`,
+**Status:** Accepted (maintainer, 2026-10-17) · **Package:** `ATProtoNet` (namespaces `ATProtoNet` for `AtProtoClient`,
 `ATProtoNet.Xrpc`, `ATProtoNet.Records`, `ATProtoNet.Admin`; the space-scoped records API from
 `ATProtoNet.Spaces.Access`) · **Phase:** 5 (client core; space records with phase 6) ·
 **Prefix:** `XRC`
@@ -601,7 +601,11 @@ the same shape as public repositories. The protocol rules (credentials, audience
 
 ## Open points
 
-1. **`MaxJsonResponseBytes` default.** Proposed 16 MiB; `com.atproto.repo.listRecords` with
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
+1. **`MaxJsonResponseBytes` default.** 16 MiB; `com.atproto.repo.listRecords` with
    `limit=100` of maximum-size records could exceed it. Default: keep 16 MiB, document raising it
    per invoker.
 2. **Content-type strictness (XRC-27).** Some servers omit or mislabel `Content-Type`. Default:

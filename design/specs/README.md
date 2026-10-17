@@ -67,4 +67,13 @@ Every spec has these sections, in this order:
    scenarios must be ported.
 8. **Changes from 0.8**: deliberate behaviour changes, each with its reason, so nobody "fixes"
    them back.
-9. **Open points**: questions to settle before or during the phase, each with a proposed default.
+9. **Open points**: questions to settle before or during the phase, each with its default.
+
+### Status
+
+Every spec is **Accepted** (maintainer, 2026-10-17), the defaults in its open points included. A
+phase needs no further design sign-off: it applies the defaults, settles the points left to it,
+follows upstream where a point waits on upstream, and records each outcome in the spec in the
+same PR as the code. A change to a requirement follows the living-document rule in
+[05 — Rewrite plan](../05-rewrite-plan.md#specs-are-living-documents); a change to an accepted
+decision needs a new record that supersedes it.

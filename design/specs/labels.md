@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft |
+| **Status** | Accepted (maintainer, 2026-10-17) |
 | **Packages** | `ATProtoNet` (namespaces `ATProtoNet.Labels` and `ATProtoNet.Streaming.Labels`), `ATProtoNet.AspNetCore` (namespace `ATProtoNet.AspNetCore.Labels`) |
 | **Phase** | 6 (signing, verification, codec); 7 (stream consumer); 9 (labeler endpoints) |
 | **Depends on** | [data-model](data-model.md) (DRISL), [crypto](crypto.md) (`SigningKey`, `SignedObject`), [identity](identity.md) (`IDidResolver`, verify-with-refresh), [streaming](streaming.md), [server](server.md) |
@@ -295,11 +295,15 @@ without gap).
 
 ## Open points
 
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
+
 1. **Effective label set helper.** Provide a `LabelSet` that applies negation (`neg` cancels an
    earlier label with the same `src`, `uri`, `val`) and expiry (`exp`, against `TimeProvider`) for
-   consumers? Proposed: yes, small and pure, in `ATProtoNet.Labels` in phase 6.
+   consumers? Default: yes, small and pure, in `ATProtoNet.Labels` in phase 6.
 2. **Label value syntax.** Validate `val` against the spec's preferred syntax (lowercase ASCII,
-   hyphens, `!` prefix for system labels) when signing? Proposed: warn-level validation only; the
+   hyphens, `!` prefix for system labels) when signing? Default: warn-level validation only; the
    spec recommends rather than requires it.
-3. **Startup key check** (LBL-27): on by default or opt-in? Proposed: opt-in, since it needs network
+3. **Startup key check** (LBL-27): on by default or opt-in? Default: opt-in, since it needs network
    access at startup.

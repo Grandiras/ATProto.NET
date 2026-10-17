@@ -273,8 +273,9 @@ On top of each phase's own criteria, a phase passes only if:
    [03 — API guidelines](03-api-guidelines.md), with findings resolved.
 5. **Docs.** Every public member has XML docs. The phase's guide pages exist in draft on `next`
    with compiled samples.
-6. **Decisions.** Every open question that blocks the phase ([06 — Decisions](06-decisions.md#open-questions))
-   is answered, and every decision the phase implements is Accepted.
+6. **Decisions.** The phase follows the accepted decisions and spec defaults. Every open point it
+   settled, and every deviation, is recorded in the spec with its reason; a deviation from a
+   decision record has a superseding record.
 
 ## Working agreements
 
@@ -288,6 +289,8 @@ On top of each phase's own criteria, a phase passes only if:
 
 ### Specs are living documents
 
+- The design is accepted (maintainer, 2026-10-17): every decision record, every spec and the
+  defaults in the specs' open points. Phases need no further design sign-off.
 - A spec change goes in the same PR as the code that needs it, with the reason. Requirement IDs
   are never renumbered.
 - A behaviour fix on `main` (0.8.x) that touches protocol behaviour also updates the relevant

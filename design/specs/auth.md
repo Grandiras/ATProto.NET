@@ -1,6 +1,6 @@
 # Authentication: sessions, OAuth, service auth — spec
 
-**Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet.Auth`, `ATProtoNet.Auth.OAuth`,
+**Status:** Accepted (maintainer, 2026-10-17) · **Package:** `ATProtoNet` (namespaces `ATProtoNet.Auth`, `ATProtoNet.Auth.OAuth`,
 `ATProtoNet.Auth.ServiceAuth`, and `ATProtoNet.Admin` for the admin handler; space credentials plug in from
 `ATProtoNet.Spaces.Access`) · **Phases:** 5 (session model, password sessions, PDS admin
 handler), 6 (OAuth, scopes including `space:`, service auth, space credentials) · **Prefix:** `AUT`
@@ -763,6 +763,10 @@ spec's model; the token formats, covered components and authority policy are in
 | `AutoRefreshSession = false` removed | refresh is the session's job; callers who never want refresh use the generated `createSession` and an `AnonymousHandler` with their own bearer authorizer |
 
 ## Open points
+
+Defaults accepted (maintainer, 2026-10-17). The implementing phase applies them without further
+sign-off, settles any point left to it, follows upstream where a point waits on upstream, and
+records the outcome here in the same PR.
 
 1. **Bearer-token handler for externally managed tokens.** Some apps hold access tokens from
    elsewhere. Default: ship `BearerTokenHandler(Func<CancellationToken, ValueTask<string>>)` with
