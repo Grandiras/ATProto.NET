@@ -53,7 +53,8 @@ for planning only.
 
 - `next` branch with the new tree layout ([02 — Architecture](02-architecture.md#source-tree))
   and a new `ATProto.NET.slnx`.
-- Build infrastructure: `global.json` pinning the SDK, `Directory.Build.props` (shared
+- Build infrastructure: `global.json` pinning the .NET 11 SDK (a release candidate until the
+  November 2026 GA, then GA; see [D-25](06-decisions.md#d-25-target-net-11-and-c-15)), `Directory.Build.props` (shared
   settings, `TreatWarningsAsErrors`, nullable, `IsAotCompatible` for `src/`),
   `Directory.Packages.props` (central package management), `nuget.config` with package source
   mapping, analyzers (PublicApiAnalyzers, CA2007, CS1591 as error), empty API baselines.
@@ -105,7 +106,8 @@ the outcome decides whether the user-facing source generator ships in phase 8 or
 MSBuild-task fallback. **~6k lines.**
 
 **Gate.** The emitter generates **all** vendored Lexicons and the output compiles with zero
-diagnostics. Golden-output tests for the representative cases are reviewed and committed. The
+diagnostics on the released (GA) C# 15 compiler, including the `union` types and their
+converters. Golden-output tests for the representative cases are reviewed and committed. The
 generated `com.atproto.*` code is checked in under `src/ATProtoNet/Generated/` (it compiles
 against stubs until phase 5).
 
@@ -266,6 +268,8 @@ migration guide.
 | Roslyn analyzer packaging problems (System.Text.Json in the compiler) | Medium | Spike first in phase 3, with an MSBuild-task fallback. First-party code is checked in, so the SDK never depends on the analyzer. |
 | Upstream protocol changes during the rewrite (OAuth scopes, Lexicon resolution, Sync, Spaces) | Medium | Specs cite upstream sections. Vendored Lexicons update through the CLI. Experimental markers (`ATPROTO00x`) on moving surfaces. |
 | Performance regressions | Medium | Benchmarks against the 0.8 baseline at every relevant gate. |
+| C# 15 union details shift before or after .NET 11 GA | Low/Medium | Phases 0–2 do not use unions. The union shape is fixed in phase 3 against the released compiler, and generated code changes by regenerating. |
+| Apps that must stay on .NET 10 | Low | They stay on 0.8 (Q-14); .NET 10 and .NET 11 support end on the same day. |
 | Users stuck on 0.8 | Low/Medium | 0.8.x gets fixes until 0.9.0 plus a stated support window (proposal: 6 months). The migration guide maps every entry point. |
 
 ## Immediate next steps

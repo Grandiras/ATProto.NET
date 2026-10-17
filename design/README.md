@@ -38,7 +38,7 @@ If you have ten minutes: read 00, the package map in 02, and the open questions 
 - **Generated Lexicons.** All `com.atproto`, `app.bsky`, `chat.bsky`, `tools.ozone` and
   `site.standard` code is generated from vendored Lexicon JSON by one generator. That replaces
   21k hand-written lines and a regex-based drift test. Users run the same generator on their own
-  Lexicons. Unions become interfaces, known values open structs, and XRPC methods typed
+  Lexicons. Unions become C# 15 `union` types, known values open structs, and XRPC methods typed
   descriptors that take one parameters record.
 - **A session is the authenticated transport.** `new AtProtoClient(session)`. Password, OAuth,
   service-auth and admin sessions are `IXrpcHandler`s that own their tokens and refresh.
@@ -46,6 +46,8 @@ If you have ten minutes: read 00, the package map in 02, and the open questions 
 - **One way per mechanism.** One XRPC invoker, one untrusted-fetch layer, one MST, one signed-object
   helper, one stream runtime with in-band notices, one registration style, one exception
   hierarchy.
+- **.NET 11 and C# 15.** Lexicon unions and stream items are C# 15 `union` types, SDK-owned
+  alternatives are `closed` hierarchies, and Jetstream uses .NET 11's built-in Zstandard.
 - **AOT-safe and observable.** Source-generated JSON, no process-global registries,
   `ActivitySource`/`Meter` per area.
 - **Behaviour carried by tests, not code.** Vendored interop vectors and golden fixtures go into a

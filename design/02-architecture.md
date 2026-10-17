@@ -279,10 +279,12 @@ flowchart LR
 
 - Every Lexicon definition becomes exactly one type in a namespace derived from its NSID
   ([D-05](06-decisions.md#d-05-lexicon-generated-type-naming)).
-- A union is a generated **interface**; each variant type implements every union it appears in,
-  and open unions get a generated `Unknown…` variant that round-trips the raw object
-  ([D-18](06-decisions.md#d-18-unions-are-interfaces)). Today's single-base-class model forced
-  duplicate types and wrong subtypes.
+- A union is a C# 15 **`union`** type over its variant types, with a generated converter for the
+  atproto wire format (`$type` read anywhere, written first in union position only). Open unions
+  include the shared `LexiconUnknown` case that round-trips the raw object
+  ([D-18](06-decisions.md#d-18-lexicon-unions-are-c-15-union-types)). Variant types need no base
+  class or interface, so one type can belong to many unions, which is what 0.8's base-class model
+  could not express.
 - Namespace clients are lightweight structs over `AtProtoClient`, attached through C# 14
   extension properties, so the client core knows nothing about the Lexicon families and users'
   generated Lexicons attach the same way
@@ -306,7 +308,11 @@ flowchart LR
 
 One `StreamLoop` owns connecting, reconnecting with jittered backoff, cursor resume and
 persistence. Each protocol supplies a source (WebSocket URL builder) and a frame decoder.
-Verification is a stage over typed firehose events, not a different consumer class.
+Verification is a stage over typed firehose events, not a different consumer class. Each stream
+yields a C# 15 `union` of its events and notices (`FirehoseItem`, `JetstreamItem`, …), so one
+exhaustive `switch` handles everything it can produce
+([D-23](06-decisions.md#d-23-stream-side-information-is-delivered-in-band)). Jetstream's zstd
+compression uses .NET 11's built-in `ZstandardDecoder` with dictionaries.
 See [specs/streaming.md](specs/streaming.md).
 
 ### 6. Hosting (`ATProtoNet.Hosting`, `ATProtoNet.AspNetCore`)
@@ -325,6 +331,25 @@ cannot serve. See [specs/server.md](specs/server.md) and
 [specs/hosting.md](specs/hosting.md).
 
 ## Cross-cutting concerns
+
+### Language and runtime
+
+All runtime packages target `net11.0` and use C# 15
+([D-25](06-decisions.md#d-25-target-net-11-and-c-15)). The features that shape the design:
+
+| Feature | Used for |
+|---|---|
+| `union` types (C# 15) | Lexicon unions, stream items |
+| `closed` hierarchies (C# 15) | SDK-owned closed sets: data-model values, sessions and session data, login hints, scopes, stream notices, verdicts ([AG-6a](03-api-guidelines.md#types)) |
+| Extension members (C# 14) | attaching Lexicon namespaces to `AtProtoClient` |
+| `required`, `init`, primary constructors, collection expressions | models and options throughout |
+| `ZstandardDecoder`/`ZstandardDictionary` (.NET 11) | Jetstream live frames and archive blocks, with no third-party dependency |
+| Zstandard in `SocketsHttpHandler` automatic decompression (.NET 11) | the SDK-owned HTTP handler |
+| Runtime async (.NET 11) | no API impact; faster async paths, tracked by the benchmarks |
+
+The code generator itself targets `netstandard2.0` (a Roslyn requirement) but emits C# 15 code
+for `net11.0`. The SDK targets one framework at a time and moves to the next LTS (.NET 12,
+November 2027) in a minor release.
 
 ### Configuration and DI
 
@@ -351,6 +376,9 @@ All time comes from `TimeProvider` (AG-28): token expiry, refresh scheduling, ba
 JWT `iat`/`exp`, TID generation.
 
 ### Serialization
+
+Lexicon unions are serialized by generated converters rather than System.Text.Json's built-in
+union support, which writes the active case without a discriminator.
 
 One `AtProtoJson` entry point builds `JsonSerializerOptions` from source-generated contexts
 (the SDK's, chained with those generated for the user's own Lexicons) and an optional user

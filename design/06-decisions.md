@@ -205,12 +205,15 @@ broken until 0.7.
 
 **Decision.** All JSON goes through System.Text.Json with source-generated
 `JsonSerializerContext`s (the SDK's, plus one per set of user Lexicons, combined by a resolver
-chain). Unions get generated
-converters ([D-18](#d-18-unions-are-interfaces)): read `$type` (anywhere in the object), dispatch
-to known variants, fall back to `Unknown…` for open unions, fail for closed ones. Unknown object
-fields round-trip through `[JsonExtensionData]`. User-defined union variants register through
-a `LexiconTypeRegistry` *instance* passed when building serializer options, never a
-process-global singleton.
+chain). Lexicon unions ([D-18](#d-18-lexicon-unions-are-c-15-union-types)) get a generated
+converter each: read `$type` (anywhere in the object), dispatch to the case, fall back to
+`LexiconUnknown` for open unions, fail for closed ones; write `$type` first in union position
+only. Unknown object fields round-trip through `[JsonExtensionData]`. A union's case list is
+fixed by its Lexicon, so a third-party variant of an SDK open union arrives as `LexiconUnknown`
+and converts on demand (`unknown.As<MyEmbed>()`); writing one wraps it
+(`LexiconUnknown.From(myEmbed)`). The NSID → type mapping that conversion and `unknown` fields
+need comes from a `LexiconTypeRegistry` *instance* passed when building serializer options, never
+a process-global singleton.
 
 Two decoding paths, one model mapping:
 
@@ -298,29 +301,57 @@ removed.
 excepted: `next` keeps its own `CHANGELOG.md` that starts at 0.9.0). `main` merges into `next`
 only for vendored-Lexicon or spec-relevant fixes. When phase 11 passes, `next` replaces `main`.
 
-## D-18 Unions are interfaces
+## D-18 Lexicon unions are C# 15 union types
 
 **Context.** 0.8 models a Lexicon union as an abstract base class. A C# class has one base, but
 a Lexicon definition can appear in several unions (`app.bsky.embed.record#view` is a member of
 post-view embeds and chat message embeds). The result: duplicated types (`RecordEmbed` and
 `MessageRecordEmbed`), wrong subtypes (`ThreadNode : PostEntry` makes a thread view a bookmark
 item; `GeneratorView` derives from an embed view), and 43 copy-pasted `Unknown*` classes. The
-current generator gave up and emits `JsonElement?` for union fields.
+current generator gave up and emits `JsonElement?` for union fields. The first draft of this
+design used generated interfaces instead, which still forced every variant to implement every
+union it joins, and needed derived records plus unsealed types for unions in users' assemblies
+that name SDK types.
 
-**Decision.** Each union is a generated interface (`IPostEmbed`). A variant type implements
-every union interface it belongs to. Each open union gets a generated `Unknown…` variant holding
-the `$type` and raw JSON, which writes back byte for byte. Closed unions have no unknown variant
-and fail on an unrecognised `$type`. Generated converters do the dispatch. Pattern matching works
-naturally: `if (post.Embed is Images images)`.
+**Decision.** Each Lexicon union is a C# 15 `union` type
+([D-25](#d-25-target-net-11-and-c-15)):
 
-All first-party Lexicons are generated into the one `ATProtoNet` assembly, so every first-party
-variant can implement every union it belongs to. Users' assemblies are different: a variant
-defined in `ATProtoNet` cannot implement an interface generated in the user's assembly (for
-example a user union that includes `com.atproto.repo.strongRef`). For those, the user's assembly
-generates a derived record (`MyUnionStrongRef : StrongRef, IMyUnion`) that the converter
-produces, so `value is StrongRef strongRef` still works and the wire shape is unchanged. This
-requires generated named object and record types to be unsealed `partial record`s, a documented
-exception to [AG-6](03-api-guidelines.md#types). See [LEX-49](specs/lexicon.md#generated-clients).
+```csharp
+[JsonConverter(typeof(PostEmbedConverter))]                    // generated
+public union PostEmbed(Images, Video, External, Record, RecordWithMedia, LexiconUnknown);
+
+Post post = new() { Text = "hi", Embed = new Images { Images = [image] }, CreatedAt = AtDatetime.Now() };
+string summary = post.Embed switch
+{
+    Images i => $"{i.Images.Count} images",
+    Video v => "a video",
+    External e => e.External.Uri,
+    Record or RecordWithMedia => "a quote",
+    LexiconUnknown u => $"something new: {u.Type}",
+    null => "no embed",
+};
+```
+
+- **Case types need nothing.** A case type does not implement or derive from anything, so a type
+  can be a case of any number of unions in any assembly. Generated object and record types are
+  `sealed`. The derived-record workaround and the unsealed-types exception are gone.
+- **Open unions** include the shared case `LexiconUnknown` (the received `$type` and the raw
+  JSON, written back byte for byte). Closed unions do not, and fail on an unrecognised `$type`.
+- **Optional union fields** are typed as the union struct itself: `default` (no active case)
+  means absent, is omitted on write, and `is null` tests it. Required union fields are
+  `required`.
+- **The compiler checks exhaustiveness.** When a Lexicon sync adds a variant to a closed union,
+  every `switch` that misses it gets a warning.
+- **The wire format comes from a generated converter per union**, because System.Text.Json's
+  built-in union serialization writes the active case without a discriminator and its case
+  metadata has no per-case contract. The converter reads `$type` anywhere among the root
+  properties (#50) and writes it as the first property in union position only. Outside union
+  position (a plain `ref` to an object) `$type` is not written, as the Lexicon spec asks;
+  record types always carry it. This is a deliberate change from 0.8, which writes `$type` for
+  union-variant types everywhere. See [specs/lexicon.md](specs/lexicon.md#generated-clients).
+
+**Revisit** if System.Text.Json gains discriminator support for unions: the converter could then
+shrink to configuration.
 
 ## D-19 Lexicon `integer` maps to `int` when the bounds fit, otherwise `long`
 
@@ -367,9 +398,12 @@ contract themselves, using the published contract tests.
 differently per stream: `#info`/`OutdatedCursor` is an in-band event on the firehose, a callback
 on Jetstream and an exception on the PLC export.
 
-**Decision.** Every stream yields a union of protocol events and **notices**: `StreamInfo`
-(including `OutdatedCursor`), `RepoDesynchronized`, `RepoResynced`, and, when the caller opts in,
-`EventDropped`. Notices are unsequenced and never move the cursor. Errors that end the stream are
+**Decision.** Every stream yields a C# 15 `union` of its protocol events and **notices**
+(`public union FirehoseItem(CommitEvent, SyncEvent, IdentityEvent, AccountEvent, InfoEvent,
+StreamInfo, EventDropped, RepoDesynchronized, RepoResynced)`), so one exhaustive `switch` handles
+everything a stream can yield. Notices form a `closed` hierarchy under `StreamNotice`:
+`StreamInfo` (including `OutdatedCursor`), `RepoDesynchronized`, `RepoResynced`, and, when the
+caller opts in, `EventDropped`. Notices are unsequenced and never move the cursor. Errors that end the stream are
 one `StreamException` type (status, error name, `IsRetryable`, retry-after) for every stream
 client. Metrics count drops and errors whether or not notices are requested.
 
@@ -394,6 +428,38 @@ alone is 56% of `ATProtoNet.Server`'s public API.
 
 **Status: Open.** See Q-11.
 
+## D-25 Target .NET 11 and C# 15
+
+**Status: Proposed** (raised by the maintainer, 2026-10-17).
+
+**Context.** .NET 11 and C# 15 ship in November 2026, before the rewrite's first preview. .NET 11
+is a standard-term release supported for 24 months, until November 2028, the same end date as
+.NET 10 LTS. C# 15 and .NET 11 bring features that remove whole mechanisms from this design.
+
+**Decision.** All runtime packages target `net11.0` only and use C# 15. The Roslyn generator and
+the code generator stay on `netstandard2.0` (a compiler requirement), but the code they emit
+targets C# 15 and `net11.0`. When .NET 12 (LTS) ships in November 2027, the SDK moves to it in a
+minor release; the SDK targets one framework at a time.
+
+| Feature | Where the design uses it |
+|---|---|
+| `union` types (C# 15; `UnionAttribute`/`IUnion` in the .NET 11 runtime) | Lexicon unions (D-18), stream items (D-23) |
+| `closed` hierarchies (C# 15) | SDK-owned hierarchies whose cases the SDK enumerates: `DataModelValue`, sessions and session data, OAuth login hints, scopes, stream notices, verdicts ([AG-6a](03-api-guidelines.md#types)) |
+| Extension members (C# 14) | Lexicon namespace accessors (D-13) |
+| `System.IO.Compression.ZstandardDecoder` with dictionaries (.NET 11) | Jetstream live frames and archive blocks; replaces the `IZstdDecompressor` seam, so Jetstream compression needs no third-party package |
+| Zstandard automatic HTTP decompression (.NET 11) | the SDK-owned `SocketsHttpHandler` |
+| Runtime async (.NET 11) | no API impact; benefits the async-heavy stream and XRPC paths, measured by the benchmarks |
+
+**Rejected.** *Multi-targeting `net10.0` and `net11.0`*: two representations of unions (or
+polyfills), two Zstandard paths and a doubled test matrix, all to support a runtime whose
+support ends on the same day as .NET 11's. Apps on .NET 10 stay on 0.8 until they upgrade.
+*Staying on `net10.0`*: keeps the interface-based unions and their cross-assembly workaround, and
+the third-party zstd dependency.
+
+**Risks.** C# 15 union details could still shift before GA. Phases 0–2 do not depend on them; the
+union shape is fixed in phase 3 against the released compiler, and since it is generated, a change
+is a regeneration. See Q-14.
+
 ---
 
 ## Open questions
@@ -415,3 +481,4 @@ alone is 56% of `ATProtoNet.Server`'s public API.
 | Q-11 | How much of Spaces to port (D-24): primitives + client + syncer only, or the server too? | Primitives, client, syncer and notification receiver; server only if the protocol is stable by phase 10. | Phase 10 |
 | Q-12 | Keep the Jetstream v1 wire protocol, or v2 only (keeping the v1 timestamp-cursor migration)? | Keep v1 as a second codec; public instances still serve it. | Phase 7 |
 | Q-13 | Name the ASP.NET Core package `ATProtoNet.AspNetCore` (D-03), or keep 0.8's `ATProtoNet.Server`? | `ATProtoNet.AspNetCore`: "Server" reads like a PDS, and the package changes shape anyway. | Phase 9 |
+| Q-14 | Target `net11.0` only (D-25), or also `net10.0` for apps staying on the LTS release? | `net11.0` only; .NET 10 and .NET 11 support both end in November 2028. | Phase 0 |

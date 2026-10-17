@@ -34,10 +34,18 @@ what it *is* (`PasswordSession`, `DidDocument`, `CursorStore`), not what it *doe
 ## Types
 
 **AG-6 — Sealed by default.** Classes are `sealed` unless they are designed for inheritance, and a
-class designed for inheritance says so in its docs. Abstract base classes are reserved for closed
-hierarchies we own (exceptions, sessions). One exception: generated Lexicon object and record
-types are unsealed `partial record`s, because code generated for a user's own Lexicons derives
-from them to join its unions ([D-18](06-decisions.md#d-18-unions-are-interfaces)).
+class designed for inheritance says so in its docs. Generated Lexicon types are `sealed` too.
+
+**AG-6a — Closed sets are closed (C# 15).** When the SDK owns a set of alternatives and
+enumerates them, the compiler should know the set:
+
+- a **`closed` hierarchy** when the alternatives share a base and data (`DataModelValue`,
+  `AtProtoSession`, `SessionData`, `OAuthLoginHint`, `Scope`, `StreamNotice`, verdict types);
+- a **`union`** when they do not share a base (Lexicon unions, the items a stream yields).
+
+Code inside the SDK that switches over a closed set handles every case without a discard, so
+adding a case is a compile-time warning everywhere it matters. Exception hierarchies are not
+closed (their bases must stay instantiable), and neither is anything users are meant to extend.
 
 **AG-7 — Immutable values.** Models and options are immutable after construction: `init`
 accessors, `required` for mandatory members, `IReadOnlyList<T>`/`IReadOnlyDictionary<K,V>` for
@@ -54,9 +62,10 @@ allowed only where `default` is a valid value (`Tid`, whose zero value is a vali
 [specs/syntax.md](specs/syntax.md).
 
 **AG-9 — Open sets are open.** A Lexicon `knownValues` string is a `readonly record struct` over
-`string` with static well-known values, never a C# `enum`. An unknown value round-trips. Unions
-are interfaces ([D-18](06-decisions.md#d-18-unions-are-interfaces)); open unions have an
-`Unknown…` variant that round-trips the raw data, closed unions do not.
+`string` with static well-known values, never a C# `enum`. An unknown value round-trips. Lexicon
+unions are C# 15 `union` types ([D-18](06-decisions.md#d-18-lexicon-unions-are-c-15-union-types));
+open unions include the `LexiconUnknown` case, which round-trips the raw data; closed unions do
+not.
 
 **AG-9a — One representation per concept.** A CID is a `Cid` everywhere: never `byte[]` in one
 API and a base32 `string` in another. A DID key is a `DidKey`, a service endpoint a `Uri`, a
@@ -100,8 +109,9 @@ CA2007 in `src/`.
 method, and a generated `Enumerate{Method}Async` that walks all pages through the single shared
 pagination helper. It stops on a null, empty or repeated cursor. No other cursor loop exists.
 
-**AG-18 — Every event stream is consumed as `IAsyncEnumerable<TEvent>`.** Not .NET events, not
-callbacks, not `Channel<T>` in the public API. Reconnect, backoff and cursor persistence are
+**AG-18 — Every event stream is consumed as `IAsyncEnumerable<TItem>`,** where `TItem` is a
+per-stream `union` of its events and notices. Not .NET events, not callbacks, not `Channel<T>`
+in the public API. Reconnect, backoff and cursor persistence are
 handled inside the enumerator. The cursor of event *n* is committed when the consumer pulls
 event *n+1* (at-least-once delivery). Hosted-service adapters (`StreamWorker<TEvent>`) live in
 `ATProtoNet.Hosting`, so worker services need no ASP.NET Core.

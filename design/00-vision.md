@@ -73,8 +73,9 @@ how.
   *verify* their data, and *serve your own XRPC endpoints*. Hosting a PDS stays Aspire container
   orchestration of existing images.
 - **Source compatibility with 0.8.** A migration guide maps old to new. Shims are not shipped.
-- **Targets older than .NET 10.** Exception: the Roslyn source generator, which must target
-  `netstandard2.0`.
+- **Targets older than .NET 11.** The SDK uses C# 15 unions and closed hierarchies and .NET 11's
+  built-in Zstandard ([D-25](06-decisions.md#d-25-target-net-11-and-c-15)). Exception: the Roslyn
+  source generator, which must target `netstandard2.0`.
 - **UI component libraries.** UI components that encode product opinions (feed widgets, post
   cards) are out of scope; see [decision D-09](06-decisions.md#d-09-blazor-components).
 - **Porting every 0.8 convenience.** A helper survives only if it adds meaning beyond the
@@ -94,7 +95,8 @@ These settle disagreements during the rewrite. When two principles conflict, the
    [01 — Current state](01-current-state.md#build-health) is what happens otherwise.
 3. **Make illegal states unrepresentable.** Identifiers are validated value types. A session is
    either live or absent; there is no "client in the logged-out state". Required Lexicon fields
-   are `required`.
+   are `required`. A value that is one of a fixed set of alternatives is a C# 15 `union` or a
+   `closed` hierarchy, so the compiler checks that every case is handled.
 4. **Declarative in, generated out.** If a structure is fully described by a schema (Lexicon
    JSON), it is generated. Hand-written code sits *on top of* generated code and never restates
    it.
