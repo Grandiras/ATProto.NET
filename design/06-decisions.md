@@ -6,15 +6,17 @@ Architecture decision records for the rewrite. Each has a status:
 - **Accepted**: signed off; changing it needs a new record that supersedes it.
 - **Open**: needs input before the phase that depends on it starts.
 
-Records are **Proposed** unless marked otherwise. The maintainer's first review (2026-10-17)
-accepted D-02 (version 0.9) and D-03 (few packages) in revised form, and D-08 and D-24 (Spaces).
-The second review (2026-10-17) answered every open question: Q-1, Q-6 and Q-8 explicitly, the
-rest by accepting the defaults. The records those answers settle (D-04, D-05, D-09, D-11, D-17,
-D-25) are Accepted. The [questions](#open-questions) stay listed at the end with their outcomes.
+The maintainer's first review (2026-10-17) accepted D-02 (version 0.9) and D-03 (few packages)
+in revised form, and D-08 and D-24 (Spaces). The second review answered every open question: Q-1,
+Q-6 and Q-8 explicitly, the rest by accepting the defaults. The third review accepted every
+remaining record except **D-20**, which stays Proposed pending more context. The
+[questions](#open-questions) stay listed at the end with their outcomes.
 
 ---
 
 ## D-01 Rewrite in a fresh tree, not by refactoring in place
+
+**Status: Accepted** (maintainer, 2026-10-17).
 
 **Context.** Previous cleanup passes (#180, #185, #194–#208) refactored in place. Each recovered
 some size, but the structure stayed: one big core assembly, hand-written Lexicons, internal
@@ -145,6 +147,8 @@ than the SDK's.
 
 ## D-06 A session is the authenticated transport
 
+**Status: Accepted** (maintainer, 2026-10-17).
+
 **Context.** Today `AtProtoClient` owns login, refresh and sign-out through `SessionManager`
 (1,092 lines), plugged into `XrpcClient` through a `SessionHandler` hook. The client has a
 "logged out" state, and session options (`AutoRefreshSession`, `BackgroundRefresh`,
@@ -174,6 +178,8 @@ scripts. See [specs/auth.md](specs/auth.md).
 
 ## D-07 One consumption model for every event stream
 
+**Status: Accepted** (maintainer, 2026-10-17).
+
 **Decision.** Firehose, label streams, Jetstream, Jetstream archive replay and Tap are all
 consumed as `IAsyncEnumerable<TEvent>` over one shared event-stream core (connect, frame decode,
 reconnect with backoff, cursor store). The cursor of event *n* is committed when event *n+1* is
@@ -186,7 +192,7 @@ Public `Channel<T>` (leaks buffering decisions).
 
 ## D-08 Spaces is a first-class part of the protocol
 
-**Status: Accepted in direction** (maintainer, 2026-10-17), replacing the first draft's
+**Status: Accepted** (maintainer, 2026-10-17), replacing the first draft's
 "experimental, ported last" treatment.
 
 **Context.** Atproto Spaces (formerly "the permissioned data protocol") is AT Protocol's second
@@ -227,12 +233,12 @@ registration.
 
 ## D-09 Blazor components
 
+**Status: Accepted** (maintainer, 2026-10-17; Q-1).
+
 **Context.** `ATProtoNet.Blazor` ships `LoginForm` plus `FeedView`, `PostCard`, `ProfileCard`
 and `ComposePost` (223 lines total). The feed and post widgets encode product decisions (layout,
 styling, which embeds render) that apps replace in practice. The login itself is the server
 package's.
-
-**Status: Accepted** (maintainer, 2026-10-17; Q-1).
 
 **Decision.** There is no Blazor package in 0.9. `samples/ServerIntegrationSample` carries all of
 it as copyable code: the per-circuit user client accessor (same user → same client, sign-out or
@@ -250,6 +256,8 @@ anyway. Everything the sample needs is public API of `ATProtoNet` and `ATProtoNe
 proposal).
 
 ## D-10 Serialization: System.Text.Json with source generation, generated union converters
+
+**Status: Accepted** (maintainer, 2026-10-17).
 
 **Decision.** All JSON goes through System.Text.Json with source-generated
 `JsonSerializerContext`s (the SDK's, plus one per set of user Lexicons, combined by a resolver
@@ -279,15 +287,17 @@ firehose hot path.
 
 ## D-11 No implicit conversions from `string`
 
+**Status: Accepted** (maintainer, 2026-10-17; Q-3: explicit `Parse` only).
+
 **Decision.** Identifier types have `Parse`/`TryParse` and an implicit conversion *to* `string`,
 never *from* it. See [AG-8](03-api-guidelines.md#types).
-
-**Status: Accepted** (maintainer, 2026-10-17; Q-3: explicit `Parse` only).
 
 **Rationale.** An implicit conversion that throws hides validation at call sites. The verbosity
 cost is small and helpers accept the typed identifier.
 
 ## D-12 Generated XRPC methods take one parameters record
+
+**Status: Accepted** (maintainer, 2026-10-17).
 
 **Decision.** `client.Bsky.Feed.GetTimelineAsync(new() { Limit = 50 })`, never positional
 optional parameters. See [AG-12, AG-13](03-api-guidelines.md#methods-and-parameters).
@@ -297,6 +307,8 @@ parameters each sync is a binary break. With records it is an additive change. I
 any need for a hand-maintained parameter-order convention, and the generator needs no heuristics.
 
 ## D-13 Lexicon namespace access through extension properties
+
+**Status: Accepted** (maintainer, 2026-10-17).
 
 **Decision.** `AtProtoClient` itself exposes only the generated `com.atproto.*` namespaces
 (`client.Repo`, `client.Server`, …). The other Lexicon families attach through C# 14 extension
@@ -311,6 +323,8 @@ layering rule in [02](02-architecture.md#rules)), removes the wiring that made 0
 
 ## D-14 Identity resolution is its own layer with explicit network policy
 
+**Status: Accepted** (maintainer, 2026-10-17).
+
 **Decision.** The `ATProtoNet.Identity` namespace (layer 1) owns DID documents,
 `did:plc`/`did:web` resolution, handle resolution (DNS TXT through a pluggable `IDnsTxtResolver`,
 defaulting to DNS-over-HTTPS as today, plus HTTPS well-known), bidirectional verification,
@@ -319,6 +333,8 @@ caching, and the PLC directory client and operations. All identity HTTP goes thr
 foundation layer does not.
 
 ## D-15 Store interfaces live next to their consumers; implementations live with their dependencies
+
+**Status: Accepted** (maintainer, 2026-10-17).
 
 **Decision.** `ISessionStore`, `IOAuthStateStore`, `ICursorStore`, `IReplayStore` and
 `IRepoSyncStateStore` are defined next to their consumer. In-memory implementations ship with
@@ -330,6 +346,8 @@ store races on the first write for a DID because the contract never tested it). 
 store contract includes compare-and-swap (D-22). Details: [specs/stores.md](specs/stores.md).
 
 ## D-16 Experimental diagnostic IDs
+
+**Status: Accepted** (maintainer, 2026-10-17).
 
 <a id="experimental-diagnostic-ids"></a>
 
@@ -360,6 +378,8 @@ Tangled is out of scope for this design; when it comes, it is repository configu
 build concern, since CI never depends on a mirror.
 
 ## D-18 Lexicon unions are C# 15 union types
+
+**Status: Accepted** (maintainer, 2026-10-17).
 
 **Context.** 0.8 models a Lexicon union as an abstract base class. A C# class has one base, but
 a Lexicon definition can appear in several unions (`app.bsky.embed.record#view` is a member of
@@ -413,6 +433,8 @@ shrink to configuration.
 
 ## D-19 Lexicon `integer` maps to `int` when the bounds fit, otherwise `long`
 
+**Status: Accepted** (maintainer, 2026-10-17).
+
 **Decision.** A Lexicon `integer` with `minimum` and `maximum` both inside `Int32` range maps to
 `int`; anything else maps to `long`. The rule is mechanical, so `limit` (1–100) is an `int` and
 unbounded counts are `long`. 0.8's hand-written code used `int` in 189 places and `long` in 33
@@ -420,14 +442,83 @@ with no rule; the old generator used `long` everywhere.
 
 ## D-20 JSON reads are case-sensitive and strict about number types
 
-**Decision.** Drop `PropertyNameCaseInsensitive` and `AllowReadingFromString`, which 0.8 enables.
-Lexicon property names are case-sensitive, and both options can rebind or rewrite data on a
-read-modify-write round trip. Identifier fields stay strict on read (an invalid DID fails
-deserialization with the JSON path); `datetime` fields stay lenient on read (the original text is
-kept, `IsValid` reports whether it parses), as in 0.8. Success bodies get a size cap like error
-bodies already have.
+**Status: Proposed.** The maintainer asked for more context (2026-10-17).
+
+**Context.** 0.8's shared serializer options (`AtProtoJsonDefaults`) have enabled
+`PropertyNameCaseInsensitive` and `JsonNumberHandling.AllowReadingFromString` since the initial
+commit (0.1.0). No changelog entry or issue gives a reason, and the only test
+(`CommonModelsTests.Options_CaseInsensitiveDeserialization`) checks the option itself, not a
+producer that needs it. On the protocol side:
+
+- Lexicon property names are case-sensitive. The reference implementation (TypeScript) reads
+  properties by exact name, and DRISL-CBOR records, the authoritative form in a repository, are
+  keyed by exact strings.
+- The data model writes `integer` as a JSON number. The reference Lexicon validator rejects a
+  string where an integer is expected, and the reference XRPC client validates responses, so it
+  already fails a response that sends `"42"` for an integer.
+
+What the two options do, measured on .NET 10 with a model shaped like 0.8's (a `text` string, an
+`int64` count and `[JsonExtensionData]` for unknown fields):
+
+| Input | 0.8 options | Strict |
+|---|---|---|
+| `{"text":"hello","Text":"spoofed"}` | reads `spoofed`, writes back `{"text":"spoofed"}` | reads `hello`; `Text` round-trips as an unknown field |
+| `{"text":"hello","LikeCount":7}` | binds `LikeCount` to `likeCount`, writes back `likeCount` | `LikeCount` round-trips as an unknown field |
+| `{"text":"hello","likeCount":"42"}` (or `"+42"`) | reads 42, writes back the number `42` | `JsonException` |
+
+So, under 0.8's options:
+
+- **A .NET client can show different content than everyone else.** In a record with a second key
+  that differs only in case, .NET shows whichever comes last; the reference implementation, the
+  AppView and labelers use the exact name. The record's author chooses which one .NET users see.
+- **Read-modify-write changes data.** A case-variant unknown field is folded into a known property
+  and lost; a numeric string is rewritten as a number. Both change the record's CBOR and so its
+  CID, and the first breaks the unknown-field round trip ([D-10](#d-10-serialization-systemtextjson-with-source-generation-generated-union-converters)).
+- **Invalid data looks valid.** A record that fails upstream validation deserialises cleanly.
+
+`datetime` leniency, which this record keeps, is different in kind: it keeps the original text
+and writes it back unchanged (0.8 #119), so it loses nothing and the CID survives. The two
+dropped options are lenient *and* lossy.
+
+**Decision.**
+
+1. Reads are case-sensitive: no `PropertyNameCaseInsensitive`. *Change from 0.8.*
+2. Numbers are not read from strings: `JsonNumberHandling.Strict`. *Change from 0.8.*
+3. Identifier fields stay strict on read (an invalid DID fails deserialisation with the JSON
+   path); `datetime` fields stay lenient (the text is kept, `IsValid` says whether it parses).
+   *Unchanged from 0.8.*
+4. JSON success bodies are capped (`MaxJsonResponseBytes`, 16 MiB by default, configurable), as
+   error bodies already are ([XRC-26](specs/xrpc-client.md#responses)). *Change from 0.8*, from
+   the hostile-input principle rather than from wire fidelity.
+
+**What strictness costs.** A producer that sends a case variant or a numeric string now fails
+where 0.8 accepted it:
+
+- an XRPC response with such a field throws `XrpcResponseFormatException`, as the reference
+  client does;
+- a typed record read (`Records<T>()`, typed stream decoding) that meets such a record throws
+  ([XRC-49](specs/xrpc-client.md)); enumeration does not skip it;
+- record bodies embedded in views (`postView.record`) are Lexicon `unknown`, generated as
+  `DataModelValue`, so a bad record in a feed page fails only the caller's conversion of that
+  record, not the page.
+
+No such producer is known. The integration suites (the official PDS, Tranquil, the Bluesky
+AppView, Jetstream) are the check: a real producer that relies on either leniency is the evidence
+that would reopen this record.
+
+**Alternatives.**
+
+- *Keep 0.8's options.* Tolerates producers nobody has identified, at the costs above.
+- *Strict by default, lenient by opt-in.* Possible (the options belong to a serializer context),
+  but it is a switch ([AG-22](03-api-guidelines.md#options-configuration-and-dependency-injection))
+  that every read path would have to honour and test. Deferred until a producer needs it.
+- *Tolerate bad records in enumeration.* If the concern is one bad record stopping a listing, the
+  fix belongs in XRC-49 (for example an enumeration that yields undecodable records as errors
+  instead of throwing), not in global JSON leniency.
 
 ## D-21 One untrusted-fetch layer
+
+**Status: Accepted** (maintainer, 2026-10-17).
 
 **Decision.** The SSRF-guarded HTTP machinery (connect-time address checks on every resolved
 address, no proxy, no redirects, bounded bodies, timeouts, a concurrency cap, DNS TXT via
@@ -440,6 +531,8 @@ rewrite that state belongs to an instance the caller can supply.
 
 ## D-22 Session stores support compare-and-swap
 
+**Status: Accepted** (maintainer, 2026-10-17).
+
 **Decision.** `ISessionStore` gains a versioned compare-and-swap
 (`TryReplaceAsync(Did, expectedVersion, next)`). Refresh, adoption of a newer stored session,
 conditional removal on expiry and logout are expressed as CAS operations. This replaces 0.8's
@@ -450,6 +543,8 @@ because `IDistributedCache` cannot compare-and-swap; shared stores such as Redis
 contract themselves, using the published contract tests.
 
 ## D-23 Stream side information is delivered in-band
+
+**Status: Accepted** (maintainer, 2026-10-17).
 
 **Context.** 0.8 reports stream side information through four callbacks (`OnStreamError`,
 `OnEventDropped`, `OnInfo` on Jetstream only, `OnDesynchronized`), and treats the same signal

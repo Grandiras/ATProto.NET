@@ -5,10 +5,11 @@ cleaner, layered and largely generated shape, released as 0.9. It is the input f
 itself: each phase of the plan names the specs it implements, and each spec lists testable
 requirements.
 
-**Status: reviewed; ready for phase 0.** The maintainer's reviews (2026-10-17) accepted the
-package model, the version, Spaces as a first-class protocol and .NET 11, and resolved every open
-question in [06 — Decisions](06-decisions.md#open-questions). The decisions still marked
-*proposed* are confirmed at the phase that implements them.
+**Status: reviewed; ready for phase 0.** The maintainer's reviews (2026-10-17) accepted every
+decision record except
+[D-20](06-decisions.md#d-20-json-reads-are-case-sensitive-and-strict-about-number-types) (strict
+JSON reads, pending more context; it blocks nothing before phase 3) and resolved every open
+question in [06 — Decisions](06-decisions.md#open-questions).
 
 ## Reading order
 
