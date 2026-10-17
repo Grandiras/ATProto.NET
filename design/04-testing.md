@@ -68,7 +68,7 @@ tests. The bridge:
    in 0.8 or in the extraction, and both are worth finding.
 4. **Implement the adapter over the rewrite** (`Adapter.Next`) as each phase lands. A phase's
    conformance areas must be green before its gate passes.
-5. Retire `Adapter.Legacy` when 1.0 ships.
+5. Retire `Adapter.Legacy` when 0.9 ships.
 
 The conformance suite references only the adapter interface and its vectors. It never uses
 `InternalsVisibleTo`, and it never touches either SDK's types directly.
@@ -101,17 +101,14 @@ tests/
 │   ├── Adapter.Legacy/              over 0.8 packages (temporary)
 │   └── Adapter.Next/                over the rewrite
 ├── ATProtoNet.TestKit/              shared fakes; referenced by every test project
-├── ATProtoNet.Primitives.Tests/
-├── ATProtoNet.Repo.Tests/
-├── ATProtoNet.Lexicon.Tests/        incl. "generator compiles every vendored Lexicon"
-├── ATProtoNet.Identity.Tests/
-├── ATProtoNet.Tests/                client, sessions, OAuth, records
-├── ATProtoNet.Bluesky.Tests/
-├── ATProtoNet.Streaming.Tests/
-├── ATProtoNet.Spaces.Tests/
-├── ATProtoNet.AspNetCore.Tests/
+├── ATProtoNet.Tests/                the base package; one folder per namespace area
+│                                    (Data/, Crypto/, Repo/, Lexicon/, Identity/, Xrpc/, Auth/,
+│                                    Streaming/, Bluesky/, Spaces/, Hosting/, …)
+├── ATProtoNet.AspNetCore.Tests/     TestHost
 ├── ATProtoNet.EntityFrameworkCore.Tests/   SQLite in memory
-├── ATProtoNet.Lexicon.Cli.Tests/
+├── ATProtoNet.Blazor.Tests/         bUnit
+├── ATProtoNet.Lexicon.Tests/        CodeGen, source generator, CLI; incl. "generator compiles
+│                                    every vendored Lexicon" (Roslyn)
 ├── ATProtoNet.Architecture.Tests/   dependency rules, conventions
 ├── ATProtoNet.IntegrationTests/
 ├── ATProtoNet.Benchmarks/
@@ -135,9 +132,10 @@ tests/
 
 ### Rules
 
-1. One unit-test project per source package. `InternalsVisibleTo` only from a package to its own
-   test project, and only when a test genuinely needs it. The default is testing through the
-   public API.
+1. One unit-test project per package, so heavy test dependencies (TestHost, EF/SQLite, bUnit,
+   Roslyn) stay out of the base package's tests. Inside `ATProtoNet.Tests`, folders mirror the
+   namespace areas. `InternalsVisibleTo` only from a package to its own test project, and only
+   when a test genuinely needs it. The default is testing through the public API.
 2. Test names: `Method_Scenario_Expected`, as today. Spec-backed tests carry
    `[Trait("Spec", "XRC-12")]` with the requirement ID, so a report can list requirements that
    no test covers.
@@ -259,7 +257,7 @@ One build script (`build.sh`, also callable from both forges) with these jobs:
 | `test` | PR, push | Unit + conformance + architecture tests, coverage (Cobertura), TRX, `--blame-hang-timeout` |
 | `lexicons` | PR, push | Regenerate first-party code, `git diff --exit-code`; generator compiles all vendored Lexicons |
 | `integration-pds` | PR, push | PDS service container, `Requirement=Pds\|PdsAdmin`, REQUIRE=1 |
-| `api` | PR | Public API baseline diff; from 1.0.0 on, package validation against the last release |
+| `api` | PR | Public API baseline diff; from 0.9.0 on, package validation against the last release |
 | `aot` | PR | Publish `AotSmoke` with NativeAOT, fail on warnings |
 | `aspire` | PR | Aspire manifest publish + check |
 | `changelog` | PR | `[Unreleased]` gained a bullet unless the PR is labelled `no-changelog` |

@@ -1,152 +1,172 @@
 # 02 — Target architecture
 
-This document describes the shape of the rewritten SDK: packages, dependency rules, the core
+This document describes the shape of the rewritten SDK: packages, the layers inside them, the core
 abstractions and how they compose, and the cross-cutting conventions. The subsystem specs in
 [`specs/`](specs/) define behaviour. This document defines structure.
 
-## Package map
+## Packages
+
+As few packages as possible, each with a clear scope
+([D-03](06-decisions.md#d-03-package-map)). The base package contains almost everything. Extension
+packages exist only where they would otherwise force a heavy framework dependency on everyone.
 
 ```mermaid
 flowchart BT
-    subgraph Foundation["Foundation (no I/O)"]
-        PRIM["ATProtoNet.Primitives<br/>identifiers · CID · DRISL-CBOR · JSON data model<br/>CAR · crypto · JOSE"]
-        REPO["ATProtoNet.Repo<br/>MST · commits · proofs · verification"]
-        LEX["ATProtoNet.Lexicon<br/>schema model · validation · generated-code runtime"]
-    end
-    subgraph Network["Network"]
-        IDN["ATProtoNet.Identity<br/>untrusted-fetch policy · DID docs<br/>DID/handle resolution · PLC"]
-        CORE["ATProtoNet<br/>XRPC client · sessions · OAuth · service auth<br/>labels · com.atproto.* (generated) · records API"]
-        STR["ATProtoNet.Streaming<br/>event streams · firehose + Sync 1.1<br/>labels · Jetstream · Tap"]
-    end
-    subgraph Lexicons["Generated Lexicon packages"]
-        BSKY["ATProtoNet.Bluesky<br/>app.bsky · chat.bsky · helpers"]
-        OZ["ATProtoNet.Ozone<br/>tools.ozone"]
-        SS["ATProtoNet.StandardSite<br/>site.standard"]
-    end
-    subgraph Hosting["Hosting"]
-        HOST["ATProtoNet.Hosting<br/>DI · client factory · stores · stream workers<br/>health checks · Aspire client (no ASP.NET)"]
-        ASP["ATProtoNet.AspNetCore<br/>XRPC server · OAuth web login<br/>service-auth scheme · labeler · Tap webhook"]
-        EF["ATProtoNet.EntityFrameworkCore"]
-        BZ["ATProtoNet.Blazor<br/>(minimal)"]
-        ASPIRE["ATProtoNet.Aspire.Hosting"]
-    end
-    subgraph Experimental["Experimental: Spaces"]
-        SPC["ATProtoNet.Spaces"]
-        SPCS["ATProtoNet.Spaces.AspNetCore"]
-        SPCE["ATProtoNet.Spaces.EntityFrameworkCore"]
-    end
-    subgraph Tooling["Tooling"]
-        CG["ATProtoNet.Lexicon.CodeGen (netstandard2.0)"]
-        GEN["ATProtoNet.Lexicon.Generator (Roslyn)"]
-        CLI["atproto-lexgen (dotnet tool)"]
-    end
+    CORE["<b>ATProtoNet</b><br/>protocol primitives · repo · Lexicon · identity<br/>XRPC client · sessions · OAuth · service auth · labels<br/>all generated Lexicons (com.atproto, app.bsky, chat.bsky,<br/>tools.ozone, site.standard) · streaming · DI and workers<br/>Spaces (experimental) · bundled Lexicon source generator"]
+    ASP["<b>ATProtoNet.AspNetCore</b><br/>XRPC server · service-auth scheme · OAuth web login<br/>labeler endpoints · Tap webhook · Spaces server (experimental)"]
+    EF["<b>ATProtoNet.EntityFrameworkCore</b><br/>EF Core stores"]
+    BZ["<b>ATProtoNet.Blazor</b><br/>user client accessor · login form"]
+    ASPIRE["<b>ATProtoNet.Aspire.Hosting</b><br/>PDS containers in an Aspire AppHost"]
+    CLI["<b>atproto-lexgen</b><br/>dotnet tool"]
 
-    REPO --> PRIM
-    LEX --> PRIM
-    IDN --> PRIM
-    CORE --> IDN
-    CORE --> LEX
-    CORE --> REPO
-    STR --> CORE
-    BSKY --> CORE
-    OZ --> BSKY
-    SS --> CORE
-    HOST --> CORE
-    HOST --> STR
-    ASP --> HOST
-    EF --> HOST
+    ASP --> CORE
+    EF --> CORE
     BZ --> ASP
-    SPC --> CORE
-    SPCS --> SPC
-    SPCS --> ASP
-    SPCE --> SPC
-    SPCE --> EF
-    GEN --> CG
-    CLI --> CG
-    CLI --> CORE
+    CLI -.shares the code generator.-> CORE
 ```
 
-Arrows point at dependencies. `ATProtoNet.Ozone` depends on `ATProtoNet.Bluesky` because
-`tools.ozone` Lexicons reference `chat.bsky` and `app.bsky` definitions (the Lexicon reference
-graph is a clean DAG: `com.atproto` ← `app.bsky` ← `chat.bsky` ← `tools.ozone`, and
-`com.atproto` ← `site.standard`). `ATProtoNet.Aspire.Hosting` depends only on Aspire's hosting
-packages; it starts containers and does not reference the SDK.
-
-| Package | Depends on (besides the BCL) | Contents |
+| Package | Install it when | Depends on (besides the BCL) |
 |---|---|---|
-| `ATProtoNet.Primitives` | `System.Formats.Cbor` | identifier types, `Cid`, multiformats codecs, DRISL-CBOR reader/writer, JSON data model, `SignedObject`, CAR reader/writer, keys and signatures, `did:key`, JOSE (JWS compact, JWK, thumbprints) |
-| `ATProtoNet.Repo` | Primitives | MST (one implementation), commits, record proofs, repository snapshots and verification, `IBlockStore` |
-| `ATProtoNet.Lexicon` | Primitives | Lexicon schema object model, ref resolution, lint/diff rules, data validation against schemas, the runtime support generated code uses (union interfaces, `UnknownUnionVariant`, attributes) |
-| `ATProtoNet.Identity` | Primitives, `Microsoft.Extensions.Logging.Abstractions`, `Microsoft.Extensions.Caching.Abstractions` | the untrusted-fetch layer (SSRF policy, bounded fetch, DNS TXT), DID documents, `did:plc`/`did:web` resolution, handle resolution and bidirectional verification, caching, PLC directory client and typed operations |
-| `ATProtoNet` | Identity, Lexicon, Repo | `AtProtoClient`, XRPC pipeline, sessions (password, OAuth, service auth), OAuth client, scopes, service-auth verifier, labels (signing, verification, frame codec), records API, Lexicon resolution, `PdsAdminClient`, generated `com.atproto.*` |
-| `ATProtoNet.Bluesky` | ATProtoNet | generated `app.bsky.*` and `chat.bsky.*`, rich text, post composition, profile updates, video upload |
-| `ATProtoNet.Ozone` | ATProtoNet.Bluesky | generated `tools.ozone.*`, query filter records |
-| `ATProtoNet.StandardSite` | ATProtoNet | generated `site.standard.*` |
-| `ATProtoNet.Streaming` | ATProtoNet | event-stream core, firehose and Sync 1.1 verification and resync, label streams, Jetstream v1/v2, Jetstream archive, Tap client |
-| `ATProtoNet.Hosting` | ATProtoNet, Streaming, `Microsoft.Extensions.{DependencyInjection,Options,Http,Hosting,Diagnostics.HealthChecks}.Abstractions`, `Microsoft.AspNetCore.DataProtection` | `services.AddAtProto()` builder, client factory, session-store selection, the file session store and the distributed-cache OAuth state store, refresh coordination, identity registration, stream workers, health checks, PDS admin registration, Aspire client integration, telemetry wiring. No ASP.NET Core shared framework. |
-| `ATProtoNet.AspNetCore` | Hosting, `Microsoft.AspNetCore.App` | XRPC server endpoints (queries, procedures, subscriptions), service-auth authentication scheme, OAuth web login, `ClaimsPrincipal` adapters, labeler endpoints, Tap webhook |
-| `ATProtoNet.EntityFrameworkCore` | Hosting, `Microsoft.EntityFrameworkCore.Relational` | EF Core stores: sessions, OAuth state, replay, cursors, repo sync state |
-| `ATProtoNet.Blazor` | AspNetCore | per-circuit user client accessor, unstyled login form ([D-09](06-decisions.md#d-09-blazor-components)) |
-| `ATProtoNet.Aspire.Hosting` | Aspire hosting packages | Bluesky PDS and Tranquil PDS container resources |
-| `ATProtoNet.Spaces` | ATProtoNet | generated `com.atproto.space.*`/`simplespace.*`, space URIs, LtHash and BLAKE3, space commits, credentials and HTTP message signatures, syncer |
-| `ATProtoNet.Spaces.AspNetCore` | Spaces, AspNetCore | space authority and repo host endpoints |
-| `ATProtoNet.Spaces.EntityFrameworkCore` | Spaces, EntityFrameworkCore | EF Core space stores |
-| `ATProtoNet.Lexicon.CodeGen` | (netstandard2.0, System.Text.Json) | schema model (linked sources) and the C# emitter |
-| `ATProtoNet.Lexicon.Generator` | CodeGen (bundled) | Roslyn incremental generator over `AdditionalFiles` |
-| `atproto-lexgen` | CodeGen, ATProtoNet, `System.CommandLine` | CLI: `generate`, `install`, `update`, `lint`, `diff`, `publish`, `resolve` |
+| `ATProtoNet` | always: apps, bots, indexers, tools, worker services | `System.Formats.Cbor`; small `Microsoft.Extensions.*` packages (Logging, Caching, DependencyInjection and Hosting abstractions, Options, Http, HealthChecks abstractions); `Microsoft.AspNetCore.DataProtection.Abstractions` (for the encrypted file session store). Never the ASP.NET Core shared framework. |
+| `ATProtoNet.AspNetCore` | you serve XRPC endpoints, accept service auth, run the OAuth web login, a labeler or a Tap webhook | `ATProtoNet`, `Microsoft.AspNetCore.App` |
+| `ATProtoNet.EntityFrameworkCore` | you persist sessions, OAuth state, replay entries, cursors or sync state in a database | `ATProtoNet`, `Microsoft.EntityFrameworkCore.Relational` |
+| `ATProtoNet.Blazor` | you build a Blazor Server UI that acts as the signed-in user | `ATProtoNet.AspNetCore` |
+| `ATProtoNet.Aspire.Hosting` | you run a PDS container (Bluesky or Tranquil) in an Aspire AppHost | Aspire hosting packages only; it starts containers and does not reference the SDK |
+| `atproto-lexgen` | you lint, diff, publish or resolve Lexicons, or generate C# outside a build | (a `dotnet tool`) |
+
+`ATProtoNet.AspNetCore` replaces 0.8's `ATProtoNet.Server`. It contains only what needs ASP.NET
+Core. DI registration, the client factory, stores, stream workers, health checks and the Aspire
+client integration move into `ATProtoNet` (namespace `ATProtoNet.Hosting`), so a worker service
+or console app needs only the base package.
+
+The C# code generator (`ATProtoNet.Lexicon.CodeGen`, `netstandard2.0`) and the Roslyn source
+generator built on it (`ATProtoNet.Lexicon.Generator`) are internal build projects, not packages.
+The source generator ships as an analyzer inside the `ATProtoNet` package: referencing
+`ATProtoNet` and adding Lexicon JSON files to a project is all a user needs to generate typed code
+for their own Lexicons. The CLI compiles the same generator.
+
+### Versioning
+
+All packages share one version. The rewrite ships as **0.9.0**, with `0.9.0-preview.N` builds
+first ([D-02](06-decisions.md#d-02-ship-as-09)). APIs marked `[Experimental]` (Spaces,
+unspecced upstream endpoints; see [D-16](06-decisions.md#d-16-experimental-diagnostic-ids)) may
+change in any release. Everything else follows the compatibility rules of the 0.9 line.
+
+## Layers inside `ATProtoNet`
+
+The structure that 0.8 lacks comes from **namespace layers inside the base package**, not from
+package boundaries. Consumers see one package. Contributors see clearly separated areas with
+dependencies that only point down.
+
+```mermaid
+flowchart BT
+    subgraph L0["Layer 0 — foundation (no I/O)"]
+        SYN["ATProtoNet<br/>identifier types · Cid"]
+        DATA["ATProtoNet.Data · .Data.Car<br/>DRISL-CBOR · JSON data model · CAR"]
+        CRY["ATProtoNet.Crypto · .Crypto.Jose<br/>keys · signatures · did:key · JWS/JWK"]
+        REPO["ATProtoNet.Repo<br/>MST · commits · proofs"]
+        LEX["ATProtoNet.Lexicon<br/>schema model · validation · generated-code runtime"]
+    end
+    subgraph L1["Layer 1 — network foundations"]
+        NET["ATProtoNet.Net<br/>untrusted fetch (SSRF policy)"]
+        IDN["ATProtoNet.Identity · .Identity.Plc<br/>DID documents · resolution · handles · PLC"]
+    end
+    subgraph L2["Layer 2 — client"]
+        XRPC["ATProtoNet.Xrpc + AtProtoClient<br/>pipeline · errors · pagination"]
+        AUTH["ATProtoNet.Auth · .OAuth · .ServiceAuth"]
+        MISC["ATProtoNet.Labels · .Records · .Admin"]
+        GCORE["ATProtoNet.Lexicons.Com.AtProto.* (generated)"]
+    end
+    subgraph L3["Layer 3 — protocols and Lexicon families"]
+        STR["ATProtoNet.Streaming.*<br/>firehose · Sync 1.1 · labels · Jetstream · Tap · PLC export"]
+        GFAM["ATProtoNet.Lexicons.App.Bsky / Chat.Bsky /<br/>Tools.Ozone / Site.Standard (generated)<br/>+ ATProtoNet.Bluesky helpers"]
+        SPC["ATProtoNet.Spaces<br/>(experimental)"]
+    end
+    subgraph L4["Layer 4 — integration"]
+        HOST["ATProtoNet.Hosting<br/>DI · client factory · stores · workers · health · Aspire client"]
+    end
+    L1 --> L0
+    L2 --> L1
+    L3 --> L2
+    L4 --> L3
+```
 
 ### Rules
 
-1. **Foundation packages do no I/O.** No `HttpClient`, no sockets, no file system, no clock
-   reads except through a passed-in `TimeProvider`. They depend on the BCL plus
-   `System.Formats.Cbor`. This makes them usable by any atproto implementation in .NET and
-   keeps them trivially testable.
-2. **Dependencies point down.** No package references a package at the same or a higher level
-   except as drawn. Architecture tests (NetArchTest or a custom Roslyn check) enforce this.
-3. **No `InternalsVisibleTo` between production assemblies.** If `ATProtoNet.AspNetCore`
-   needs something from `ATProtoNet`, it is public. Infrastructure that is public but not for
-   app developers goes in an `*.Advanced` namespace with docs saying so.
-4. **Experimental packages are leaves.** Nothing stable depends on `ATProtoNet.Spaces`.
+1. **Layer 0 does no I/O.** No `HttpClient`, no sockets, no file system, no clock reads except
+   through a passed-in `TimeProvider`. This keeps the protocol core reusable (a PDS or relay
+   written in .NET can use it) and trivially testable.
+2. **Dependencies point down.** A namespace may use its own layer's namespaces where the diagram
+   allows and anything below, never above. Within layer 3, the Lexicon families depend on each
+   other only along the Lexicon reference graph (`com.atproto` ← `app.bsky` ← `chat.bsky` ←
+   `tools.ozone`, and `com.atproto` ← `site.standard`), and `ATProtoNet.Spaces` is a leaf that
+   no stable namespace references. Architecture tests on namespaces (NetArchTest or a Roslyn
+   check) enforce all of this. The root namespace mixes layer-0 vocabulary types with
+   `AtProtoClient` (layer 2), so the tests classify its types explicitly.
+3. **No `InternalsVisibleTo` between production assemblies.** If `ATProtoNet.AspNetCore` needs
+   something from `ATProtoNet`, it is public. Infrastructure that is public but not for app
+   developers goes in an `*.Advanced` namespace with docs saying so.
+4. **Experimental surface is marked, not packaged.** Spaces and other moving surfaces carry
+   `[Experimental]`. Stable code outside the Spaces namespaces contains no Spaces knowledge
+   (0.8's transport signs Spaces requests, and its central in-memory-defaults warning knows Spaces
+   stores).
 5. **The generator has no runtime dependency on the SDK.** `ATProtoNet.Lexicon.CodeGen` targets
-   `netstandard2.0` and carries its own copy of the schema model sources (linked from
-   `ATProtoNet.Lexicon`, so there is one source of truth compiled twice). See
+   `netstandard2.0` and compiles the schema-model sources of `ATProtoNet.Lexicon` as linked files:
+   one source of truth, compiled twice. See
    [specs/lexicon.md](specs/lexicon.md#generator-architecture).
 
-### Why these boundaries
+### Why these layers
 
 | Boundary | Reason |
 |---|---|
-| Primitives ↔ everything | No I/O, highest reuse, slowest churn. |
-| Repo separate from Primitives | Only sync, verification and Spaces need the MST and commits; most apps do not. |
-| Lexicon separate from the client | The schema model is needed by the generator, validation and tooling without an XRPC client. |
-| Identity separate from the client | Resolution is needed by streaming, service-auth verification and OAuth, and is security-sensitive (SSRF). |
-| One package per Lexicon family | Bluesky apps do not need Ozone. Custom-Lexicon apps do not need Bluesky. Upstream churn in one family stays in one package. |
-| Streaming separate from the client | Indexers need it, typical apps do not. It carries the zstd seam and the Sync 1.1 machinery. |
-| Spaces separate and experimental | Alpha protocol; see [D-08](06-decisions.md#d-08-spaces-is-quarantined-as-experimental). |
-| Hosting separate from ASP.NET Core | Firehose workers, Jetstream indexers and console tools want DI, the client factory, stores, stream workers and health checks without taking `Microsoft.AspNetCore.App`. Today every one of them must reference `ATProtoNet.Server` and the whole shared framework. |
-| One ASP.NET Core package | Its pieces (XRPC server, auth scheme, OAuth login, labeler, Tap webhook) share endpoint plumbing and add no dependencies beyond the shared framework. Splitting it further adds friction without saving weight. |
-| Untrusted fetch in Identity | OAuth discovery, Lexicon resolution and repo fetchers fetch from attacker-chosen hosts just as identity resolution does. One hardened layer (today `IdentityFetch`, misnamed) serves them all; it lives in the lowest network package. |
+| Layer 0 apart from everything | No I/O, highest reuse, slowest churn, easiest to test against interop vectors. |
+| Repo apart from the data model | Only sync, verification and Spaces need the MST and commits. Keeping them apart keeps the data model small and the MST rules in one place. |
+| Lexicon apart from the client | The schema model is used by the generator, validation and tooling without an XRPC client. |
+| Net and Identity below the client | OAuth discovery, Lexicon resolution and repo fetchers fetch from attacker-chosen hosts just as identity resolution does. One hardened layer (0.8's misnamed `IdentityFetch`) serves them all. |
+| Lexicon families above the client core | The client core must not know about Bluesky. Families attach through extension properties ([D-13](06-decisions.md#d-13-lexicon-namespace-access-through-extension-properties)), the same mechanism users' own generated Lexicons use. |
+| Spaces as a leaf | Alpha protocol; see [D-08](06-decisions.md#d-08-spaces-is-experimental). |
+| Hosting on top | DI wiring composes everything below and nothing below depends on it, so every component works with `new` (AG-24). |
+
+### Why not more packages
+
+The first draft of this design split the base package into fifteen packages along these layers.
+That was rejected ([D-03](06-decisions.md#d-03-package-map)): for consumers, many packages are
+tedious and confusing (which ones do I need? which versions go together?), and 0.8's history of
+merging and splitting packages shows the cost of getting it wrong. Namespace layers with
+architecture tests give the same internal discipline. Apps that care about size use trimming,
+which removes what they do not touch.
 
 ## Namespaces
 
-| Package | Namespaces |
+| Namespace | Contents |
 |---|---|
-| `ATProtoNet.Primitives` | `ATProtoNet` (identifier types, `Cid`, `AtDatetime`), `ATProtoNet.Data` (DRISL-CBOR reader/writer, JSON data model, blobs, bytes, CID links), `ATProtoNet.Data.Car`, `ATProtoNet.Crypto` |
-| `ATProtoNet.Repo` | `ATProtoNet.Repo` |
-| `ATProtoNet.Lexicon` | `ATProtoNet.Lexicon` (schema model), `ATProtoNet.Lexicon.Validation`, `ATProtoNet.Lexicon.Runtime` (base types and attributes the generated code uses) |
-| `ATProtoNet.Identity` | `ATProtoNet.Identity`, `ATProtoNet.Identity.Plc`, `ATProtoNet.Net` (untrusted fetch) |
-| `ATProtoNet` | `ATProtoNet` (`AtProtoClient`), `ATProtoNet.Xrpc`, `ATProtoNet.Auth`, `ATProtoNet.Auth.OAuth`, `ATProtoNet.Auth.ServiceAuth`, `ATProtoNet.Labels`, `ATProtoNet.Records`, `ATProtoNet.Admin`, `ATProtoNet.Lexicons.Com.AtProto.*` (generated) |
-| `ATProtoNet.Bluesky` | `ATProtoNet.Bluesky` (helpers, rich text), `ATProtoNet.Lexicons.App.Bsky.*`, `ATProtoNet.Lexicons.Chat.Bsky.*` (generated) |
-| `ATProtoNet.Streaming` | `ATProtoNet.Streaming`, `.Firehose`, `.Jetstream`, `.Labels`, `.Tap` |
-| `ATProtoNet.Hosting` | `ATProtoNet.Hosting`; registration extension methods in `Microsoft.Extensions.DependencyInjection` and (Aspire) `Microsoft.Extensions.Hosting`, per framework convention |
-| `ATProtoNet.AspNetCore` | `ATProtoNet.AspNetCore` and sub-namespaces per feature (`.Xrpc`, `.Authentication`, `.OAuth`, `.Labels`, `.Tap`) |
+| `ATProtoNet` | identifier vocabulary (`Did`, `Handle`, `AtIdentifier`, `Nsid`, `AtUri`, `RecordKey`, `Tid`, `AtDatetime`, `Cid`, `Language`), `AtProtoClient`, `AtProtoException` |
+| `ATProtoNet.Data`, `.Data.Car` | DRISL-CBOR reader/writer, JSON data model, `DataModelValue`, blobs, bytes, CID links, multiformats codecs, CAR reader/writer |
+| `ATProtoNet.Crypto`, `.Crypto.Jose` | signing and verification keys, signatures, `did:key`, `SignedObject`; JWS compact, JWK, thumbprints |
+| `ATProtoNet.Repo` | MST, commits, record proofs, snapshots, `IBlockStore` |
+| `ATProtoNet.Lexicon` (+ `.Validation`, `.Runtime`) | schema model, ref resolution, lint/diff rules, data validation, the types and attributes generated code uses |
+| `ATProtoNet.Net` | untrusted-fetch layer: SSRF policy, bounded fetch, DNS TXT |
+| `ATProtoNet.Identity`, `.Identity.Plc` | DID documents, DID/handle resolution and verification, caching, PLC client and operations |
+| `ATProtoNet.Xrpc` | descriptors, `IXrpcHandler`, `XrpcInvoker`, call options, errors, pagination |
+| `ATProtoNet.Auth`, `.Auth.OAuth`, `.Auth.ServiceAuth` | sessions, OAuth client, scopes, service-auth issuing and verification, store interfaces |
+| `ATProtoNet.Labels` | label signing, verification, frame codec |
+| `ATProtoNet.Records` | records API (`client.Records<T>()`) |
+| `ATProtoNet.Admin` | PDS administration |
+| `ATProtoNet.Streaming` (+ `.Firehose`, `.Jetstream`, `.Labels`, `.Tap`, `.Plc`, `.Advanced`) | event-stream runtime and the stream clients |
+| `ATProtoNet.Bluesky` | hand-written Bluesky helpers: rich text, posting, profile updates, video upload, chat moderation stream |
+| `ATProtoNet.Spaces` | permissioned data (experimental) |
+| `ATProtoNet.Hosting` | DI builder, client factory, file session store, distributed-cache OAuth state store, stream workers, health checks, PDS admin registration, telemetry wiring, Aspire client integration. Registration extension methods live in `Microsoft.Extensions.DependencyInjection` (and `Microsoft.Extensions.Hosting` for Aspire), per framework convention. |
+| `ATProtoNet.Lexicons.*` | generated code for every vendored Lexicon (`.Com.AtProto.*`, `.App.Bsky.*`, `.Chat.Bsky.*`, `.Tools.Ozone.*`, `.Site.Standard.*`; Spaces' `.Com.AtProto.Space.*`/`.SimpleSpace.*` experimental) |
+| `ATProtoNet.AspNetCore` (+ `.Xrpc`, `.Authentication`, `.OAuth`, `.Labels`, `.Tap`, `.Spaces`) | the ASP.NET Core package |
+| `ATProtoNet.EntityFrameworkCore` | the EF Core package |
+| `ATProtoNet.Blazor` | the Blazor package |
 
-The root `ATProtoNet` namespace holds only the vocabulary types and the client; everything else
-is in a sub-namespace.
+The root `ATProtoNet` namespace holds only the vocabulary types, the client and the root
+exception; everything else is in a sub-namespace.
 
 ## Core abstractions
 
-### 1. Identifiers and data (Primitives)
+### 1. Identifiers and data (layer 0)
 
 The identifier types (`Did`, `Handle`, `AtIdentifier`, `Nsid`, `AtUri`, `RecordKey`, `Tid`,
 `AtDatetime`, `Cid`, `Language`) validate on construction per the atproto syntax specs.
@@ -165,7 +185,7 @@ The data model has two encodings with one shape:
 records, validation, CBOR↔JSON bridging). Typed models use generated System.Text.Json contracts.
 See [specs/data-model.md](specs/data-model.md).
 
-### 2. The XRPC pipeline (ATProtoNet)
+### 2. The XRPC pipeline (layer 2)
 
 ```mermaid
 flowchart LR
@@ -205,7 +225,7 @@ flowchart LR
   and no resilience handler under the SDK, because those resend POSTs and spend DPoP proofs
   (lesson from 0.7, #136). Callers who want more retry policy wrap calls themselves.
 
-### 3. Sessions and authentication (ATProtoNet)
+### 3. Sessions and authentication (layer 2)
 
 ```mermaid
 flowchart TB
@@ -240,8 +260,8 @@ flowchart TB
   issuer and `sub` binding checks, token exchange) produce `OAuthSession`s;
   `RestoreAsync(did)` rebuilds one from the store.
 - Service auth is symmetric: `ServiceAuthHandler` mints tokens (client side), and
-  `ServiceAuthVerifier` (in `ATProtoNet`, used by `ATProtoNet.AspNetCore`) verifies them with
-  identity resolution and an `IReplayStore`.
+  `ServiceAuthVerifier` (in `ATProtoNet.Auth.ServiceAuth`, used by `ATProtoNet.AspNetCore`)
+  verifies them with identity resolution and an `IReplayStore`.
 
 See [specs/auth.md](specs/auth.md).
 
@@ -264,14 +284,15 @@ flowchart LR
   ([D-18](06-decisions.md#d-18-unions-are-interfaces)). Today's single-base-class model forced
   duplicate types and wrong subtypes.
 - Namespace clients are lightweight structs over `AtProtoClient`, attached through C# 14
-  extension properties, so packages compose without the core knowing about them
+  extension properties, so the client core knows nothing about the Lexicon families and users'
+  generated Lexicons attach the same way
   ([D-13](06-decisions.md#d-13-lexicon-namespace-access-through-extension-properties)).
 - Records implement `IAtProtoRecord` (static `Collection`), so the records API
   (`client.Records<Post>()`) works for generated and user-defined records alike.
 
 See [specs/lexicon.md](specs/lexicon.md).
 
-### 5. Event streams (ATProtoNet.Streaming)
+### 5. Event streams (layer 3)
 
 ```mermaid
 flowchart LR
@@ -288,7 +309,7 @@ persistence. Each protocol supplies a source (WebSocket URL builder) and a frame
 Verification is a stage over typed firehose events, not a different consumer class.
 See [specs/streaming.md](specs/streaming.md).
 
-### 6. Hosting (ATProtoNet.Hosting, ATProtoNet.AspNetCore)
+### 6. Hosting (`ATProtoNet.Hosting`, `ATProtoNet.AspNetCore`)
 
 One builder: `services.AddAtProto(…)` returns `AtProtoBuilder`. On the builder, `Add*` adds a
 feature (`AddClientFactory`, `AddStreamWorker<T>`, `AddXrpcEndpoints`, `AddOAuthLogin`,
@@ -308,7 +329,7 @@ cannot serve. See [specs/server.md](specs/server.md) and
 ### Configuration and DI
 
 - Every component is constructible with `new` and works without DI (AG-24).
-- `ATProtoNet.Hosting` adds `IServiceCollection` registration, options binding with
+- The `ATProtoNet.Hosting` namespace adds `IServiceCollection` registration, options binding with
   `ValidateOnStart`, and `IHttpClientFactory` integration through one registry of named clients
   (`AtProtoHttpClientNames.Xrpc`, `.Identity`, `.OAuth`, `.Streaming`, `.Admin`, `.Spaces`). No
   resilience handler is ever added under SDK clients; the Aspire integration removes the
@@ -332,7 +353,8 @@ JWT `iat`/`exp`, TID generation.
 ### Serialization
 
 One `AtProtoJson` entry point builds `JsonSerializerOptions` from source-generated contexts
-(chained per referenced Lexicon package) and an optional user `LexiconTypeRegistry` instance for
+(the SDK's, chained with those generated for the user's own Lexicons) and an optional user
+`LexiconTypeRegistry` instance for
 extension union variants. The options are created once per client configuration and frozen. No
 process-global registry ([D-10](06-decisions.md#d-10-serialization-systemtextjson-with-source-generation-generated-union-converters)).
 
@@ -340,14 +362,14 @@ process-global registry ([D-10](06-decisions.md#d-10-serialization-systemtextjso
 
 <a id="diagnostics"></a>
 
-| Package | `ActivitySource`/`Meter` name | Logging event IDs |
+| Area | `ActivitySource`/`Meter` name | Logging event IDs |
 |---|---|---|
-| `ATProtoNet.Primitives`, `.Repo`, `.Lexicon` | none (no I/O) | none |
-| `ATProtoNet.Identity` | `ATProtoNet.Identity` | 1000–1999 |
-| `ATProtoNet` | `ATProtoNet.Xrpc`, `ATProtoNet.Auth` | 2000–2999 |
+| Layer 0 (`Data`, `Crypto`, `Repo`, `Lexicon`) | none (no I/O) | none |
+| `ATProtoNet.Net`, `ATProtoNet.Identity` | `ATProtoNet.Identity` | 1000–1999 |
+| `ATProtoNet.Xrpc`, `ATProtoNet.Auth`, `ATProtoNet.Admin` | `ATProtoNet.Xrpc`, `ATProtoNet.Auth` | 2000–2999 |
 | `ATProtoNet.Streaming` | `ATProtoNet.Streaming` | 3000–3999 |
-| `ATProtoNet.Spaces` | `ATProtoNet.Spaces` | 4000–4999 |
-| `ATProtoNet.Hosting`, `ATProtoNet.AspNetCore` (+ Spaces server) | `ATProtoNet.AspNetCore` | 5000–5999 |
+| `ATProtoNet.Spaces` (+ Spaces server) | `ATProtoNet.Spaces` | 4000–4999 |
+| `ATProtoNet.Hosting`, `ATProtoNet.AspNetCore` | `ATProtoNet.AspNetCore` | 5000–5999 |
 | `ATProtoNet.EntityFrameworkCore` | none | 6000–6999 |
 
 Spans: one per XRPC call (`xrpc {nsid}`), per identity resolution, per stream connection.
@@ -356,7 +378,10 @@ refreshes.
 
 ### AOT and trimming
 
-Every runtime package sets `IsAotCompatible` and `IsTrimmable`. A NativeAOT smoke test app
+Every runtime package sets `IsAotCompatible` and `IsTrimmable`. Because `ATProtoNet` contains all
+generated Lexicons, trimming is what keeps an app's footprint proportional to what it uses; the
+generated code must therefore be fully trimmable (no reflection, source-generated JSON). A
+NativeAOT smoke test app
 (`tests/AotSmoke`) exercises login, a query, a record write and a firehose read, and must publish
 with zero warnings.
 
@@ -364,34 +389,32 @@ with zero warnings.
 
 ```
 /
-├── lexicons/                     vendored Lexicon JSON (com/, app/, chat/, tools/, site/)
+├── lexicons/                     vendored Lexicon JSON (com/, app/, chat/, tools/, site/, Spaces proposal)
 ├── lexicons.json                 manifest: NSID → source, CID, upstream commit
 ├── src/
-│   ├── ATProtoNet.Primitives/
-│   ├── ATProtoNet.Repo/
-│   ├── ATProtoNet.Lexicon/
-│   ├── ATProtoNet.Identity/
-│   ├── ATProtoNet/               (+ Generated/ for com.atproto.*)
-│   ├── ATProtoNet.Bluesky/       (+ Generated/)
-│   ├── ATProtoNet.Ozone/         (Generated/ only, plus a csproj)
-│   ├── ATProtoNet.StandardSite/  (Generated/ plus helpers)
-│   ├── ATProtoNet.Streaming/
-│   ├── ATProtoNet.Hosting/
+│   ├── ATProtoNet/
+│   │   ├── Data/ Crypto/ Repo/ Lexicon/            layer 0
+│   │   ├── Net/ Identity/                          layer 1
+│   │   ├── Xrpc/ Auth/ Labels/ Records/ Admin/     layer 2
+│   │   ├── Streaming/ Bluesky/ Spaces/             layer 3
+│   │   ├── Hosting/                                layer 4
+│   │   └── Generated/                              checked-in generated Lexicon code, one folder per NSID authority
 │   ├── ATProtoNet.AspNetCore/
 │   ├── ATProtoNet.EntityFrameworkCore/
 │   ├── ATProtoNet.Blazor/
-│   ├── ATProtoNet.Aspire.Hosting/
-│   ├── ATProtoNet.Spaces/        (+ Generated/ for com.atproto.space.*, simplespace.*)
-│   ├── ATProtoNet.Spaces.AspNetCore/
-│   └── ATProtoNet.Spaces.EntityFrameworkCore/
+│   └── ATProtoNet.Aspire.Hosting/
 ├── tools/
-│   ├── ATProtoNet.Lexicon.CodeGen/
-│   ├── ATProtoNet.Lexicon.Generator/
-│   └── ATProtoNet.Lexicon.Cli/   (atproto-lexgen)
+│   ├── ATProtoNet.Lexicon.CodeGen/       internal; netstandard2.0
+│   ├── ATProtoNet.Lexicon.Generator/     internal; packed into ATProtoNet as an analyzer
+│   └── ATProtoNet.Lexicon.Cli/           atproto-lexgen
 ├── tests/
 │   ├── ATProtoNet.Conformance/   spec vectors behind an adapter, API-independent
 │   ├── ATProtoNet.TestKit/       shared fakes and store contract suites
-│   ├── ATProtoNet.*.Tests/       one unit-test project per src package
+│   ├── ATProtoNet.Tests/         base package, one folder per namespace area
+│   ├── ATProtoNet.AspNetCore.Tests/
+│   ├── ATProtoNet.EntityFrameworkCore.Tests/
+│   ├── ATProtoNet.Blazor.Tests/
+│   ├── ATProtoNet.Lexicon.Tests/ generator and CLI
 │   ├── ATProtoNet.IntegrationTests/
 │   ├── ATProtoNet.Architecture.Tests/
 │   ├── ATProtoNet.Benchmarks/
@@ -402,5 +425,6 @@ with zero warnings.
 └── design/                       this design
 ```
 
-One test project per source package keeps `InternalsVisibleTo` scoped, keeps build graphs small
-and makes the architecture visible in the test tree. See [04 — Testing](04-testing.md).
+One test project per package keeps heavy test dependencies (TestHost, EF/SQLite, bUnit, Roslyn)
+out of the base package's tests, which was 0.8's monolithic-test-assembly problem. See
+[04 — Testing](04-testing.md).

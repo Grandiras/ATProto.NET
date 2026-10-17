@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft |
-| **Packages** | `ATProtoNet.Streaming` (namespaces `ATProtoNet.Streaming`, `.Firehose`, `.Labels`, `.Jetstream`, `.Tap`, `.Plc`, `.Advanced`). The chat moderation stream lives in `ATProtoNet.Bluesky`, the `StreamWorker<TItem>` hosted-service adapter in `ATProtoNet.Hosting` ([hosting](hosting.md)), the Tap webhook receiver in `ATProtoNet.AspNetCore` ([server](server.md)). |
+| **Package** | `ATProtoNet` (namespaces `ATProtoNet.Streaming`, `.Streaming.Firehose`, `.Streaming.Labels`, `.Streaming.Jetstream`, `.Streaming.Tap`, `.Streaming.Plc`, `.Streaming.Advanced`). In the same package, the chat moderation stream lives in `ATProtoNet.Bluesky` and the `StreamWorker<TItem>` hosted-service adapter in `ATProtoNet.Hosting` ([hosting](hosting.md)). The Tap webhook receiver is in the `ATProtoNet.AspNetCore` package ([server](server.md)). |
 | **Phase** | 7 |
 | **Depends on** | [data-model](data-model.md) (`DrislReader`, `CarReader`, `Cid`), [repo](repo.md) (`SignedCommit`, `MerkleSearchTree` inversion, `RepoSnapshot`), [identity](identity.md) (`IIdentityResolver`, `UntrustedFetchPolicy`), [xrpc-client](xrpc-client.md) (`XrpcInvoker`, `IXrpcHandler`), [labels](labels.md) (`LabelVerifier`, `LabelFrameCodec`), [stores](stores.md) (durable `ICursorStore`, `IRepoSyncStateStore`) |
 | **Normative references** | [Event Stream](https://atproto.com/specs/event-stream) · [Sync](https://atproto.com/specs/sync) (firehose, Sync 1.1, validation checklist, record-level synchronization) · [Repository](https://atproto.com/specs/repository) · `com.atproto.sync.subscribeRepos`, `com.atproto.label.subscribeLabels`, `chat.bsky.moderation.subscribeModEvents` Lexicons · [Jetstream](https://github.com/bluesky-social/jetstream) v1 and the v2 `network.bsky.jetstream.*` Lexicons · [Tap](https://github.com/bluesky-social/indigo/tree/main/cmd/tap) and `@atproto/tap` · PLC directory `/export` and `/export/stream` |
@@ -16,7 +16,7 @@ top of it: `FirehoseStream` (with the optional Sync 1.1 verification and resync 
 `LabelStream`, `JetstreamStream` (v1 and v2 codecs), `JetstreamArchive` (archive client and
 segment reader), the generic backfill-then-live cutover combinator (`StreamCutover`) and the
 Jetstream replay built on it, `TapStream` and `TapClient` (admin API), `PlcExportStream`, and
-the chat moderation stream (in `ATProtoNet.Bluesky`, on the same runtime). The
+the chat moderation stream (in the `ATProtoNet.Bluesky` namespace, on the same runtime). The
 `ICursorStore` and `IRepoSyncStateStore` interfaces with their in-memory implementations.
 
 **Out:** serving subscriptions (`subscribeLabels`, user subscriptions) ([server](server.md));
@@ -149,7 +149,7 @@ public interface IRepoSyncStateStore
 public sealed record RepoSyncState(Did Did, Tid Rev, Cid Data, RepoSyncStatus Status);
 public enum RepoSyncStatus { Synchronized, Desynchronized, Resynchronizing }   // closed: the SDK's own state machine
 
-// ── The runtime, for streams defined in other packages ─────────────────────
+// ── The runtime, for streams defined in other namespaces or in user code ────
 namespace ATProtoNet.Streaming.Advanced;
 
 public interface IStreamCodec<TItem> where TItem : class
@@ -157,7 +157,7 @@ public interface IStreamCodec<TItem> where TItem : class
     ValueTask<Uri> GetEndpointAsync(string? resumeCursor, CancellationToken cancellationToken);   // may fetch credentials
     ValueTask<StreamFrameResult<TItem>> DecodeAsync(ReadOnlyMemory<byte> frame, CancellationToken cancellationToken);
     ICursorCodec Cursor { get; }                                // inclusive-replay, dedupe and reconnect rules
-    TItem WrapNotice(StreamNotice notice);                      // for item types outside this package
+    TItem WrapNotice(StreamNotice notice);                      // for item types outside ATProtoNet.Streaming
 }
 public sealed class StreamLoop<TItem>(IStreamCodec<TItem> codec, StreamOptions options, ILogger logger, TimeProvider? time = null)
     where TItem : class
@@ -201,7 +201,7 @@ await foreach (var item in firehose.ReadAsync(cancellationToken: ct))
 
 ### Stream runtime
 
-- **STR-1** (MUST) Every stream in this package, and the chat moderation stream in
+- **STR-1** (MUST) Every stream in `ATProtoNet.Streaming`, and the chat moderation stream in
   `ATProtoNet.Bluesky`, runs on `StreamLoop<TItem>`. No stream implements its own connect,
   reconnect, backoff or cursor loop. A stream contributes only a codec (endpoint, frame decoding,
   cursor rules) and optional stages.
@@ -232,10 +232,12 @@ await foreach (var item in firehose.ReadAsync(cancellationToken: ct))
   *Source:* event-stream spec, *Security*: only `wss://` over the internet · mirrors
   [xrpc-client](xrpc-client.md) service-URL rules
 - **STR-7** (MUST) `StreamLoop<TItem>`, `IStreamCodec<TItem>` and
-  `ICursorCodec` are public (`ATProtoNet.Streaming.Advanced`), so streams in other packages use
-  the runtime without `InternalsVisibleTo`. A codec for an item type outside this package maps
-  notices into its item type through `WrapNotice`.
-  *Source:* **Decision** architecture rule 3 (no `InternalsVisibleTo` between production assemblies)
+  `ICursorCodec` are public (`ATProtoNet.Streaming.Advanced`), so streams in other namespaces
+  (`ATProtoNet.Bluesky`) and in user code (subscriptions of users' own Lexicons) use the runtime
+  through its public surface. A codec for an item type outside `ATProtoNet.Streaming` maps notices
+  into its item type through `WrapNotice`.
+  *Source:* **Decision** architecture rule 3 (public seams are the real seams; no
+  `InternalsVisibleTo` to non-test assemblies)
 
 ### Event-stream framing (DRISL-CBOR streams)
 
@@ -728,10 +730,10 @@ of `FirehoseStream`, also usable on its own.
   *Source:* PLC directory export semantics · **Decision** (see open point 3) · 0.8 throws in all
   three cases
 
-### Chat moderation stream (`ATProtoNet.Bluesky`)
+### Chat moderation stream (`ATProtoNet.Bluesky` namespace)
 
 - **STR-91** (MUST) The `chat.bsky.moderation.subscribeModEvents` stream is a
-  `StreamLoop` codec in `ATProtoNet.Bluesky`. It obtains a fresh `Authorization` header from its
+  `StreamLoop` codec in the `ATProtoNet.Bluesky` namespace. It obtains a fresh `Authorization` header from its
   `IXrpcHandler` (or a supplied token source) on every connection, prefixes frame types with the
   NSID to bind the generated union, and uses opaque `rev` cursors starting at `"2222222222222"`
   (the beginning) when asked. It supports a cursor store, which 0.8 did not.
@@ -739,11 +741,14 @@ of `FirehoseStream`, also usable on its own.
 
 ### Stores
 
-- **STR-92** (MUST) `ICursorStore` and `IRepoSyncStateStore` are defined in this
-  package with in-memory implementations (`InMemoryCursorStore`, `InMemoryRepoSyncStateStore`).
-  Durable implementations (file, EF Core) live in other packages and pass the contract suites in
-  [stores](stores.md). A firehose worker needs no ASP.NET Core reference to get a durable store.
-  *Source:* **Decision** [D-15](../06-decisions.md#d-15-stores-are-interfaces-in-the-package-that-uses-them-implementations-live-elsewhere) ·
+- **STR-92** (MUST) `ICursorStore` and `IRepoSyncStateStore` are defined in
+  `ATProtoNet.Streaming` with in-memory implementations (`InMemoryCursorStore`,
+  `InMemoryRepoSyncStateStore`). Durable implementations (the file cursor store in
+  `ATProtoNet.Hosting`, EF Core stores in the `ATProtoNet.EntityFrameworkCore` package) pass the
+  contract suites in [stores](stores.md). A firehose worker gets a durable store from `ATProtoNet`
+  alone, or with `ATProtoNet.EntityFrameworkCore`, and never needs the ASP.NET Core shared
+  framework.
+  *Source:* **Decision** [D-15](../06-decisions.md#d-15-store-interfaces-live-next-to-their-consumers-implementations-live-with-their-dependencies) ·
   audit (0.8 ships no durable cursor store; the durable sync-state store is in the ASP.NET-bound EF package)
 - **STR-93** (MUST) The verifier writes a `Desynchronized` state immediately and
   a `Synchronized` state only through the delivery rule (STR-40); writes after
@@ -757,9 +762,10 @@ of `FirehoseStream`, also usable on its own.
   dropped (by reason), errors, reconnects, cursor saves and save failures, verification outcomes,
   resync fetches and held events, and lag (now minus event time where the event has one).
   *Source:* [02 — Architecture](../02-architecture.md#diagnostics), AG-32
-- **STR-95** (MUST) Running a stream as a hosted service is `StreamWorker<TItem>` in
-  `ATProtoNet.Hosting` ([hosting](hosting.md)). This package has no dependency on
-  `Microsoft.Extensions.Hosting`.
+- **STR-95** (MUST) Running a stream as a hosted service is `StreamWorker<TItem>` in the
+  `ATProtoNet.Hosting` namespace ([hosting](hosting.md)). The `ATProtoNet.Streaming` namespaces do
+  not reference `Microsoft.Extensions.Hosting` types (architecture test), so the stream runtime
+  stays usable without the hosting layer.
   *Source:* **Decision** [D-03](../06-decisions.md#d-03-package-map)
 
 ## Limits
@@ -855,7 +861,7 @@ verification.
 | Jetstream options split into live (`JetstreamOptions`) and archive (`JetstreamArchiveOptions`) | 0.8 carries 22 properties with cross-field validation in one object |
 | Stream objects hold no per-enumeration state | 0.8 Jetstream cannot be enumerated twice concurrently |
 | Transport seam public | users could not set proxies or headers |
-| Jetstream health check moves to `ATProtoNet.Hosting` and honours its failure status | 0.8's always reports `Unhealthy` and lives under `Server/Aspire` |
+| Jetstream health check moves to the `ATProtoNet.Hosting` namespace (base package) and honours its failure status | 0.8's always reports `Unhealthy` and lives under `Server/Aspire` |
 
 ## Open points
 
@@ -866,7 +872,7 @@ verification.
    `#commit`/`#sync` for inactive accounts as `VerificationFailed`; host binding is deferred until
    someone subscribes to PDSes directly.
 2. **zstd in the BCL.** If a future .NET ships Zstandard in `System.IO.Compression`, provide a
-   default `IZstdDecompressor` over it. *Proposed default:* keep the seam, ship no default in 1.0.
+   default `IZstdDecompressor` over it. *Proposed default:* keep the seam, ship no default in 0.9.
 3. **PLC catch-up.** Automatic catch-up through paged `/export` on `OutdatedCursor`
    (STR-90) assumes the directory's paged export accepts the stream's `seq` as `after`.
    *Proposed default:* verify against plc.directory in phase 7; if unsupported, yield the notice
@@ -874,6 +880,7 @@ verification.
 4. **Tap admin error shape.** Tap answers admin failures with a status and a small body. *Proposed
    default:* `StreamException` with `StatusCode` and the body (bounded) as `Message`; revisit if
    Tap adopts the XRPC `{error,message}` envelope.
-5. **Notice interfaces.** Notice records implement each in-package stream's item interface they
-   can occur on; out-of-package codecs wrap them. *Proposed default:* keep; revisit if C# gains
+5. **Notice interfaces.** Notice records implement the item interface of each
+   `ATProtoNet.Streaming` stream they can occur on; codecs elsewhere (`ATProtoNet.Bluesky`, user
+   code) wrap them. *Proposed default:* keep; revisit if C# gains
    union types.

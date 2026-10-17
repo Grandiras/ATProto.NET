@@ -1,13 +1,14 @@
-# ATProto.NET 1.0: rewrite design
+# ATProto.NET 0.9: rewrite design
 
 This folder holds the design and specifications for a complete rewrite of ATProto.NET into a
-cleaner, layered and largely generated shape, released as 1.0. It is the input for the rewrite
+cleaner, layered and largely generated shape, released as 0.9. It is the input for the rewrite
 itself: each phase of the plan names the specs it implements, and each spec lists testable
 requirements.
 
-**Status: draft for review.** Every decision is *proposed* until the maintainer accepts it. The
-open questions in [06 — Decisions](06-decisions.md#open-questions) need answers (or accepted
-defaults) before the phases they block.
+**Status: draft under review.** The maintainer's first review accepted the package model (D-03)
+and the version (D-02); every other decision is *proposed* until accepted. The open questions in
+[06 — Decisions](06-decisions.md#open-questions) need answers (or accepted defaults) before the
+phases they block.
 
 ## Reading order
 
@@ -26,18 +27,14 @@ If you have ten minutes: read 00, the package map in 02, and the open questions 
 
 ## The design in one page
 
-- **Packages by weight and churn.** Today one 54k-line assembly holds everything. The rewrite
-  splits it:
-  - **Foundation packages with no I/O:** `ATProtoNet.Primitives`, `ATProtoNet.Repo` and
-    `ATProtoNet.Lexicon`.
-  - **Network packages:** `ATProtoNet.Identity`, the `ATProtoNet` client and
-    `ATProtoNet.Streaming`.
-  - **One generated package per Lexicon family:** `ATProtoNet.Bluesky`, `ATProtoNet.Ozone` and
-    `ATProtoNet.StandardSite`.
-  - **Hosting:** `ATProtoNet.Hosting` with no ASP.NET dependency, then `ATProtoNet.AspNetCore`,
-    `ATProtoNet.EntityFrameworkCore` and a minimal `ATProtoNet.Blazor`.
-  - **An experimental Spaces family.**
-  - **No `InternalsVisibleTo` between production assemblies.**
+- **Few packages, clear layers inside.** `ATProtoNet` contains nearly everything: protocol
+  primitives, repo, Lexicon, identity, the client, OAuth, streaming, every generated Lexicon family
+  (including Bluesky, chat and Ozone), DI and worker integration, the bundled Lexicon source
+  generator, and Spaces as `[Experimental]`. Extension packages exist only for heavy framework
+  dependencies: `ATProtoNet.AspNetCore` (replacing `ATProtoNet.Server`),
+  `ATProtoNet.EntityFrameworkCore`, `ATProtoNet.Blazor` and `ATProtoNet.Aspire.Hosting`, plus the
+  `atproto-lexgen` tool. Inside the base package, namespace layers with architecture tests
+  provide the structure 0.8 lacks. No `InternalsVisibleTo` between production assemblies.
 - **Generated Lexicons.** All `com.atproto`, `app.bsky`, `chat.bsky`, `tools.ozone` and
   `site.standard` code is generated from vendored Lexicon JSON by one generator. That replaces
   21k hand-written lines and a regex-based drift test. Users run the same generator on their own
@@ -50,12 +47,12 @@ If you have ten minutes: read 00, the package map in 02, and the open questions 
   helper, one stream runtime with in-band notices, one registration style, one exception
   hierarchy.
 - **AOT-safe and observable.** Source-generated JSON, no process-global registries,
-  `ActivitySource`/`Meter` per package.
+  `ActivitySource`/`Meter` per area.
 - **Behaviour carried by tests, not code.** Vendored interop vectors and golden fixtures go into a
   conformance suite behind a protocol adapter. The adapter is proven green against 0.8 first,
   then re-implemented on the rewrite, phase by phase.
-- **Twelve phases, bottom-up, each with a gate.** Foundations, primitives, repo, Lexicon,
-  identity, client, OAuth, streaming, Lexicon packages, hosting, Spaces, release.
+- **Twelve phases, bottom-up, each with a gate, shipping as 0.9.0.** Foundations, primitives, repo, Lexicon,
+  identity, client, OAuth, streaming, Lexicon families, hosting, Spaces, release.
 
 ## Conventions
 

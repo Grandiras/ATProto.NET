@@ -1,8 +1,9 @@
 # Tooling: `atproto-lexgen`
 
-**Status:** Draft · **Package:** `atproto-lexgen` `dotnet tool` (`tools/ATProtoNet.Lexicon.Cli`),
-depending on `ATProtoNet.Lexicon.CodeGen`, `ATProtoNet.Lexicon`, `ATProtoNet` (network commands)
-and `System.CommandLine` · **Phase:** 3 (`generate`, `lint`, `install`/`update` from git and
+**Status:** Draft · **Package:** `atproto-lexgen` `dotnet tool` (`tools/ATProtoNet.Lexicon.Cli`), the
+one SDK package that is not a library. It depends on the internal `ATProtoNet.Lexicon.CodeGen`
+project (the same emitter the analyzer inside `ATProtoNet` uses), the `ATProtoNet` package
+(schema model in the `ATProtoNet.Lexicon` namespace; network commands) and `System.CommandLine` · **Phase:** 3 (`generate`, `lint`, `install`/`update` from git and
 directory sources), 8 (`install`/`update` from the network, needed for `site.standard.*`), 11
 (`diff`, `publish`, `resolve`) · **Normative references:**
 [Lexicon](https://atproto.com/specs/lexicon),
@@ -255,6 +256,6 @@ input errors, the NSID and XRPC error name for remote errors. Stack traces print
 
 | # | Question | Proposed default |
 |---|---|---|
-| TOO-O1 | Offer OAuth (loopback redirect) for `publish` instead of app passwords? | Not for 1.0; app passwords from the environment are enough for CI. |
+| TOO-O1 | Offer OAuth (loopback redirect) for `publish` instead of app passwords? | Not for 0.9; app passwords from the environment are enough for CI. |
 | TOO-O2 | A `diff --baseline git:<ref>` convenience that reads the manifest's Lexicons at a git ref? | Add it if `diff` against a checked-out directory proves clumsy in CI. |
 | TOO-O3 | Should `generate` also emit server handler stubs for a Lexicon set ([server.md](server.md))? | No; handlers implement interfaces keyed by the generated descriptors, which need no stubs. |

@@ -1,7 +1,7 @@
 # Data model: DRISL-CBOR, JSON, CID, CAR — spec
 
-**Status:** Draft · **Package:** `ATProtoNet.Primitives` (namespaces `ATProtoNet`,
-`ATProtoNet.Data`, `ATProtoNet.Data.Car`) · **Phase:** 1
+**Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet`,
+`ATProtoNet.Data`, `ATProtoNet.Data.Car`; foundation layer) · **Phase:** 1
 
 **Normative references:** [Data Model](https://atproto.com/specs/data-model) ·
 [DRISL](https://dasl.ing/drisl.html) · [DASL CID](https://dasl.ing/cid.html) ·
@@ -154,7 +154,7 @@ public static class CarWriter
 - **DAT-4** (MUST) `DataModelValue` represents any data-model value without a schema. It
   converts losslessly to and from DRISL and JSON (DAT-45), and it is the bridge from CBOR
   record bodies to generated types (D-10).
-  *Source:* **Decision** D-10 · [02 — Architecture](../02-architecture.md#1-identifiers-and-data-primitives)
+  *Source:* **Decision** D-10 · [02 — Architecture](../02-architecture.md#1-identifiers-and-data-layer-0)
 
 ### CID
 
@@ -171,7 +171,7 @@ public static class CarWriter
 - **DAT-13** (MUST) `Cid` stores its 36 bytes inline, compares and hashes by those bytes, and its
   text form is SYN-60. A computed CID equals the same CID parsed from text.
   *Source:* 0.8 `Cid.cs` inline storage · test `CidTests.Equals_SameCidParsedAndComputed_IsEqualWithTheSameHashCode`
-- **DAT-14** (MUST) No public API in any package accepts or returns a CID as `byte[]` or as a
+- **DAT-14** (MUST) No public API in the SDK accepts or returns a CID as `byte[]` or as a
   base32 `string`. `Cid` is the only representation.
   *Source:* **Decision** [AG-9a](../03-api-guidelines.md#types) · 0.8 used three
   representations (primitives audit, problem 4)
@@ -213,7 +213,7 @@ Strict mode enforces every DRISL rule. It is the default (`DrislReaderOptions.Mo
   `Decode_LongChainOfUnknownTags_DecodesTheInnerValue`
 - **DAT-27** (MUST) Lenient mode is opt-in per call. No API that hashes, signs, verifies or
   compares content addresses accepts a mode parameter: those always read strictly.
-  *Source:* **Decision** [02 — Architecture](../02-architecture.md#1-identifiers-and-data-primitives)
+  *Source:* **Decision** [02 — Architecture](../02-architecture.md#1-identifiers-and-data-layer-0)
   ("strict by default because anything hashed or signed must be")
 - **DAT-28** (MUST) Which consumers use which mode:
 
@@ -234,7 +234,7 @@ Strict mode enforces every DRISL rule. It is the default (`DrislReaderOptions.Mo
 - **DAT-30** (MUST) Nesting depth is limited to `DrislLimits.MaxDepth` (64), counted by the SDK
   itself. Every map and array counts one level, and a tag-42 link counts as the level its JSON
   `{"$link"}` wrapper adds. The SDK MUST NOT rely on `System.Formats.Cbor`'s internal depth
-  limit, whose value and behaviour have changed between package versions.
+  limit, whose value and behaviour have changed between versions of that library.
   *Source:* 0.8 `DagCborJson.cs:36` · tests `DagCborDecoderTests.Decode_NestingAtTheLimit_Succeeds`,
   `Decode_LinkWrapperCountsTowardsTheLimit` · regression: 0.8's
   `CarReaderTests.FromBytes_DeeplyNestedHeaderValue_IsSkippedWithoutOverflowingTheStack` fails
@@ -388,17 +388,18 @@ Strict mode enforces every DRISL rule. It is the default (`DrislReaderOptions.Mo
   *Source:* 0.8 `CommitBlock.cs:70,155` (sig splice) · primitives audit "keep nearly as-is"
 - **DAT-67** (MUST) This is the one implementation of "encode without `sig`" in the SDK. Repo
   commits, labels, PLC operations and space commits all use it. In 0.8 it was written five times.
-  *Source:* **Decision** [02 — Architecture](../02-architecture.md#1-identifiers-and-data-primitives) ·
+  *Source:* **Decision** [02 — Architecture](../02-architecture.md#1-identifiers-and-data-layer-0) ·
   primitives audit, problem 15
 
 ### Multiformats codecs
 
 - **DAT-70** (MUST) `Base32` (RFC 4648, lower-case alphabet `a–z2–7`, no padding),
   `Base58Btc` and `UnsignedVarint` each exist once, are public, and are used everywhere they
-  are needed (CID text, PLC DID derivation in `ATProtoNet.Identity`, multikey encoding, CAR).
+  are needed (CID text, PLC DID derivation in the `ATProtoNet.Identity.Plc` namespace, multikey encoding, CAR).
   The TID base32-sortable alphabet is a separate codec inside `Tid` (SYN-27).
-  *Source:* primitives audit, problem 6 (0.8 scattered these across five files) · architecture
-  rule 3 (no `InternalsVisibleTo`, so cross-package helpers are public)
+  *Source:* primitives audit, problem 6 (0.8 scattered these across five files) · the
+  extension packages (`ATProtoNet.AspNetCore`, `ATProtoNet.EntityFrameworkCore`) get no
+  `InternalsVisibleTo`, so helpers they need are public
 - **DAT-71** (MUST) Base32 decoding rejects non-alphabet characters, upper case, padding and
   non-zero spare bits. Base58 decoding rejects non-alphabet characters, preserves leading zero
   bytes, and reports a value longer than the destination as `FormatException`.

@@ -1,6 +1,8 @@
 # XRPC server and ASP.NET Core — spec
 
-**Status:** Draft · **Package:** `ATProtoNet.AspNetCore` · **Phase:** 9 ·
+**Status:** Draft · **Package:** `ATProtoNet.AspNetCore` (replaces 0.8's `ATProtoNet.Server`;
+depends on `ATProtoNet` and the ASP.NET Core shared framework; namespaces `ATProtoNet.AspNetCore`,
+`.Xrpc`, `.Authentication`, `.OAuth`, `.Labels`, `.Tap`) · **Phase:** 9 ·
 **Normative references:** [XRPC](https://atproto.com/specs/xrpc),
 [Event Stream](https://atproto.com/specs/event-stream),
 [OAuth](https://atproto.com/specs/oauth), [Labels](https://atproto.com/specs/label),
@@ -29,7 +31,10 @@ Out of scope, specified elsewhere:
 - label signing and the label frame codec: [labels.md](labels.md);
 - Tap event parsing and the acknowledgement rule: [streaming.md](streaming.md);
 - store contracts: [stores.md](stores.md);
-- the Spaces server: [spaces.md](spaces.md). It is built **only** on this package's public API.
+- the Spaces server: [spaces.md](spaces.md). Its endpoints ship in this package under
+  `[Experimental("ATPROTO001")]` (namespace `ATProtoNet.AspNetCore.Spaces`) and are built **only**
+  on the public XRPC endpoint API this spec defines; nothing outside that namespace knows about
+  Spaces.
 
 ## Public API sketch
 
@@ -502,6 +507,7 @@ package.
 | Distinct claim types and principal accessors for service auth vs OAuth login | Removes the authentication-type sniffing behind a 0.7 security fix |
 | `ServiceAuthVerifier` built once per scheme | 0.8 rebuilt and revalidated it per request |
 | Envelope for Tap and OAuth non-redirect errors | One error format |
+| Package renamed `ATProtoNet.Server` → `ATProtoNet.AspNetCore`; the DI builder, client factory, stores, stream workers, health checks and Aspire client integration move to the base `ATProtoNet` package | Workers and console apps need only `ATProtoNet`; this package holds what genuinely needs ASP.NET Core |
 | Loopback cookie relay dropped | Q-9 |
 | Public `XrpcBooleanConverter` dropped | Generated binding handles booleans |
 

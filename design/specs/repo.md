@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft |
-| **Package** | `ATProtoNet.Repo` (namespace `ATProtoNet.Repo`) |
+| **Package** | `ATProtoNet` (namespace `ATProtoNet.Repo`, foundation layer) |
 | **Phase** | 2 |
 | **Depends on** | [syntax](syntax.md), [data-model](data-model.md) (DRISL-CBOR, `Cid`, CAR), [crypto](crypto.md) (`SigningKey`, `VerificationKey`, `SignedObject`) |
 | **Normative references** | [Repository](https://atproto.com/specs/repository) · [Sync](https://atproto.com/specs/sync) · [Data model](https://atproto.com/specs/data-model) · reference implementation `@atproto/repo` 0.10.14 (`mst.ts`, `verifyProofs`, `getCoveringProof`) · indigo `atproto/repo/mst` |
@@ -18,9 +18,10 @@ records), the `IBlockStore` seam, commit diffs (the blocks a `#commit` event car
 
 **Out:** CAR framing and bounds ([data-model](data-model.md)), signatures and keys
 ([crypto](crypto.md)), Sync 1.1 chain rules, `prevData` inductive checks over a stream and resync
-([streaming](streaming.md); they *use* this package's inversion and proof walk), fetching a CAR
+([streaming](streaming.md); they *use* this namespace's inversion and proof walk), fetching a CAR
 from a host ([identity](identity.md) untrusted fetch, [streaming](streaming.md) fetchers), space
-repositories (LtHash set hashes, [spaces](spaces.md)). This package does no I/O.
+repositories (LtHash set hashes, [spaces](spaces.md)). This namespace does no I/O (architecture
+tests enforce it for the foundation layer).
 
 ## Public API sketch
 
@@ -429,7 +430,7 @@ hostile-input cases (REP-11..REP-14, REP-27) join the regression corpus.
    bounded only by block size. Proposed: reject nodes over 1,024 entries (far above any real
    fanout-4 node) and record the choice here.
 2. **Snapshot defaults.** `MaxBlockCount = 2,000,000` is a proposal; confirm against the largest
-   real repositories during phase 2 and against what `ATProtoNet.Streaming` resync needs.
+   real repositories during phase 2 and against what streaming resync (`ATProtoNet.Streaming.Firehose`) needs.
 3. **Record body decoding in snapshots** (REP-42): expose raw blocks only, or also a
    `DataModelValue` view? Proposed: raw block plus `DecodeAs<T>()` via the Lexicon contracts.
 4. **Writable repository helper.** 0.8 has no PDS-side "apply writes and produce a commit + diff"

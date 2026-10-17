@@ -1,6 +1,6 @@
 # 05 — Rewrite plan
 
-How the rewrite gets from 0.8 to 1.0: strategy, phases, gates and working agreements.
+How the rewrite gets from 0.8 to 0.9: strategy, phases, gates and working agreements.
 
 ## Strategy
 
@@ -14,7 +14,9 @@ How the rewrite gets from 0.8 to 1.0: strategy, phases, gates and working agreem
   commit sig splice, `RepoSyncVerifier`, the replay algorithm, `JetstreamSegmentReader`, OAuth
   validation rules, `ServiceAuthVerifier`'s checks, the Spaces primitives). Copied code is
   restyled to the new guidelines and loses any dependency on 0.8 internals.
-- **Bottom-up**, one layer per phase, each one usable and tested before the next starts.
+- **Bottom-up**, one layer per phase, each one usable and tested before the next starts. Phases
+  1–8 and 10 fill namespace areas of the one `ATProtoNet` package; phase 9 builds the extension
+  packages.
 - **Every phase ends at a gate.** The gate is a checklist, not a date.
 
 ```mermaid
@@ -28,7 +30,7 @@ flowchart LR
     P5 --> P6["6 OAuth · service auth · labels"]
     P5 --> P7["7 Streaming"]
     P6 --> P7
-    P5 --> P8["8 Lexicon packages"]
+    P5 --> P8["8 Lexicon families"]
     P6 --> P9["9 Hosting"]
     P7 --> P9
     P8 --> P9
@@ -38,7 +40,7 @@ flowchart LR
 ```
 
 Phases 2, 3 and 4 can run in parallel after phase 1. Phases 7 and 8 can run in parallel after
-phase 6. Spaces (10) is off the critical path; 1.0 can ship without it.
+phase 6. Spaces (10) is off the critical path; 0.9 can ship without it.
 
 ## Phases
 
@@ -55,8 +57,8 @@ for planning only.
   settings, `TreatWarningsAsErrors`, nullable, `IsAotCompatible` for `src/`),
   `Directory.Packages.props` (central package management), `nuget.config` with package source
   mapping, analyzers (PublicApiAnalyzers, CA2007, CS1591 as error), empty API baselines.
-- `tests/ATProtoNet.Architecture.Tests` enforcing the package dependency rules (initially
-  against empty projects).
+- `tests/ATProtoNet.Architecture.Tests` enforcing the namespace layering rules (initially
+  against an empty project).
 - `tests/ATProtoNet.TestKit` (fake XRPC server, fake identity network, `FakeTimeProvider`, store
   contract base classes, integration gate with traits).
 - `tests/ATProtoNet.Conformance` with **all vectors extracted** into data files with a
@@ -75,7 +77,7 @@ for planning only.
 **Gate.** CI green. The conformance suite is green against 0.8 (or each failure is filed as a
 0.8 bug with the vector marked `KnownLegacyFailure`). The benchmark baseline is committed.
 
-### Phase 1 — Primitives (`ATProtoNet.Primitives`)
+### Phase 1 — Primitives (`ATProtoNet`, `ATProtoNet.Data`, `ATProtoNet.Crypto`)
 
 Specs: [syntax](specs/syntax.md), [data-model](specs/data-model.md), [crypto](specs/crypto.md).
 Identifier types, multiformats codecs, DRISL reader/writer (strict and lenient), the JSON data
@@ -83,7 +85,7 @@ model and its converters, `DataModelValue`, `SignedObject`, CAR reader (bounded,
 writer, keys and signatures, `did:key`, JOSE. **~5k lines.**
 
 **Gate.** Syntax, data-model, CID/CAR and crypto conformance areas are green on `Adapter.Next`.
-Benchmarks for CBOR and CAR are at or better than baseline. No I/O APIs in the package
+Benchmarks for CBOR and CAR are at or better than baseline. No I/O APIs in the foundation layer
 (architecture test).
 
 ### Phase 2 — Repo (`ATProtoNet.Repo`)
@@ -94,7 +96,7 @@ hashing), commits, record proofs, snapshots, `IBlockStore`. **~2.5k lines.**
 **Gate.** MST, commits and proofs conformance areas are green. The MST build/diff benchmark is at
 or better than baseline.
 
-### Phase 3 — Lexicon (`ATProtoNet.Lexicon`, `ATProtoNet.Lexicon.CodeGen`, CLI part 1)
+### Phase 3 — Lexicon (`ATProtoNet.Lexicon`, the code generator, CLI part 1)
 
 Specs: [lexicon](specs/lexicon.md), [tooling](specs/tooling.md). The schema object model, ref
 resolution, validation, the C# emitter, and `atproto-lexgen generate|install|update|lint`. It
@@ -147,19 +149,20 @@ PLC export. **~6k lines.**
 Cursor semantics scenarios ported and green. Firehose and Jetstream decode benchmarks at or
 better than baseline (the direct CBOR binders should beat it). A nightly live Jetstream run green.
 
-### Phase 8 — Lexicon packages and the user source generator
+### Phase 8 — Lexicon families and the user source generator
 
-Specs: [lexicon](specs/lexicon.md#generated-clients). `ATProtoNet.Bluesky` (generated
-`app.bsky`/`chat.bsky` plus rich text, posting, profile update, video upload, chat moderation
-stream), `ATProtoNet.Ozone`, `ATProtoNet.StandardSite`, and `ATProtoNet.Lexicon.Generator`
-for users' Lexicons (or the fallback chosen in phase 3). **~2k lines of helpers.**
+Specs: [lexicon](specs/lexicon.md#generated-clients). The generated `app.bsky`, `chat.bsky`,
+`tools.ozone` and `site.standard` code in `ATProtoNet`, the hand-written helpers in
+`ATProtoNet.Bluesky` (rich text, posting, profile update, video upload, chat moderation stream),
+and the source generator for users' Lexicons, bundled into the `ATProtoNet` package as an
+analyzer (or the fallback chosen in phase 3). **~2k lines of helpers.**
 
 **Gate.** 100% of vendored upstream methods have generated clients. Helper scenarios
 (`UpdateProfileAsync` swap retry, rich-text facet offsets, video upload) ported and green. The
 JSON model benchmark (large feed responses) at or better than baseline. A sample app using a
 custom Lexicon through the source generator builds and runs.
 
-### Phase 9 — Hosting (`ATProtoNet.Hosting`, `.AspNetCore`, `.EntityFrameworkCore`, `.Blazor`)
+### Phase 9 — Hosting (`ATProtoNet.Hosting` namespace, `ATProtoNet.AspNetCore`, `ATProtoNet.EntityFrameworkCore`, `ATProtoNet.Blazor`)
 
 Specs: [hosting](specs/hosting.md), [server](specs/server.md), [stores](specs/stores.md). The DI
 builder, client factory, stream workers, health checks, Aspire client integration, the XRPC
@@ -175,7 +178,8 @@ Jetstream with no reference to `Microsoft.AspNetCore.App`.
 
 Spec: [spaces](specs/spaces.md). Scope per
 [D-24](06-decisions.md#d-24-spaces-scope-in-the-rewrite) and Q-11, against the protocol as it
-stands at that point. Published as `0.x` prerelease packages. **~4–7k lines depending on Q-11.**
+stands at that point. Every public Spaces type is `[Experimental("ATPROTO001")]`, in the existing
+packages. **~4–7k lines depending on Q-11.**
 
 **Gate.** The Spaces conformance area green against the pinned reference implementation. Spaces
 integration tests green against a permissioned-data PDS (nightly).
@@ -186,11 +190,11 @@ integration tests green against a permissioned-data PDS (nightly).
 - `atproto-lexgen diff|publish|resolve`.
 - `docs/` rewritten for the new API. The durable concept pages and the protocol sections the
   testing audit identified are carried over; API walkthroughs are rewritten; the 0.7/0.8
-  migration guides are dropped. A new **migrating-to-1.0** guide maps every 0.8 entry point to
+  migration guides are dropped. A new **migrating-to-0.9** guide maps every 0.8 entry point to
   its replacement.
 - Samples: console (custom Lexicon), worker (firehose and Jetstream), web (OAuth login, per-user
   client, XRPC endpoints with service auth, labeler), Aspire AppHost (managed PDS).
-- `1.0.0-preview.1`, a feedback period, then `1.0.0`. `next` replaces `main`.
+- `0.9.0-preview.1`, a feedback period, then `0.9.0`. `next` replaces `main`.
 
 **Gate.** Everything in [Phase gates](#phase-gates), for all packages. All goals in
 [00 — Vision](00-vision.md#goals) met, or the miss is written down and accepted.
@@ -248,21 +252,21 @@ built for that:
 
 ### Changelog
 
-`next` keeps its own `CHANGELOG.md` starting at `1.0.0`. During the rewrite it records
-user-visible decisions per phase rather than every commit. The release notes for 1.0.0 are the
+`next` keeps its own `CHANGELOG.md` starting at `0.9.0`. During the rewrite it records
+user-visible decisions per phase rather than every commit. The release notes for 0.9.0 are the
 migration guide.
 
 ## Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| The rewrite stalls halfway, leaving two codebases | High | Bottom-up phases that each produce usable packages. Foundation packages (Primitives, Repo, Identity) could even ship as 0.8-compatible additions if needed. Spaces is off the critical path. |
+| The rewrite stalls halfway, leaving two codebases | High | Bottom-up phases that each leave a usable, tested layer. Spaces is off the critical path. A preview can ship as soon as phase 8 passes, with hosting following. |
 | Behaviour lost in translation | High | Conformance suite green on 0.8 *before* phase 1. Requirement IDs on tests. Regression corpus in [04 — Testing](04-testing.md#regression-corpus). |
 | The generator cannot match hand-written quality | Medium | Phase 3's gate requires generating and compiling all vendored Lexicons, plus golden output review, before anything depends on it. |
 | Roslyn analyzer packaging problems (System.Text.Json in the compiler) | Medium | Spike first in phase 3, with an MSBuild-task fallback. First-party code is checked in, so the SDK never depends on the analyzer. |
 | Upstream protocol changes during the rewrite (OAuth scopes, Lexicon resolution, Sync, Spaces) | Medium | Specs cite upstream sections. Vendored Lexicons update through the CLI. Experimental markers (`ATPROTO00x`) on moving surfaces. |
 | Performance regressions | Medium | Benchmarks against the 0.8 baseline at every relevant gate. |
-| Users stuck on 0.8 | Low/Medium | 0.8.x gets fixes until 1.0.0 plus a stated support window (proposal: 6 months). The migration guide maps every entry point. |
+| Users stuck on 0.8 | Low/Medium | 0.8.x gets fixes until 0.9.0 plus a stated support window (proposal: 6 months). The migration guide maps every entry point. |
 
 ## Immediate next steps
 

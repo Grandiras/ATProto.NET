@@ -6,11 +6,14 @@ unless a rule here says otherwise. Reviewers cite them by number (`AG-n`).
 
 ## Namespaces and naming
 
-**AG-1 — One root namespace per package, matching the package ID.** A package may contribute
-sub-namespaces under its own root. Exception: the vocabulary types every user needs
-(`Did`, `Handle`, `AtIdentifier`, `Nsid`, `AtUri`, `RecordKey`, `Tid`, `AtDatetime`, `Cid`,
-`AtProtoClient`) live in the root `ATProtoNet` namespace, so one `using ATProtoNet;` is enough
-for the common case. See [02 — Architecture](02-architecture.md#namespaces).
+**AG-1 — Namespaces follow the layers.** Each area of the base package has its own namespace
+(`ATProtoNet.Data`, `ATProtoNet.Identity`, `ATProtoNet.Xrpc`, …), and its place in the layer order
+decides what it may reference ([02 — Architecture](02-architecture.md#layers-inside-atprotonet)).
+Each extension package uses its package ID as its root namespace (`ATProtoNet.AspNetCore`). The
+vocabulary types every user needs (`Did`, `Handle`, `AtIdentifier`, `Nsid`, `AtUri`, `RecordKey`,
+`Tid`, `AtDatetime`, `Cid`) and `AtProtoClient` live in the root `ATProtoNet` namespace, so one
+`using ATProtoNet;` is enough for the common case. See
+[02 — Architecture](02-architecture.md#namespaces).
 
 **AG-2 — Generated Lexicon code uses namespaces derived from the NSID.** The namespace is
 `{root}.{Authority segments in PascalCase}`, so `app.bsky.feed.post` goes to
@@ -33,8 +36,8 @@ what it *is* (`PasswordSession`, `DidDocument`, `CursorStore`), not what it *doe
 **AG-6 — Sealed by default.** Classes are `sealed` unless they are designed for inheritance, and a
 class designed for inheritance says so in its docs. Abstract base classes are reserved for closed
 hierarchies we own (exceptions, sessions). One exception: generated Lexicon object and record
-types are unsealed `partial record`s, because a downstream package derives from them to join its
-unions ([D-18](06-decisions.md#d-18-unions-are-interfaces)).
+types are unsealed `partial record`s, because code generated for a user's own Lexicons derives
+from them to join its unions ([D-18](06-decisions.md#d-18-unions-are-interfaces)).
 
 **AG-7 — Immutable values.** Models and options are immutable after construction: `init`
 accessors, `required` for mandatory members, `IReadOnlyList<T>`/`IReadOnlyDictionary<K,V>` for
@@ -127,11 +130,11 @@ names. A choice between code paths is a choice between components (pass a differ
 `IValidateOptions<T>` when bound from configuration, so bad configuration fails at startup.
 
 **AG-24 — DI-friendly, DI-optional.** Every component has a public constructor taking its
-dependencies (with sensible defaults), so it works with `new`. DI registration is a thin layer in
-the hosting package.
+dependencies (with sensible defaults), so it works with `new`. DI registration is a thin layer on
+top (the `ATProtoNet.Hosting` namespace, and the extension packages).
 
-**AG-25 — Registration verbs.** One builder per hosting package entry point
-(`services.AddAtProto()` returns `AtProtoBuilder`). On the builder, `Add*` adds a feature and
+**AG-25 — Registration verbs.** One builder for everything (`services.AddAtProto()` returns
+`AtProtoBuilder`; the extension packages add methods to it). On the builder, `Add*` adds a feature and
 `Use*` selects the implementation of a seam, always with replace semantics. On
 `IEndpointRouteBuilder`, `MapAtProto*` maps endpoints. Authentication schemes follow ASP.NET
 Core's convention and register on `AuthenticationBuilder` (`AddAtProtoServiceAuth`). No `With*`
@@ -162,11 +165,11 @@ with limits that are named constants in our code, documented in the relevant spe
 
 ## Logging and diagnostics
 
-**AG-31 — Source-generated logging** (`[LoggerMessage]`) with stable event IDs. Each package owns
+**AG-31 — Source-generated logging** (`[LoggerMessage]`) with stable event IDs. Each area owns
 an event-ID range listed in [02 — Architecture](02-architecture.md#diagnostics). Logs at
 `Information` and above are rare and actionable; per-request detail is `Debug`/`Trace`.
 
-**AG-32 — `ActivitySource` and `Meter` per package** (`ATProtoNet.Xrpc`, `ATProtoNet.Streaming`,
+**AG-32 — `ActivitySource` and `Meter` per area** (`ATProtoNet.Xrpc`, `ATProtoNet.Streaming`,
 …) for distributed tracing and metrics. Instrument names follow OpenTelemetry semantic
 conventions where they exist.
 

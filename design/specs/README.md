@@ -5,23 +5,23 @@ Normative behaviour for each subsystem of the rewrite. Structure is in
 [03 — API guidelines](../03-api-guidelines.md), choices and their reasons in
 [06 — Decisions](../06-decisions.md).
 
-| Spec | Prefix | Package(s) | Phase |
+| Spec | Prefix | Package · namespaces | Phase |
 |---|---|---|---|
-| [Identifier syntax](syntax.md) | `SYN` | Primitives | 1 |
-| [Data model: DRISL-CBOR, JSON, CID, CAR](data-model.md) | `DAT` | Primitives | 1 |
-| [Cryptography and JOSE](crypto.md) | `CRY` | Primitives | 1 |
-| [Repository: MST, commits, proofs](repo.md) | `REP` | Repo | 2 |
-| [Lexicon: schema model, validation, code generation](lexicon.md) | `LEX` | Lexicon, CodeGen, Generator | 3, 8 |
-| [Tooling: `atproto-lexgen`](tooling.md) | `TOO` | CLI | 3, 11 |
-| [Identity: fetch policy, DIDs, handles, PLC](identity.md) | `IDN` | Identity | 4 |
-| [XRPC client](xrpc-client.md) | `XRC` | ATProtoNet | 5 |
-| [Authentication: sessions, OAuth, service auth](auth.md) | `AUT` | ATProtoNet | 5, 6 |
-| [Labels](labels.md) | `LBL` | ATProtoNet, Streaming, AspNetCore | 6 |
-| [Event streams](streaming.md) | `STR` | Streaming | 7 |
-| [XRPC server and ASP.NET Core](server.md) | `SRV` | AspNetCore | 9 |
-| [Hosting, DI and integrations](hosting.md) | `HST` | Hosting, Blazor, Aspire.Hosting | 9, 11 |
-| [Stores](stores.md) | `STO` | all store interfaces, Hosting, EntityFrameworkCore | 4–9 |
-| [Spaces (experimental)](spaces.md) | `SPC` | Spaces family | 10 |
+| [Identifier syntax](syntax.md) | `SYN` | `ATProtoNet` · `ATProtoNet` | 1 |
+| [Data model: DRISL-CBOR, JSON, CID, CAR](data-model.md) | `DAT` | `ATProtoNet` · `.Data`, `.Data.Car` | 1 |
+| [Cryptography and JOSE](crypto.md) | `CRY` | `ATProtoNet` · `.Crypto`, `.Crypto.Jose` | 1 |
+| [Repository: MST, commits, proofs](repo.md) | `REP` | `ATProtoNet` · `.Repo` | 2 |
+| [Lexicon: schema model, validation, code generation](lexicon.md) | `LEX` | `ATProtoNet` · `.Lexicon`, `.Lexicons.*`; bundled generator | 3, 8 |
+| [Tooling: `atproto-lexgen`](tooling.md) | `TOO` | `atproto-lexgen` | 3, 11 |
+| [Identity: fetch policy, DIDs, handles, PLC](identity.md) | `IDN` | `ATProtoNet` · `.Net`, `.Identity`, `.Identity.Plc` | 4 |
+| [XRPC client](xrpc-client.md) | `XRC` | `ATProtoNet` · `ATProtoNet`, `.Xrpc`, `.Records`, `.Admin` | 5 |
+| [Authentication: sessions, OAuth, service auth](auth.md) | `AUT` | `ATProtoNet` · `.Auth.*` | 5, 6 |
+| [Labels](labels.md) | `LBL` | `ATProtoNet` · `.Labels`, `.Streaming.Labels`; `ATProtoNet.AspNetCore` | 6 |
+| [Event streams](streaming.md) | `STR` | `ATProtoNet` · `.Streaming.*` | 7 |
+| [XRPC server and ASP.NET Core](server.md) | `SRV` | `ATProtoNet.AspNetCore` | 9 |
+| [Hosting, DI and integrations](hosting.md) | `HST` | `ATProtoNet` · `.Hosting`; `ATProtoNet.Blazor`, `ATProtoNet.Aspire.Hosting` | 9, 11 |
+| [Stores](stores.md) | `STO` | `ATProtoNet` (interfaces, in-memory, file); `ATProtoNet.EntityFrameworkCore` | 4–9 |
+| [Spaces (experimental)](spaces.md) | `SPC` | `ATProtoNet` · `.Spaces`; `ATProtoNet.AspNetCore`; `ATProtoNet.EntityFrameworkCore` | 10 |
 
 ## Conventions
 

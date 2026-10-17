@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft · **experimental**: every public type carries `[Experimental("ATPROTO001")]` |
-| **Packages** | `ATProtoNet.Spaces` (namespace `ATProtoNet.Spaces`: primitives, generated `com.atproto.space.*` and `com.atproto.simplespace.*`, credential provider, signed-request handler, syncer, notification verifier) · `ATProtoNet.Spaces.AspNetCore` (notification receiver endpoints; the deferred server) · `ATProtoNet.Spaces.EntityFrameworkCore` (deferred server stores). All versioned `0.x` prerelease, independently of the stable packages. |
+| **Packages** | `ATProtoNet` (namespace `ATProtoNet.Spaces`: primitives, credential provider, signed-request handler, syncer, notification verifier; generated `ATProtoNet.Lexicons.Com.AtProto.Space` and `…SimpleSpace`) · `ATProtoNet.AspNetCore` (namespace `ATProtoNet.AspNetCore.Spaces`: notification receiver endpoints; the deferred server) · `ATProtoNet.EntityFrameworkCore` (namespace `ATProtoNet.EntityFrameworkCore.Spaces`: deferred server stores). No separate packages or versioning: these APIs ship in every release under `[Experimental("ATPROTO001")]` and may change in any release. |
 | **Phase** | 10 |
 | **Depends on** | [data-model](data-model.md) (`DrislReader`, `CarReader`, `Cid`), [crypto](crypto.md) (`SigningKey`, `VerificationKey`, `DidKey`, JOSE), [identity](identity.md) (`IIdentityResolver`, DID document lookups), [xrpc-client](xrpc-client.md) (`AtProtoClient`, `IXrpcHandler`, `XrpcInvoker`), [auth](auth.md) (`ServiceAuthVerifier`, `IReplayStore`), [server](server.md) (XRPC endpoints, for the receiver) |
 | **Normative references** | [Proposal 0016 *Permissioned Data*](https://github.com/bluesky-social/proposals/blob/0c9c2e88ba385809fc9ecba92f362389d9338e16/0016-permissioned-data/README.md) at `0c9c2e88` · reference implementation `679724ad` (`permissioned-data-alpha` branch of `bluesky-social/atproto`) · the 2026-10-01 alpha announcement ([AT Protocol Spaces (alpha)](https://atproto.com/blog/atproto-spaces-alpha)) · [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures · [RFC 8941](https://www.rfc-editor.org/rfc/rfc8941) Structured Field Values · [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869) HKDF · [RFC 2104](https://www.rfc-editor.org/rfc/rfc2104) HMAC · BLAKE3 specification |
@@ -133,7 +133,7 @@ public interface ISpaceNotificationHandler
     ValueTask OnSpaceDeletedAsync(SpaceUri space, CancellationToken cancellationToken);
 }
 
-// ATProtoNet.Spaces.AspNetCore
+// ATProtoNet.AspNetCore (namespace ATProtoNet.AspNetCore.Spaces)
 //   services.AddAtProto().AddSpaceNotifications<THandler>(o => o.ServiceId = "did:web:app.example#atproto_space_syncer");
 //   app.MapAtProtoSpaceNotifications();
 ```
@@ -143,23 +143,28 @@ public interface ISpaceNotificationHandler
 ### Protocol pins and packaging
 
 - **SPC-1** (MUST) The implementation targets the pins in the header (proposal `0c9c2e88`,
-  reference implementation `679724ad`, the 2026-10-01 alpha). The pins are recorded in each Spaces
-  package's metadata (`PackageReleaseNotes` and an assembly attribute) and in
+  reference implementation `679724ad`, the 2026-10-01 alpha). The pins are recorded in an
+  assembly-level attribute next to the Spaces code, in the release notes and in
   `docs/spaces.md`, and the integration environment pins the reference PDS image digest.
   *Source:* 0.8 `docs/spaces.md:12-16`, `docs/testing-spaces.md:13`
 - **SPC-2** (MUST) Moving to a new protocol revision is one change set that updates the
   pins, the vendored proposal Lexicons, the reference vectors (regenerated from the new reference
-  implementation), this spec's affected requirements, and the Spaces packages' minor version. It
-  never changes a stable package.
-  *Source:* **Decision** [D-08](../06-decisions.md#d-08-spaces-is-quarantined-as-experimental)
+  implementation) and this spec's affected requirements. It touches only the experimental Spaces
+  namespaces and never the stable API, so it may ship in any 0.9.x release; the release notes
+  call out the Spaces break.
+  *Source:* **Decision** [D-08](../06-decisions.md#d-08-spaces-is-experimental)
 - **SPC-3** (MUST) The proposal's `com.atproto.space.*` and `com.atproto.simplespace.*`
   Lexicons are vendored under `lexicons/` at the pinned reference commit (their source recorded in
-  `lexicons.json`) and generated into `ATProtoNet.Spaces`, never into `ATProtoNet`.
+  `lexicons.json`) and generated into `ATProtoNet.Lexicons.Com.AtProto.Space` and
+  `…SimpleSpace` with every type marked experimental (SPC-4). No stable generated type references
+  them.
   *Source:* **Decision** D-08 · audit (0.8 hand-writes ~1.75k lines of Space/SimpleSpace clients)
-- **SPC-4** (MUST) Every public type in the Spaces packages carries
-  `[Experimental("ATPROTO001")]`, including generated ones. No stable package references a Spaces
-  package or contains Spaces knowledge (no Spaces code in the core transport, no Spaces stores in
-  a central defaults warning).
+- **SPC-4** (MUST) Every public type in the Spaces namespaces (`ATProtoNet.Spaces`, the
+  generated `ATProtoNet.Lexicons.Com.AtProto.Space`/`…SimpleSpace`, `ATProtoNet.AspNetCore.Spaces`,
+  `ATProtoNet.EntityFrameworkCore.Spaces`) carries `[Experimental("ATPROTO001")]`, including
+  generated ones. No stable type references a Spaces type, and no code outside those namespaces
+  contains Spaces knowledge (no Spaces code in the core transport, no Spaces stores in a central
+  defaults warning). An architecture test enforces both.
   *Source:* **Decision** D-08, [D-16](../06-decisions.md#d-16-experimental-diagnostic-ids) · audit
   (0.8 `XrpcClient.cs:132-138,690-697`, `InMemoryDefaultsWarning.cs:42-66`)
 
@@ -253,10 +258,11 @@ public interface ISpaceNotificationHandler
   outside the representable range are refused, not thrown as overflow.
   *Source:* 0.8 `SpaceTokens.cs:136-142`
 - **SPC-21** (MUST) Token encoding and signature checks use the JOSE primitives of
-  [crypto](crypto.md) (strict compact JWS, `alg` matching the key's curve). The Spaces package
-  contains no second JWT implementation.
+  [crypto](crypto.md) (strict compact JWS, `alg` matching the key's curve). The Spaces
+  namespaces contain no second JWT implementation.
   *Source:* **Decision** · audit (0.8 `SpaceTokens` relies on the internal `Auth.Jwt`, reachable
-  only because Spaces shares the core assembly; the rewrite makes JOSE public in Primitives)
+  only because Spaces shares the core assembly; the rewrite makes JOSE public in
+  `ATProtoNet.Crypto.Jose`)
 
 ### HTTP message signatures
 
@@ -351,7 +357,7 @@ public interface ISpaceNotificationHandler
 
 ### Notification receiver (new)
 
-- **SPC-40** (MUST) `ATProtoNet.Spaces.AspNetCore` serves
+- **SPC-40** (MUST) `ATProtoNet.AspNetCore` (namespace `ATProtoNet.AspNetCore.Spaces`) serves
   `com.atproto.space.notifyWrite` and `com.atproto.space.notifySpaceDeleted` as XRPC procedures
   ([server](server.md)) and dispatches verified notifications to the application's
   `ISpaceNotificationHandler`. 0.8 could register for notifications but shipped no receiver.
@@ -373,8 +379,9 @@ public interface ISpaceNotificationHandler
 
 The rules below describe 0.8's space server (authority and repo host). They are recorded so the
 knowledge survives; they are **not** in phase 10 scope unless Q-11 is answered "server too" and
-the protocol has stabilised. If built, they go in `ATProtoNet.Spaces.AspNetCore` and
-`ATProtoNet.Spaces.EntityFrameworkCore`, register through the standard builder
+the protocol has stabilised. If built, they go in `ATProtoNet.AspNetCore` (namespace
+`ATProtoNet.AspNetCore.Spaces`) and `ATProtoNet.EntityFrameworkCore` (namespace
+`ATProtoNet.EntityFrameworkCore.Spaces`), experimental like the rest, register through the standard builder
 ([hosting](hosting.md)), and use only public XRPC server APIs.
 
 - **SPC-43** (MUST) A delegation token's `aud` must be
@@ -483,16 +490,16 @@ today.
 
 | Change | Reason |
 |---|---|
-| Spaces moves out of `ATProtoNet` and `ATProtoNet.Server` into its own experimental packages | D-08; alpha churn stops breaking stable packages |
+| Spaces is confined to experimental namespaces (`[Experimental("ATPROTO001")]`) in `ATProtoNet`, `ATProtoNet.AspNetCore` and `ATProtoNet.EntityFrameworkCore`, with no Spaces code elsewhere | D-08; alpha churn can change Spaces APIs in any release without breaking the stable API |
 | Audience is explicit per client (`ForRepo`, `ForAuthority`) | 0.8 guessed it from a `repo` query parameter inside the core transport |
-| Signing is an `IXrpcHandler` in the Spaces package | no Spaces code in the core pipeline |
+| Signing is an `IXrpcHandler` in the `ATProtoNet.Spaces` namespace | no Spaces code in the core pipeline |
 | Generated `com.atproto.space.*`/`simplespace.*` from vendored proposal Lexicons | 0.8 hand-wrote them |
 | Notification receiver added | 0.8 could register but not receive |
 | Server, `simplespace` server, managing-app policy and attestation verification deferred | D-24; the largest and least settled part |
 | `LtHash` drops value equality | mutable type with a hash code |
 | Settable limits become options | AG-7 |
 | Three exception types instead of five | fewer types, same information |
-| BLAKE3 moves into the Spaces package | its only user |
+| BLAKE3 moves into the `ATProtoNet.Spaces` namespace | its only user |
 
 ## Open points
 

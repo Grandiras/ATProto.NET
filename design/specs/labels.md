@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft |
-| **Packages** | `ATProtoNet` (namespace `ATProtoNet.Labels`), `ATProtoNet.Streaming` (`ATProtoNet.Streaming.Labels`), `ATProtoNet.AspNetCore` (`ATProtoNet.AspNetCore.Labels`) |
+| **Packages** | `ATProtoNet` (namespaces `ATProtoNet.Labels` and `ATProtoNet.Streaming.Labels`), `ATProtoNet.AspNetCore` (namespace `ATProtoNet.AspNetCore.Labels`) |
 | **Phase** | 6 (signing, verification, codec); 7 (stream consumer); 9 (labeler endpoints) |
 | **Depends on** | [data-model](data-model.md) (DRISL), [crypto](crypto.md) (`SigningKey`, `SignedObject`), [identity](identity.md) (`IDidResolver`, verify-with-refresh), [streaming](streaming.md), [server](server.md) |
 | **Normative references** | [Labels](https://atproto.com/specs/label) · [Event stream](https://atproto.com/specs/event-stream) · Lexicons `com.atproto.label.defs`, `com.atproto.label.queryLabels`, `com.atproto.label.subscribeLabels` · reference vectors from indigo and `@atproto/ozone` |
@@ -18,17 +18,17 @@ server; the label-stream consumer's label-specific rules; the `queryLabels` and
 **Out:** the label *model* (generated from `com.atproto.label.defs#label`,
 [lexicon](lexicon.md)); the `atproto-accept-labelers` request header and labeler routing
 ([xrpc-client](xrpc-client.md)); labeler declarations (`app.bsky.labeler.service`) and label value
-definitions (generated in `ATProtoNet.Bluesky`); self-labels in records (plain Lexicon data);
+definitions (generated with the `app.bsky` Lexicons, `ATProtoNet.Lexicons.App.Bsky.Labeler`); self-labels in records (plain Lexicon data);
 the generic stream runtime ([streaming](streaming.md)) and XRPC subscription hosting
 ([server](server.md)).
 
-### Package ownership
+### Ownership
 
-| Concern | Package | Why there |
+| Concern | Where | Why there |
 |---|---|---|
-| `LabelSigning` (signed bytes), `LabelSigner`, `LabelVerifier`, `LabelFrameCodec` | `ATProtoNet` | Needs the generated `Label` type and the resolver; both the consumer and the server use it. One codec, not an encoder in one package and a decoder in another (0.8 split them between `Labeling/` and `Streaming/`). |
-| `LabelStream` consumer | `ATProtoNet.Streaming` | Runs on the shared stream runtime. |
-| `queryLabels`, `subscribeLabels` endpoints, `ILabelSource` | `ATProtoNet.AspNetCore` | Server hosting. |
+| `LabelSigning` (signed bytes), `LabelSigner`, `LabelVerifier`, `LabelFrameCodec` | `ATProtoNet`, namespace `ATProtoNet.Labels` | Needs the generated `Label` type and the resolver; both the consumer and the server use it. One codec, not an encoder in one place and a decoder in another (0.8 split them between `Labeling/` and `Streaming/`). |
+| `LabelStream` consumer | `ATProtoNet`, namespace `ATProtoNet.Streaming.Labels` | Runs on the shared stream runtime. |
+| `queryLabels`, `subscribeLabels` endpoints, `ILabelSource` | `ATProtoNet.AspNetCore`, namespace `ATProtoNet.AspNetCore.Labels` | Server hosting needs ASP.NET Core. |
 
 ## Public API sketch
 
@@ -244,7 +244,7 @@ public interface ILabelSource
   source's retention gets an `#info` `OutdatedCursor` message and replay starts at the oldest
   available `seq`. Every label sent is signed (LBL-18), signing on the way out as in LBL-25.
   *Source:* [Event stream spec, sequence numbers](https://atproto.com/specs/event-stream) · **Decision**:
-  new in 1.0; 0.8 could not serve it although `docs/xrpc-handlers.md` claimed it did
+  new in 0.9; 0.8 could not serve it although `docs/xrpc-handlers.md` claimed it did
 - **LBL-27** (SHOULD) The labeler's DID document publishes the signer's key as `#atproto_label` and the
   service as `#atproto_labeler` / `AtprotoLabeler`; the hosting docs show how, and a startup check MAY
   warn when the configured labeler DID's document does not publish the signer's key.

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Draft |
-| **Package** | `ATProtoNet.Identity` (namespaces `ATProtoNet.Net`, `ATProtoNet.Identity`, `ATProtoNet.Identity.Plc`) |
+| **Package** | `ATProtoNet` (namespaces `ATProtoNet.Net`, `ATProtoNet.Identity`, `ATProtoNet.Identity.Plc`; network layer, above the foundation namespaces) |
 | **Phase** | 4 |
 | **Depends on** | [syntax](syntax.md), [data-model](data-model.md) (DRISL for PLC operations), [crypto](crypto.md) (`DidKey`, `VerificationKey`, `SigningKey`, `SignedObject`) |
 | **Normative references** | [DID](https://atproto.com/specs/did) · [Handle](https://atproto.com/specs/handle) · [Cryptography](https://atproto.com/specs/cryptography) · [did:plc](https://web.plc.directory/spec/v0.1/did-plc) · [did:web method](https://w3c-ccg.github.io/did-method-web/) · reference `@atproto/identity` (cache semantics) |
@@ -523,14 +523,14 @@ served through the real resolvers instead of resolver substitutes ([04 — Testi
 | Options split per component (`DidWebOptions`, `HandleResolverOptions`, `DidCacheOptions`, `UntrustedFetchPolicy`) | 0.8's `IdentityResolverOptions` configured four classes, each re-validating it |
 | Handle cache uses `TimeProvider` and its own capacity | AG-28 |
 | Typed PLC operations (genesis, update, tombstone, legacy create), `PlcOperationRejectedException` | 0.8 had genesis-only `JsonObject` building and reported rejections as resolution failures |
-| PLC export stream moves to `ATProtoNet.Streaming` | one stream runtime (D-07); 0.8's export stream ended silently on a dropped connection |
+| PLC export stream moves to the streaming namespaces (`ATProtoNet.Streaming.Plc`) | one stream runtime (D-07); 0.8's export stream ended silently on a dropped connection |
 | Reserved TLDs apply to `did:web` hosts | DID spec |
 | `IsEnforced` reports when the address policy cannot run | 0.8 skipped it silently on WASM |
 
 ## Open points
 
 1. **Native DNS.** Ship a UDP/TCP DNS TXT resolver against the system's configured resolvers as a
-   second `IDnsTxtResolver`, to avoid disclosing handles to a DoH provider? Proposed: not in 1.0;
+   second `IDnsTxtResolver`, to avoid disclosing handles to a DoH provider? Proposed: not in 0.9;
    keep the seam and document the privacy trade-off (IDN-11a).
 2. **PLC audit-chain verification.** Verify a DID's full operation log (signatures by rotation
    keys in force, `prev` chain, the 72-hour recovery window for higher-priority keys)? Proposed:

@@ -1,7 +1,7 @@
 # Authentication: sessions, OAuth, service auth — spec
 
-**Status:** Draft · **Packages:** `ATProtoNet` (namespaces `ATProtoNet.Auth`, `ATProtoNet.Auth.OAuth`,
-`ATProtoNet.Auth.ServiceAuth`) · **Phases:** 5 (session model, password sessions, PDS admin
+**Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet.Auth`, `ATProtoNet.Auth.OAuth`,
+`ATProtoNet.Auth.ServiceAuth`, and `ATProtoNet.Admin` for the admin handler) · **Phases:** 5 (session model, password sessions, PDS admin
 handler), 6 (OAuth, scopes, service auth) · **Prefix:** `AUT`
 
 **Normative references:** [atproto OAuth](https://atproto.com/specs/oauth) ·
@@ -175,7 +175,7 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
 - **AUT-4** (MUST) `SessionData` is an immutable, serialisable snapshot of one credential
   generation. Its JSON form (`SessionDataSerializer`, [STO-9](stores.md)) keeps 0.8's
   `$kind`-discriminated shape plus a format version, so 0.8 sessions convert without users
-  signing in again. The session hot path reads only the 1.0 format; 0.8 and 0.6 payloads are
+  signing in again. The session hot path reads only the 0.9 format; 0.8 and 0.6 payloads are
   read only by the one-off store migration helper ([stores.md](stores.md#open-points)).
   *Source:* 0.8 `AtProtoSessionJson.cs` · Decision for moving the 0.6 reader
   (`AtProtoSessionJson.cs:52-91`) out of the hot path
@@ -681,7 +681,7 @@ public sealed class PdsAdminHandler : IXrpcHandler { /* Basic or AdminAccount; x
 | DPoP nonce cache owned by the `OAuthClient` instance | AG-10 (no process-global state) |
 | Resource-side nonce retry requires `use_dpop_nonce` | AUT-56; consistent with the AS path |
 | `auth_server_mismatch` ends the session | 0.8 retried it forever |
-| Service-auth issuing and verification live in `ATProtoNet` (verifier moved from `ATProtoNet.Server`) | it has no ASP.NET dependency; hosting only wires it |
+| Service-auth issuing and verification live in the base `ATProtoNet` package (`ATProtoNet.Auth.ServiceAuth`; the verifier moved from `ATProtoNet.Server`) | it has no ASP.NET dependency; `ATProtoNet.AspNetCore` only wires it into an authentication scheme |
 | Verifier returns a verdict instead of throwing | invalid tokens are an expected outcome |
 | `ServiceAuthIssuer` does not dispose its key | AG-26 |
 | 0.6 and 0.8 stored sessions are read only by the one-off migration helper, not the hot path | Compatibility code stays out of the session path; users still keep their sign-ins |

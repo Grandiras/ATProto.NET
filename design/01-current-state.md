@@ -66,11 +66,14 @@ places better hardened than the reference implementations:
 
 ## Problems
 
-### 1. One assembly, internal cross-references
+### 1. No internal layering, cross-package internals, package lines in the wrong places
 
-- `ATProtoNet` contains everything from identifier syntax to an alpha data protocol. A
-  Jetstream indexer takes OAuth, Ozone and Spaces with it. A Spaces wire or schema change (five
-  in 0.7/0.8: #113, #211–#214) is a breaking change of the core package.
+- `ATProtoNet` contains everything from identifier syntax to an alpha data protocol, which is
+  fine for consumers. The problem is that nothing inside it keeps the areas apart: the transport
+  knows Spaces signing and PDS admin auth, `PlcClient` (identity) depends on streaming and Lexicon
+  code, the identifier types depend on a base32 helper that lives in `Repo`, and five components
+  run their own HTTP stacks. A Spaces wire or schema change (five in 0.7/0.8: #113, #211–#214) is
+  a breaking change of the core package because nothing marks the Spaces API as experimental.
 - Production assemblies use each other's internals. `ATProtoNet` grants `InternalsVisibleTo`
   to `Server` and `EntityFrameworkCore`, and `Server` grants it to `Blazor` and EF. The server
   package uses about a dozen core internals (`AtProtoSessionJson`, `KeyedLock`, `Jwt`,

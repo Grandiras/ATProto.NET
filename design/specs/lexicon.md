@@ -1,12 +1,14 @@
 # Lexicon: schema model, validation, code generation
 
-**Status:** Draft · **Packages:** `ATProtoNet.Lexicon` (schema model, catalog, lint and
-compatibility rules, validation, generated-code runtime), `ATProtoNet.Lexicon.CodeGen` (emitter),
-`ATProtoNet.Lexicon.Generator` (Roslyn), and the generated code checked into `ATProtoNet`,
-`ATProtoNet.Bluesky`, `ATProtoNet.Ozone`, `ATProtoNet.StandardSite`, `ATProtoNet.Spaces`; runtime
-Lexicon resolution in `ATProtoNet` · **Phase:** 3 (model, validation, CodeGen, first-party
-`com.atproto` generation), 6 (runtime resolution), 8 (source generator, remaining Lexicon
-packages) · **Normative references:** [Lexicon](https://atproto.com/specs/lexicon),
+**Status:** Draft · **Package:** `ATProtoNet` — namespaces `ATProtoNet.Lexicon` (schema model,
+catalog, lint and compatibility rules, validation), `ATProtoNet.Lexicon.Runtime` (generated-code
+runtime), `ATProtoNet.LexiconResolution` (runtime resolution), and the generated
+`ATProtoNet.Lexicons.*` families checked in under `src/ATProtoNet/Generated/`. Internal build
+projects: `ATProtoNet.Lexicon.CodeGen` (emitter, `netstandard2.0`) and
+`ATProtoNet.Lexicon.Generator` (Roslyn), which ships as an analyzer inside the `ATProtoNet`
+package · **Phase:** 3 (model, validation, CodeGen, first-party `com.atproto` generation), 6
+(runtime resolution), 8 (bundled source generator, the remaining Lexicon families) ·
+**Normative references:** [Lexicon](https://atproto.com/specs/lexicon),
 [Lexicon versioning](https://atproto.com/guides/lexicon#versioning),
 [Data model](https://atproto.com/specs/data-model), [NSID](https://atproto.com/specs/nsid),
 [Record key](https://atproto.com/specs/record-key),
@@ -156,7 +158,8 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
 
 ### Schema object model
 
-- **LEX-1** (MUST) There is exactly one Lexicon schema object model, in `ATProtoNet.Lexicon`. The
+- **LEX-1** (MUST) There is exactly one Lexicon schema object model, in the `ATProtoNet.Lexicon`
+  namespace. The
   runtime (validation, resolution), CodeGen, the CLI and the tests all use it. No second
   representation of Lexicon documents, permission sets or defs exists anywhere in the codebase.
   *Source:* Decision · 0.8 has three overlapping models (`tools/…/Schema/LexiconDocument.cs`, the
@@ -202,8 +205,8 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   *Source:* [Lexicon spec: ref](https://atproto.com/specs/lexicon) · LEX-3
 - **LEX-8** (MUST) Definitions outside the catalog's documents resolve through
   `IExternalLexicons`. The generator and CLI implement it from `[LexiconDefinition]` attributes on
-  types in referenced assemblies (Roslyn symbols in the generator, `System.Reflection.Metadata` in
-  the CLI, never loading the assembly). This replaces 0.8's hand-maintained `SdkTypeMap`.
+  types in referenced assemblies, `ATProtoNet` itself included (Roslyn symbols in the generator,
+  `System.Reflection.Metadata` in the CLI, never loading the assembly). This replaces 0.8's hand-maintained `SdkTypeMap`.
   *Source:* Decision · 0.8 `tools/…/CodeGen/SdkTypeMap.cs` (≈45 hand-listed entries)
 - **LEX-9** (MUST) Recursive structures through `ref`/`union` (thread views, nested replies) are
   supported. The catalog detects only cycles that cannot terminate (a required, non-nullable,
@@ -212,7 +215,7 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
 
 ### Lint rules
 
-- **LEX-10** (MUST) Lint rules live in `ATProtoNet.Lexicon` (`LexiconLint`), with stable rule IDs
+- **LEX-10** (MUST) Lint rules live in the `ATProtoNet.Lexicon` namespace (`LexiconLint`), with stable rule IDs
   (`LXL001`…), severity `Error` or `Warning`, a message and a JSON pointer. The CLI's `lint` and
   `publish` and the generator all run the same rules.
   *Source:* Decision · 0.8 `tools/…/Validation/LexiconLinter.cs`
@@ -274,7 +277,7 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   *Source:* [Record key spec](https://atproto.com/specs/record-key)
 - **LEX-21** (SHOULD) Validation is opt-in on the client (records API, see [xrpc-client.md](xrpc-client.md)):
   servers validate authoritatively, and a client with an older schema must not reject newer data.
-  The server package validates inputs it serves ([server.md](server.md)).
+  `ATProtoNet.AspNetCore` validates inputs it serves ([server.md](server.md)).
   *Source:* Decision
 
 ### Vendored Lexicons and manifest
@@ -305,23 +308,26 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   generated C#. The CLI's `generate` and the Roslyn generator both call it; for the same inputs
   and options their output is byte-identical (a golden test asserts this).
   *Source:* [D-04](../06-decisions.md#d-04-generate-the-lexicon-surface-from-vendored-lexicon-json)
-- **LEX-26** (MUST) CodeGen compiles the schema-model sources of `ATProtoNet.Lexicon` as linked
-  files (one source of truth, compiled twice). The linked sources declare their accessibility
-  through a conditional symbol so they are `public` in `ATProtoNet.Lexicon` and `internal` in
-  CodeGen; CodeGen's public API takes Lexicon JSON text, options and an `IExternalLexicons`, and
+- **LEX-26** (MUST) CodeGen compiles the schema-model sources of the `ATProtoNet.Lexicon`
+  namespace (in the `ATProtoNet` project) as linked files (one source of truth, compiled twice).
+  The linked sources declare their accessibility through a conditional symbol so they are
+  `public` in `ATProtoNet` and `internal` in CodeGen; CodeGen's public API takes Lexicon JSON text, options and an `IExternalLexicons`, and
   returns files plus diagnostics. No `InternalsVisibleTo` is needed. The linked sources use only
   APIs available on `netstandard2.0` with the System.Text.Json package.
-  *Source:* [02 — Architecture rules 3 and 5](../02-architecture.md#rules)
-- **LEX-27** (MUST) `ATProtoNet.Lexicon.Generator` is an `IIncrementalGenerator` that packs CodeGen
-  and its dependencies (System.Text.Json for `netstandard2.0` and its transitive packages) into
-  `analyzers/dotnet/cs`. Phase 3 starts with a spike that proves this loads in `dotnet build`,
-  the compiler server, Visual Studio and Rider. If the spike fails, the fallback is an MSBuild
-  task package (`ATProtoNet.Lexicon.Build`) that runs the same emitter before `CoreCompile` with
-  incremental `Inputs`/`Outputs`, the way Grpc.Tools runs protoc. First-party generation (CLI,
-  checked in) is unaffected either way.
+  *Source:* [02 — Architecture rules](../02-architecture.md#rules) (no `InternalsVisibleTo`
+  outside tests; the generator has no runtime dependency on the SDK)
+- **LEX-27** (MUST) `ATProtoNet.Lexicon.Generator` is an internal build project: an
+  `IIncrementalGenerator` packed, together with CodeGen and its dependencies (System.Text.Json for
+  `netstandard2.0` and its transitive packages), into `analyzers/dotnet/cs` of the **`ATProtoNet`
+  package**. There is no separate generator package: referencing `ATProtoNet` is all a user
+  needs. Phase 3 starts with a spike that proves this loads in `dotnet build`, the compiler
+  server, Visual Studio and Rider. If the spike fails, the fallback is an MSBuild task, shipped in
+  the same `ATProtoNet` package's `build/` targets, that runs the same emitter before
+  `CoreCompile` with incremental `Inputs`/`Outputs`, the way Grpc.Tools runs protoc. First-party
+  generation (CLI, checked in) is unaffected either way.
   *Source:* Decision
-- **LEX-28** (MUST) First-party generated code is checked in under each package's `Generated/`
-  folder. CI regenerates it and fails on any difference (`git diff --exit-code`), and a test
+- **LEX-28** (MUST) First-party generated code is checked in under `src/ATProtoNet/Generated/`,
+  one folder per Lexicon family. CI regenerates it and fails on any difference (`git diff --exit-code`), and a test
   generates every vendored Lexicon and compiles the result with Roslyn with zero diagnostics:
   assertions on emitted text alone let a CS0266 ship (#141).
   *Source:* [D-04](../06-decisions.md#d-04-generate-the-lexicon-surface-from-vendored-lexicon-json) ·
@@ -332,10 +338,12 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   `using` directive is needed and namespace/type name clashes cannot break compilation. Output is
   deterministic: no timestamps, stable ordering by NSID, def name and property declaration order.
   *Source:* Decision · 0.8 #45 (missing `using`s, `global::` qualification)
-- **LEX-30** (MUST) Every generated assembly emits one `{Name}Lexicons` static class and
-  `[assembly: LexiconAssembly(typeof({Name}Lexicons))]`. The class exposes the assembly's
-  `IJsonTypeInfoResolver`, a `Register(LexiconTypeRegistry)` method that adds its records and
-  union-extension variants, and the NSID → type table that external generators read.
+- **LEX-30** (MUST) Every generation unit (each first-party Lexicon family inside `ATProtoNet`,
+  or a user project) emits one `{Name}Lexicons` static class (`AtProtoLexicons`,
+  `BlueskyLexicons`, …) and `[assembly: LexiconAssembly(typeof({Name}Lexicons))]`; an assembly
+  may carry several. The class exposes the unit's `IJsonTypeInfoResolver`, a
+  `Register(LexiconTypeRegistry)` method that adds its records and union-extension variants, and
+  the NSID → type table that external generators read.
   *Source:* Decision (replaces 0.8 `ILexiconPlugin` and the global registry)
 
 ### Configuration
@@ -356,9 +364,12 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
 
   First-party configuration sets `accessors` (`com.atproto` → `@root`, `app.bsky` → `Bsky`,
   `chat.bsky` → `Chat`, `tools.ozone` → `Ozone`, `site.standard` → `StandardSite`,
-  `com.atproto.space`/`simplespace` → `@root` in `ATProtoNet.Spaces`), `proxies` (`chat.bsky.**`
+  `com.atproto.space` → `Space`, `com.atproto.simplespace` → `SimpleSpace`; the more specific
+  entries win over `com.atproto` → `@root`, so the Spaces accessors are extension properties and
+  the client core never references the experimental Spaces layer), `proxies` (`chat.bsky.**`
   except `chat.bsky.moderation.**` → `did:web:api.bsky.chat#bsky_chat`), `experimental`
-  (`app.bsky.unspecced.**` → `ATPROTO002`) and `exclude`
+  (`app.bsky.unspecced.**` → `ATPROTO002`; `com.atproto.space.**` and
+  `com.atproto.simplespace.**` → `ATPROTO001`) and `exclude`
   (`app.bsky.notification.getGroupedNotifications`, flagged unstable upstream).
   *Source:* 0.8 `ConvoClient.cs:16` and siblings (chat proxy), `Upstream/README.md`
   (getGroupedNotifications) · [D-16](../06-decisions.md#d-16-experimental-diagnostic-ids) ·
@@ -578,7 +589,7 @@ public static class BlueskyClientExtensions
   | `string` (no format) | `string` |
   | `string` format `did`, `handle`, `at-identifier`, `at-uri`, `nsid`, `cid`, `record-key`, `tid`, `datetime`, `language` | `Did`, `Handle`, `AtIdentifier`, `AtUri`, `Nsid`, `Cid`, `RecordKey`, `Tid`, `AtDatetime`, `Language` |
   | `string` format `uri` | `string` (keeps the exact text; `System.Uri` normalises) |
-  | other formats | the type a referenced assembly declares with `[LexiconFormatType]` (`space-ref` → `SpaceUri`), else `string` with a warning |
+  | other formats | the type the compilation or a referenced assembly declares with `[LexiconFormatType]` (`space-ref` → `SpaceUri`, declared in `ATProtoNet`), else `string` with a warning |
   | `string` with `knownValues` or `enum` | known-values struct (LEX-47) |
   | `bytes` | `ReadOnlyMemory<byte>` (`{"$bytes": …}`) |
   | `cid-link` | `CidLink` (`{"$link": …}`) |
@@ -624,17 +635,21 @@ public static class BlueskyClientExtensions
 
 - **LEX-49** (MUST) A union is a generated `partial interface` with `[JsonConverter]` pointing at a
   generated converter. A variant type in the same assembly implements every union interface of
-  that assembly it belongs to. A variant from an upstream assembly cannot implement a downstream
-  interface (22 of the 103 upstream unions name such members, for example `com.atproto.label.defs#selfLabels`
-  in `app.bsky.feed.post#labels`), so the downstream assembly generates a derived record
-  `{Union}{Variant}` (`PostLabelsSelfLabels : SelfLabels, IPostLabels`) and a static
-  `IPostLabels.From(SelfLabels)` factory. The converter reads such members as the derived type, so
-  `post.Labels is SelfLabels labels` works; the wire shape is the variant's own. For this to work
-  in user assemblies too, generated named object and record types are `partial record` but **not sealed**
-  (a documented exception to [AG-6](../03-api-guidelines.md#types)); method `Parameters`,
-  `Input`, `Output` and inline types stay sealed.
-  *Source:* [D-18](../06-decisions.md#d-18-unions-are-interfaces) · Lexicon survey (cross-package
-  union members: Ozone→core 10, Bluesky→core 6, Ozone→Bluesky 4, StandardSite→core 2)
+  that assembly it belongs to. All first-party Lexicons are generated into the one `ATProtoNet`
+  assembly, so every first-party union is a plain interface, including the 22 of 103 upstream
+  unions that cross Lexicon families (for example `com.atproto.label.defs#selfLabels` in
+  `app.bsky.feed.post#labels`: `SelfLabels` simply implements `IPostLabels`). A **user's**
+  assembly cannot make an SDK type implement its interface, so when a user union names an SDK
+  type, the user assembly generates a derived record `{Union}{Variant}`
+  (`MyThingLabelsSelfLabels : SelfLabels, IMyThingLabels`) and a static
+  `IMyThingLabels.From(SelfLabels)` factory. The converter reads such members as the derived type,
+  so `thing.Labels is SelfLabels labels` works; the wire shape is the variant's own. For this to
+  work, generated named object and record types are `partial record` but **not sealed** (a
+  documented exception to [AG-6](../03-api-guidelines.md#types)); method `Parameters`, `Input`,
+  `Output` and inline types stay sealed.
+  *Source:* [D-18](../06-decisions.md#d-18-unions-are-interfaces) · Lexicon survey (cross-family
+  union members: Ozone→core 10, Bluesky→core 6, Ozone→Bluesky 4, StandardSite→core 2; all
+  resolved inside the one assembly)
 - **LEX-50** (MUST) Open unions get an `Unknown…` variant implementing `IUnknownUnionVariant`
   (`Type` = the `$type`, `Raw` = a detached copy of the object) that writes back its raw JSON
   unchanged. Closed unions have no unknown variant.
@@ -746,15 +761,18 @@ public static class BlueskyClientExtensions
   child groups as properties (`BskyNamespace.Feed`).
   *Source:* [D-12](../06-decisions.md#d-12-generated-xrpc-methods-take-one-parameters-record),
   [AG-11–AG-13](../03-api-guidelines.md#methods-and-parameters)
-- **LEX-67** (MUST) Accessors: for `@root` prefixes in the package that declares `AtProtoClient`,
-  the generator emits instance properties into a `partial class AtProtoClient` part
-  (`client.Repo`); everywhere else it emits C# 14 extension properties
-  (`extension(AtProtoClient client) { public BskyNamespace Bsky => new(client); }`).
+- **LEX-67** (MUST) Accessors: for `@root` prefixes (`com.atproto`, which sits in the same layer as
+  the client core), the generator emits instance properties into a `partial class AtProtoClient`
+  part (`client.Repo`). For every other accessor, first-party families in the same assembly
+  included, it emits C# 14 extension properties
+  (`extension(AtProtoClient client) { public BskyNamespace Bsky => new(client); }`), so the
+  client core namespace never references the Lexicon families' namespaces (enforced by the
+  architecture tests) and users' generated Lexicons attach the same way.
   *Source:* [D-13](../06-decisions.md#d-13-lexicon-namespace-access-through-extension-properties)
 - **LEX-68** (MUST) Namespace clients expose no subscription methods. Subscriptions are consumed
-  through `ATProtoNet.Streaming` with the generated `XrpcSubscription` descriptor
+  through the `ATProtoNet.Streaming` namespace with the generated `XrpcSubscription` descriptor
   ([streaming.md](streaming.md)) and served through [server.md](server.md). Message defs
-  (`#commit`, `#identity`, …) are generated like object defs; the streaming package binds the hot
+  (`#commit`, `#identity`, …) are generated like object defs; the streaming layer binds the hot
   ones directly from DRISL-CBOR into these same types (D-10), so each message def still has
   exactly one type.
   *Source:* [D-07](../06-decisions.md#d-07-one-consumption-model-for-every-event-stream)
@@ -780,7 +798,7 @@ public static class BlueskyClientExtensions
 
 #### Serialization contexts
 
-- **LEX-72** (MUST) Each generated assembly has one source-generated `JsonSerializerContext`
+- **LEX-72** (MUST) Each generation unit (LEX-30) has one source-generated `JsonSerializerContext`
   covering every generated type and every external type its descriptors and unions reach, so its
   descriptors work without a global resolver chain. Context options: no naming policy,
   case-sensitive, `JsonNumberHandling.Strict`, `WhenWritingNull`, `RespectNullableAnnotations`.
@@ -802,8 +820,8 @@ public static class BlueskyClientExtensions
   `include:` scope string [auth.md](auth.md) parses.
   *Source:* 0.8 #130 (`Include(aud)`), `AtProtoScopes.PermissionSets` must match published sets
 - **LEX-76** (MUST, experimental) A `space` def becomes a static class exposing the declaration as
-  `ATProtoNet.Spaces.SpaceTypeDeclaration` when that assembly is referenced, otherwise a warning
-  and no output.
+  `ATProtoNet.Spaces.SpaceTypeDeclaration` (in `ATProtoNet`, so always available to generated
+  code), marked `[Experimental("ATPROTO001")]`.
   *Source:* 0.8 #92 · `Emit_SpaceDeclaration_*`
 
 ### Hand-written code on top of generated code
@@ -818,11 +836,12 @@ public static class BlueskyClientExtensions
 
 ### Users' own Lexicons
 
-- **LEX-79** (MUST) A user adds `ATProtoNet.Lexicon.Generator` and lists schemas as
-  `<AtProtoLexicon Include="lexicons/**/*.json" />`; the package's props turn these into
-  `AdditionalFiles` with metadata the generator reads. An optional `lexgen.json` in the same
-  items configures generation. Refs to first-party NSIDs resolve to the referenced SDK packages'
-  types (LEX-8), so users vendor only their own schemas.
+- **LEX-79** (MUST) A user references `ATProtoNet` (which carries the generator, LEX-27) and lists
+  schemas as `<AtProtoLexicon Include="lexicons/**/*.json" />`; `ATProtoNet`'s build props turn
+  these into `AdditionalFiles` with metadata the generator reads. A project with no
+  `AtProtoLexicon` items generates nothing and pays nothing beyond the analyzer load. An optional
+  `lexgen.json` in the same items configures generation. Refs to first-party NSIDs resolve to the
+  SDK's types (LEX-8), so users vendor only their own schemas.
   *Source:* Decision
 - **LEX-80** (MUST) Generated user code has the same shape as first-party code: records work with
   `client.Records<T>()`, methods hang off `client.{Accessor}`, unions and known values behave
@@ -833,7 +852,8 @@ public static class BlueskyClientExtensions
 ### Runtime Lexicon resolution
 
 - **LEX-81** (MUST, experimental `ATPROTO004`) `LexiconResolver` (namespace
-  `ATProtoNet.LexiconResolution`, package `ATProtoNet`) resolves an NSID by querying the DNS TXT
+  `ATProtoNet.LexiconResolution`, in the network layer because it does I/O, which the foundation
+  `ATProtoNet.Lexicon` namespace must not) resolves an NSID by querying the DNS TXT
   record `_lexicon.{authority segments reversed, without the name segment}` (not hierarchical),
   requiring exactly one `did=` value, resolving that DID, fetching
   `com.atproto.lexicon.schema/{nsid}` with `com.atproto.sync.getRecord` from its PDS, verifying the
@@ -898,7 +918,8 @@ success-body cap already bounds ([xrpc-client.md](xrpc-client.md)).
 | All Lexicon models and clients are generated; 100% of vendored methods are covered (0.8: 279 of 321) | D-04 |
 | One type per def; merged shapes (`FeedResponse`, `ConvoIdRequest`) and their names disappear | LEX-38: generated code cannot share shapes without heuristics |
 | Unions are interfaces with generated converters; no `Unknown*` hand classes, no duplicate embed types | D-18 |
-| Named object and record types are unsealed so downstream unions can derive from them | LEX-49 |
+| Named object and record types are unsealed so users' Lexicon assemblies can derive from them to join their unions | LEX-49 |
+| The source generator ships inside the `ATProtoNet` package; there is no generator package to add | One base package ([D-03](../06-decisions.md#d-03-package-map)) |
 | A union variant serialized outside union context writes no `$type` (0.8 always wrote it) | Lexicon spec: no `$type` on plain refs; records and union members are unaffected |
 | No `AtProtoRecord` base class or #49 contract modifier; `createdAt` stamping via `ICreatedAtRecord<TSelf>` | One record pattern |
 | `integer` maps by the D-19 rule (0.8: `int` 189×, `long` 33×, no rule) | D-19 |
@@ -919,7 +940,7 @@ success-body cap already bounds ([xrpc-client.md](xrpc-client.md)).
 | LEX-O1 | Align `lexicons.json` exactly with `@atproto/lex`'s manifest (`version`, `lexicons`, `resolvers`, `resolutions`) so one manifest serves several SDKs? | Yes where the formats overlap; our extra fields (CID-in-record-form, provenance) go under an `x-atprotonet` key. Verify against `@atproto/lex-installer` at phase 3 start. |
 | LEX-O2 | Closed `enum` as an open struct (LEX-47) or a C# `enum`? | Open struct, lenient read, validator-enforced; a C# enum breaks readers when upstream breaks the rule. |
 | LEX-O3 | Exact extension-data property type (`IDictionary<string, JsonElement>` vs `JsonObject`) under STJ source generation with `init`. | Whichever STJ source generation supports with `init` and no reflection; decided in the phase 3 spike. |
-| LEX-O4 | Cross-assembly union membership (LEX-49): derived records (unsealed object types) or wrapper adapters (`{Union}{Variant}(Value)`, types stay sealed)? | Derived records: pattern matching on the upstream type keeps working. Adapters need `is X { Value: var v }` everywhere Ozone and Bluesky read such fields. |
+| LEX-O4 | Union membership of SDK types in users' unions (LEX-49): derived records (unsealed object types) or wrapper adapters (`{Union}{Variant}(Value)`, types stay sealed)? First-party unions need neither (one assembly). | Derived records: pattern matching on the SDK type keeps working in user code. Adapters need `is X { Value: var v }` everywhere such fields are read. |
 | LEX-O5 | Generate `Enumerate*Async` for every paginated query (LEX-71) or only listed ones? | Every one. |
 | LEX-O6 | Direct DRISL-CBOR binding for generated types (skipping `DataModelValue`)? | Later optimisation behind the same API (D-10). |
 | LEX-O7 | Should `app.bsky.unspecced.*` be generated at all? | Yes, marked `ATPROTO002`. |

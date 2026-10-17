@@ -1,7 +1,9 @@
 # Hosting, DI and integrations — spec
 
-**Status:** Draft · **Packages:** `ATProtoNet.Hosting`, `ATProtoNet.Blazor`,
-`ATProtoNet.Aspire.Hosting` · **Phase:** 9 (Hosting, Blazor), 11 (Aspire.Hosting port) ·
+**Status:** Draft · **Packages:** `ATProtoNet` (namespace `ATProtoNet.Hosting`; registration
+extension methods in `Microsoft.Extensions.DependencyInjection` and, for Aspire,
+`Microsoft.Extensions.Hosting`), `ATProtoNet.Blazor`, `ATProtoNet.Aspire.Hosting` ·
+**Phase:** 9 (hosting layer, Blazor), 11 (Aspire.Hosting port) ·
 **Normative references:** [.NET generic host](https://learn.microsoft.com/dotnet/core/extensions/generic-host),
 [Options pattern](https://learn.microsoft.com/dotnet/core/extensions/options),
 [`IHttpClientFactory`](https://learn.microsoft.com/dotnet/core/extensions/httpclient-factory),
@@ -12,12 +14,16 @@
 
 In scope:
 
-- `ATProtoNet.Hosting`: the `services.AddAtProto()` builder and its verbs, options binding and
-  validation, the named `HttpClient` registry, the per-user client factory, session-store
-  selection, identity registration, PDS admin registration, stream workers, health checks,
-  in-memory fallback warnings, telemetry wiring, and the Aspire **client** integration. It
-  depends on `Microsoft.Extensions.*` abstractions and `Microsoft.AspNetCore.DataProtection`,
-  never on the ASP.NET Core shared framework.
+- The hosting layer, namespace `ATProtoNet.Hosting` inside the base `ATProtoNet` package: the
+  `services.AddAtProto()` builder and its verbs, options binding and validation, the named
+  `HttpClient` registry, the per-user client factory, session-store selection, the file session
+  store and distributed-cache OAuth state store, refresh coordination, identity registration, PDS
+  admin registration, stream workers, health checks, in-memory fallback warnings, telemetry
+  wiring, and the Aspire **client** integration. For it, `ATProtoNet` depends on small
+  `Microsoft.Extensions.*` packages (Logging, Caching and DependencyInjection abstractions,
+  Options, Http, Hosting.Abstractions, Diagnostics.HealthChecks.Abstractions) and
+  `Microsoft.AspNetCore.DataProtection.Abstractions` (the encrypted file store), never on the
+  ASP.NET Core shared framework. Worker services and console apps need only `ATProtoNet`.
 - `ATProtoNet.Blazor`: the per-circuit user client accessor and the login form
   ([D-09](../06-decisions.md#d-09-blazor-components)).
 - `ATProtoNet.Aspire.Hosting`: AppHost resources for the official Bluesky PDS and Tranquil PDS
@@ -31,7 +37,7 @@ behaviour ([auth.md](auth.md)).
 ## Public API sketch
 
 ```csharp
-// ── ATProtoNet.Hosting ────────────────────────────────────────────────
+// ── ATProtoNet (namespace ATProtoNet.Hosting) ─────────────────────────
 builder.Services.AddAtProto(o => o.ServiceUrl = new Uri("https://bsky.social"))   // binds "AtProto" too
     .AddClientFactory()                                   // IAtProtoClientFactory
     .UseFileSessionStore(o => o.Directory = "/var/lib/app/sessions")   // replace semantics (AG-25)
@@ -54,7 +60,7 @@ public static class AtProtoHttpClientNames
     public const string OAuth = "ATProtoNet.OAuth";         // SSRF-guarded primary handler
     public const string Streaming = "ATProtoNet.Streaming";
     public const string Admin = "ATProtoNet.Admin";
-    public const string Spaces = "ATProtoNet.Spaces";       // registered only by the Spaces packages
+    public const string Spaces = "ATProtoNet.Spaces";       // registered only when an experimental Spaces feature is added
     public static IReadOnlyList<string> All { get; }
 }
 
@@ -115,8 +121,9 @@ applies to the SDK's DI builder, not to AppHost resource builders.
   order of other calls, and a `Use*` call replaces the in-memory default without a warning.
   *Source:* [AG-25](../03-api-guidelines.md#options-configuration-and-dependency-injection) ·
   0.8 `AtProtoBuilderExtensions.cs:114-119` · test `WithSessionStore_OfAType_IsTheStoreEitherWayRound`
-- **HST-3** (MUST) Every extension method of `ATProtoNet.Hosting`, `ATProtoNet.AspNetCore`,
-  `ATProtoNet.EntityFrameworkCore` and `ATProtoNet.Blazor` hangs off `AtProtoBuilder`, except
+- **HST-3** (MUST) Every registration extension method of `ATProtoNet` (its hosting layer),
+  `ATProtoNet.AspNetCore`, `ATProtoNet.EntityFrameworkCore` and `ATProtoNet.Blazor` hangs off
+  `AtProtoBuilder`, except
   `AddAtProtoServiceAuth` (on `AuthenticationBuilder`), `MapAtProto*` (on
   `IEndpointRouteBuilder`) and `AddAtProtoClient` (on `IHostApplicationBuilder`, Aspire
   convention). *Source:* **Decision**: 0.8 has 32 entry points on 7 receivers with mixed verbs.
@@ -153,8 +160,8 @@ applies to the SDK's DI builder, not to AppHost resource builders.
   | `AtProto:Streams:{StreamId}` | one stream worker's options |
   | `AtProto:HealthChecks` | health-check switches (`Enabled`) |
 
-  Key strings are defined once in `AtProtoConfigurationKeys` and used by both
-  `ATProtoNet.Hosting` and `ATProtoNet.Aspire.Hosting` (through a linked source file, since the
+  Key strings are defined once in `AtProtoConfigurationKeys` and used by both the hosting layer
+  of `ATProtoNet` and `ATProtoNet.Aspire.Hosting` (through a linked source file, since the
   AppHost package does not reference the SDK). *Source:* **Decision**: 0.8 duplicates
   `"AtProto:Pds"` and `"AtProto__Pds__Url"` across packages, and puts `DisableHealthChecks`
   inside the client options section.
@@ -406,17 +413,17 @@ applies to the SDK's DI builder, not to AppHost resource builders.
 - New tests: Jetstream health check failure status, resilience handlers removed from every named
   client under Aspire service defaults, culture-invariant environment formatting (run under
   `de-DE`), stream worker commit-after-handler and flush-on-stop, duplicate `StreamId`, a worker
-  service host with no ASP.NET Core reference (proves `ATProtoNet.Hosting` stands alone).
+  service host referencing only `ATProtoNet` (proves the hosting layer needs no ASP.NET Core).
 
 ## Changes from 0.8
 
 | Change | Reason |
 |---|---|
-| `ATProtoNet.Hosting` split from the ASP.NET Core package | Workers and console apps get DI, factory, stores, stream workers without the shared framework |
+| The hosting layer moves from the ASP.NET Core package into the base `ATProtoNet` package | Workers and console apps get DI, factory, stores, stream workers from one package, without the shared framework |
 | `Add*`/`Use*` on one builder; no `With*`, no `WithLifetime` | AG-25; immutable clients |
 | Factory keyed by `Did`; principal adapter in AspNetCore | Hosting has no ASP.NET dependency; one OAuth-only rule |
 | Named-client registry and `ConfigureHttpClients` | One place to configure every SDK client; Aspire removes retries from all |
-| Per-feature startup warnings | Stable packages carry no Spaces knowledge (D-08) |
+| Per-feature startup warnings | Stable code carries no Spaces knowledge outside the experimental Spaces namespaces (D-08) |
 | Stream workers (new) | 0.8 consumers have no hosted-service integration |
 | Telemetry | 0.8 has none |
 | Pinned image tags; secrets as parameters only; invariant formatting; consistent AppHost names | Reproducibility and security |

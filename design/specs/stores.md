@@ -1,17 +1,18 @@
 # Stores — spec
 
-**Status:** Draft · **Packages:** interfaces and in-memory implementations next to their
-consumers (`ATProtoNet`, `ATProtoNet.Streaming`); file and distributed-cache implementations in
-`ATProtoNet.Hosting`; EF Core implementations in `ATProtoNet.EntityFrameworkCore` (Spaces stores
-in `ATProtoNet.Spaces.EntityFrameworkCore`) · **Phase:** interfaces with their consumers
-(5, 6, 7); file, distributed and EF implementations in 9 ·
-**Normative references:** [D-15](../06-decisions.md#d-15-stores-are-interfaces-in-the-package-that-uses-them-implementations-live-elsewhere),
+**Status:** Draft · **Packages:** `ATProtoNet` holds the interfaces and in-memory
+implementations next to their consumers (namespaces `ATProtoNet.Auth`, `ATProtoNet.Streaming`) and
+the file and distributed-cache implementations (namespace `ATProtoNet.Hosting`);
+`ATProtoNet.EntityFrameworkCore` holds the EF Core implementations, including the experimental
+Spaces stores · **Phase:** interfaces with their consumers (5, 6, 7); file, distributed and EF
+implementations in 9 ·
+**Normative references:** [D-15](../06-decisions.md#d-15-store-interfaces-live-next-to-their-consumers-implementations-live-with-their-dependencies),
 [D-22](../06-decisions.md#d-22-session-stores-support-compare-and-swap),
 [ASP.NET Core Data Protection](https://learn.microsoft.com/aspnet/core/security/data-protection/introduction)
 
 ## Scope
 
-Every persistence seam of the stable packages: what each interface promises, which
+Every persistence seam of the stable API: what each interface promises, which
 implementations ship, how they encrypt, and the contract test suites every implementation runs.
 
 | Interface | Defined in | Consumer | In-memory | File | Distributed cache | EF Core |
@@ -23,8 +24,10 @@ implementations ship, how they encrypt, and the contract test suites every imple
 | `IRepoSyncStateStore` | `ATProtoNet.Streaming` (`.Firehose`) | Sync 1.1 verifier and resync | yes | no | no | yes |
 
 Spaces stores (authority, `simplespace`, credential revocation) are specified in
-[spaces.md](spaces.md); they follow the rules of this spec and live in the Spaces packages
-([D-08](../06-decisions.md#d-08-spaces-is-quarantined-as-experimental)).
+[spaces.md](spaces.md); they follow the rules of this spec, live in the `ATProtoNet.Spaces`
+namespaces (interfaces in `ATProtoNet`, EF implementations in `ATProtoNet.EntityFrameworkCore`)
+and are `[Experimental("ATPROTO001")]`
+([D-08](../06-decisions.md#d-08-spaces-is-experimental)).
 
 Out of scope: caches that are not stores (DID document cache, handle cache, DPoP nonce cache),
 which are specified with their consumers.
@@ -83,7 +86,7 @@ public interface IRepoSyncStateStore
     ValueTask<IReadOnlyList<RepoSyncState>> ListUnsynchronizedAsync(int limit, CancellationToken cancellationToken = default);
 }
 
-// ── Registration (ATProtoNet.Hosting / ATProtoNet.EntityFrameworkCore) ──
+// ── Registration (ATProtoNet's ATProtoNet.Hosting namespace / ATProtoNet.EntityFrameworkCore package) ──
 builder.Services.AddAtProto()
     .UseFileSessionStore(o => o.Directory = "/var/lib/app/sessions")
     .UseDistributedOAuthStateStore()
@@ -106,8 +109,8 @@ modelBuilder.ConfigureAtProtoSessions();      // also ConfigureAtProtoOAuthState
   (timestamps, expiry, sweeps). *Source:* [AG-28](../03-api-guidelines.md#resources-and-lifetimes) ·
   0.8 EF stores use `DateTimeOffset.UtcNow` (`EfCoreAtProtoSessionStore.cs:66,74`)
 - **STO-3** (MUST NOT) No store starts background work on its own. Expired-row sweeps run inline
-  on writes (rate-limited) or through an explicit `PurgeAsync`; `ATProtoNet.Hosting` offers an
-  opt-in hosted service that calls `PurgeAsync` periodically. *Source:* [AG-27](../03-api-guidelines.md#resources-and-lifetimes)
+  on writes (rate-limited) or through an explicit `PurgeAsync`; the `ATProtoNet.Hosting` namespace
+  offers an opt-in hosted service that calls `PurgeAsync` periodically. *Source:* [AG-27](../03-api-guidelines.md#resources-and-lifetimes)
 - **STO-4** (MUST) Stores never log secrets (tokens, keys, PKCE verifiers, state values); they
   log DIDs, stream IDs and hashed keys only. *Source:* [AG-29](../03-api-guidelines.md#security)
 
@@ -242,8 +245,9 @@ modelBuilder.ConfigureAtProtoSessions();      // also ConfigureAtProtoOAuthState
   `Synchronized`, oldest update first, at most `limit`. *Source:* 0.8 · test
   `EfCoreRepoSyncStateStoreTests.ListUnsynchronizedAsync_ReturnsTheOldestFirst_UpToTheLimit`
 - **STO-34** (MUST) The EF implementation (table `AtProtoRepoSyncStates`, status stored by name)
-  lives in `ATProtoNet.EntityFrameworkCore`, which depends on `ATProtoNet.Hosting`, not on the
-  ASP.NET Core shared framework, so a firehose worker can use it. *Source:* 0.8 · test
+  lives in `ATProtoNet.EntityFrameworkCore`, which depends on `ATProtoNet` and EF Core Relational,
+  not on `ATProtoNet.AspNetCore` or the ASP.NET Core shared framework, so a firehose worker can
+  use it. *Source:* 0.8 · test
   `ConfigureRepoSyncStateModel_MapsTheTableAndStoresStatusByName` · dependency is **Decision**
 
 ### EF Core packaging
@@ -320,13 +324,13 @@ every implementation derives a test class from the matching contract:
 
 ## Open points
 
-- **0.6/0.8 stored-data compatibility.** Proposed: the hot path reads only the 1.0 format; a
-  one-off `AtProtoStoreMigration` helper (in `ATProtoNet.Hosting` and
-  `ATProtoNet.EntityFrameworkCore`) reads 0.8 files (purpose `ATProtoNet.TokenStore`, `.dat`,
-  including 0.6-format payloads) and 0.8 tables (`AtProtoTokens`, `AtProtoJtiReplay`,
-  `AtProtoRepoSyncStates`) and writes 1.0 entries, so signed-in users survive the upgrade. The
+- **0.6/0.8 stored-data compatibility.** Proposed: the hot path reads only the 0.9 format; a
+  one-off `AtProtoStoreMigration` helper (in `ATProtoNet`'s `ATProtoNet.Hosting` namespace for
+  files, and in `ATProtoNet.EntityFrameworkCore` for tables) reads 0.8 files (purpose
+  `ATProtoNet.TokenStore`, `.dat`, including 0.6-format payloads) and 0.8 tables (`AtProtoTokens`,
+  `AtProtoJtiReplay`, `AtProtoRepoSyncStates`) and writes 0.9 entries, so signed-in users survive the upgrade. The
   alternative is keeping 0.8 purposes and table names and reading the old format forever.
 - **In-memory replay store at capacity** (fail closed with `false`) vs evicting unexpired
   entries (which would reopen replay). Proposed: fail closed, as in the limits table.
-- **EF OAuth state store** is new in 1.0. Proposed: ship it, since multi-instance deployments
+- **EF OAuth state store** is new in 0.9. Proposed: ship it, since multi-instance deployments
   without a distributed cache need one.

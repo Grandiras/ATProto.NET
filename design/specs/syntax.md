@@ -1,6 +1,6 @@
 # Identifier syntax — spec
 
-**Status:** Draft · **Package:** `ATProtoNet.Primitives` (namespace `ATProtoNet`) · **Phase:** 1
+**Status:** Draft · **Package:** `ATProtoNet` (namespace `ATProtoNet`, foundation layer) · **Phase:** 1
 
 **Normative references:** [DID](https://atproto.com/specs/did) ·
 [Handle](https://atproto.com/specs/handle) · [NSID](https://atproto.com/specs/nsid) ·

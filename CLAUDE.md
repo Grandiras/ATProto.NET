@@ -93,9 +93,9 @@ JSON property names use `camelCase` (AT Proto convention) — set `[JsonProperty
 - Commit messages follow **conventional commits** (`feat:`, `fix:`, `docs:`, `test:`), ending with `(closes #N)` for tracker issues.
 - Indent: 4 spaces for C#, 2 for csproj/props/yml/json (`.editorconfig`).
 
-## The 1.0 rewrite design
+## The 0.9 rewrite design
 
-`design/` holds the design and specifications for a complete rewrite into 1.0 (start at
+`design/` holds the design and specifications for a complete rewrite into 0.9 (start at
 `design/README.md`). It describes a future codebase, not this one: when working on 0.8 code,
 follow the sections above. When a 0.8 fix changes protocol behaviour, also update the matching
 requirement in `design/specs/`, so the rewrite picks it up.

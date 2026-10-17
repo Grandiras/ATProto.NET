@@ -1,6 +1,8 @@
 # XRPC client — spec
 
-**Status:** Draft · **Packages:** `ATProtoNet` · **Phase:** 5 (client core) · **Prefix:** `XRC`
+**Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet` for `AtProtoClient`,
+`ATProtoNet.Xrpc`, `ATProtoNet.Records`, `ATProtoNet.Admin`) · **Phase:** 5 (client core) ·
+**Prefix:** `XRC`
 
 **Normative references:** [atproto HTTP API (XRPC)](https://atproto.com/specs/xrpc) ·
 [Lexicon](https://atproto.com/specs/lexicon) · [Sync: `Atproto-Repo-Rev`](https://atproto.com/specs/sync) ·

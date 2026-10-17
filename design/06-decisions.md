@@ -6,8 +6,9 @@ Architecture decision records for the rewrite. Each has a status:
 - **Accepted**: signed off; changing it needs a new record that supersedes it.
 - **Open**: needs input before the phase that depends on it starts.
 
-Every record below is **Proposed** until the maintainer reviews this document. Open questions
-are collected at the end.
+Records are **Proposed** unless marked otherwise. The maintainer's first review (2026-10-17)
+accepted D-02 (version 0.9) and D-03 (few packages) in revised form. Open questions are collected
+at the end.
 
 ---
 
@@ -20,53 +21,62 @@ migration guide), so in-place refactoring did not buy compatibility either.
 
 **Decision.** Build the new code in a fresh source tree on a long-lived `next` branch in this
 repository. Port behaviour through specs and the conformance suite, not by moving files. `main`
-stays on 0.8.x for fixes until 1.0 replaces it. See [05 — Rewrite plan](05-rewrite-plan.md).
+stays on 0.8.x for fixes until 0.9 replaces it. See [05 — Rewrite plan](05-rewrite-plan.md).
 
 **Consequences.** Two codebases exist for a while. Fixes to 0.8 that touch protocol behaviour
 must also land in the relevant spec, so the rewrite picks them up.
 
-## D-02 Ship as 1.0, not 0.9
+## D-02 Ship as 0.9
 
-**Decision.** The rewrite's first stable release is **1.0.0**, preceded by `1.0.0-preview.N`
-packages. The package IDs stay `ATProtoNet.*` (see D-03). Experimental packages (Spaces) ship
-as `0.x` prerelease versions on their own cadence.
+**Status: Accepted** (maintainer, 2026-10-17).
 
-**Rationale.** The rewrite's point is a surface stable enough to promise compatibility for.
-Calling it 0.9 would signal "more breaking changes coming", which is what we want to stop.
+**Decision.** The rewrite ships as **0.9.0**, preceded by `0.9.0-preview.N` packages. All
+packages share one version. The package IDs stay `ATProtoNet` and `ATProtoNet.*` (D-03).
+
+**Compatibility.** Within the 0.9 line, patch releases do not break the public API (the API
+baseline and package validation enforce it). APIs marked `[Experimental]` (D-16) are excluded and
+may change in any release. 1.0 follows once the 0.9 surface has been put through real use, the
+same bar the README already sets for calling the SDK stable.
+
+**Rationale.** The rewrite aims at a surface that can become 1.0 unchanged, but that should be
+proven in use before it carries a 1.0 promise.
 
 ## D-03 Package map
 
-**Decision.** Split by dependency weight, I/O and churn rate (details in
-[02 — Architecture](02-architecture.md#package-map)):
+**Status: Accepted** (maintainer, 2026-10-17), replacing the first draft's fifteen-package split.
 
-| Package | Role | Stability |
-|---|---|---|
-| `ATProtoNet.Primitives` | identifiers, CID, DRISL-CBOR, JSON data model, CAR, crypto, JOSE. No I/O. | stable |
-| `ATProtoNet.Repo` | MST, commits, proofs, repository verification. No I/O. | stable |
-| `ATProtoNet.Lexicon` | Lexicon schema model, validation, runtime support for generated code. No I/O. | stable |
-| `ATProtoNet.Identity` | untrusted-fetch policy, DID documents, DID and handle resolution, caching, PLC. | stable |
-| `ATProtoNet` | XRPC client, sessions (password, OAuth, service auth), labels, records API, PDS admin, generated `com.atproto.*`. | stable |
-| `ATProtoNet.Bluesky` | generated `app.bsky.*` and `chat.bsky.*`, plus rich text, posting, profile and video helpers. | stable (unspecced endpoints experimental) |
-| `ATProtoNet.Ozone` | generated `tools.ozone.*`. | stable package, fast-moving surface |
-| `ATProtoNet.StandardSite` | generated `site.standard.*`. | stable |
-| `ATProtoNet.Streaming` | event streams: firehose with Sync 1.1 verification, label streams, Jetstream (+archive), Tap. | stable |
-| `ATProtoNet.Hosting` | DI builder, client factory, stores, stream workers, health checks, Aspire client integration. No ASP.NET Core. | stable |
-| `ATProtoNet.AspNetCore` | XRPC server endpoints, service-auth scheme, OAuth web login, labeler endpoints, Tap webhook. | stable |
-| `ATProtoNet.EntityFrameworkCore` | EF Core implementations of the store interfaces. | stable |
-| `ATProtoNet.Blazor` | per-circuit user client accessor and an unstyled login form (D-09). | stable |
-| `ATProtoNet.Aspire.Hosting` | PDS container resources for an Aspire AppHost. | stable |
-| `ATProtoNet.Spaces` (+ `.AspNetCore`, `.EntityFrameworkCore`) | permissioned data: client and syncer, space server, EF stores. | **experimental** |
-| `ATProtoNet.Lexicon.Generator` | Roslyn source generator for users' Lexicons. | stable |
-| `atproto-lexgen` (tool) | CLI: generate, install, update, lint, diff, publish, resolve. | stable |
+**Decision.** As few packages as possible, each logically scoped
+([02 — Architecture](02-architecture.md#packages)):
 
-**Rationale.** A Jetstream indexer should not pull in OAuth and Ozone, and a worker service
-should not need the ASP.NET Core shared framework to get DI registration and a stream worker.
-A Spaces wire change should not be a breaking change of `ATProtoNet`. Foundation packages
-without I/O are usable by anyone building atproto infrastructure in .NET.
+| Package | Role |
+|---|---|
+| `ATProtoNet` | Everything that does not need ASP.NET Core, EF Core or Aspire: identifiers, data model, crypto, repo, Lexicon schema model and validation, identity, the XRPC client, sessions, OAuth, service auth, labels, records API, PDS admin, **all generated Lexicons** (`com.atproto`, `app.bsky`, `chat.bsky`, `tools.ozone`, `site.standard`) with the Bluesky helpers, streaming (firehose, Sync 1.1, Jetstream, Tap, labels, PLC export), Spaces (experimental), the DI/hosting integration (builder, client factory, file session store, stream workers, health checks, Aspire client), and the bundled Lexicon source generator. |
+| `ATProtoNet.AspNetCore` | Replaces `ATProtoNet.Server`: XRPC server endpoints, service-auth scheme, OAuth web login, labeler endpoints, Tap webhook, Spaces server endpoints (experimental). |
+| `ATProtoNet.EntityFrameworkCore` | EF Core store implementations, including Spaces stores (experimental). |
+| `ATProtoNet.Blazor` | Per-circuit user client accessor and an unstyled login form (D-09). |
+| `ATProtoNet.Aspire.Hosting` | PDS container resources for an Aspire AppHost. |
+| `atproto-lexgen` (tool) | CLI: generate, install, update, lint, diff, publish, resolve. |
 
-**Rejected.** *One package per namespace* (e.g. `ATProtoNet.Syntax`, `.Cbor`, `.Car`, `.Crypto`
-separately): too much friction for little gain, since these are always used together.
-*Keeping one core package*: it is the main source of today's chaos.
+Inside `ATProtoNet`, the structure comes from **namespace layers** enforced by architecture tests
+(foundation without I/O → network → client → protocols and Lexicon families → hosting), not from
+package boundaries.
+
+**Rationale.** For consumers, many packages are tedious and confusing: which do I need, which
+versions go together, where did a type move? A base package plus extensions for the frameworks
+that bring heavy dependencies (ASP.NET Core, EF Core, Aspire, Blazor) is easy to explain and to
+install. 0.8's own history (EF stores merged into Server, then split out again; an Aspire package
+merged in) shows the cost of drawing package lines in the wrong place. The internal discipline the
+split was meant to provide comes from namespace layers and architecture tests instead. Size
+concerns are handled by trimming.
+
+**Consequences.** Moving the DI and hosting integration into the base package means a worker
+service needs only `ATProtoNet`; the base takes small `Microsoft.Extensions.*` and
+`Microsoft.AspNetCore.DataProtection.Abstractions` dependencies, never the ASP.NET Core shared
+framework. A Spaces change ships with the whole base package, which is acceptable because Spaces
+APIs are `[Experimental]` (D-08). Generated code must be fully trimmable.
+
+**Rejected.** The first draft's split into foundation, network, Lexicon-family, hosting and
+Spaces packages: cleaner on paper, worse for every consumer.
 
 ## D-04 Generate the Lexicon surface from vendored Lexicon JSON
 
@@ -80,11 +90,11 @@ change is a manual port. Meanwhile `atproto-lexgen` emits a different style.
    `atproto-lexgen install`/`update`.
 2. One code generator (`ATProtoNet.Lexicon.CodeGen`, a `netstandard2.0` library) turns schemas
    into C#. The CLI and the Roslyn source generator both use it.
-3. First-party packages (`ATProtoNet`, `.Bluesky`, `.Ozone`, `.StandardSite`, `.Spaces`)
-   **check in** their generated code under `Generated/`, regenerated by a script and verified in
-   CI (regenerate, then `git diff --exit-code`).
-4. Users generate their own Lexicons with the source generator (`<AdditionalFiles>` items) or the
-   CLI. Both use the same emitter, so the output is the same.
+3. All first-party generated code is **checked in** under `src/ATProtoNet/Generated/`,
+   regenerated by a script and verified in CI (regenerate, then `git diff --exit-code`).
+4. Users generate their own Lexicons with the source generator, which ships inside the
+   `ATProtoNet` package as an analyzer (add Lexicon JSON files to the project), or with the CLI.
+   Both use the same emitter, so the output is the same.
 5. Hand-written code (helpers, the records API) sits on top of the generated types and never
    restates them.
 
@@ -110,7 +120,7 @@ explicit rename in the manifest, never silently.
 
 **Rejected.** *Mirroring NSIDs without a prefix* (`App.Bsky.Feed`): `App` collides with the
 application class in WPF, MAUI and WinForms projects. *Keeping today's `ATProtoNet.Lexicon.*`*:
-`ATProtoNet.Lexicon` becomes the schema-model package (D-03), and the singular/plural split
+`ATProtoNet.Lexicon` becomes the schema-model namespace, and the singular/plural split
 (`Lexicon` = the language, `Lexicons` = the definitions) is deliberate.
 
 ## D-06 A session is the authenticated transport
@@ -148,28 +158,31 @@ scripts. See [specs/auth.md](specs/auth.md).
 consumed as `IAsyncEnumerable<TEvent>` over one shared event-stream core (connect, frame decode,
 reconnect with backoff, cursor store). The cursor of event *n* is committed when event *n+1* is
 pulled, which gives at-least-once delivery. Sync 1.1 verification is a composable stage, not a
-different consumer class. ASP.NET Core gets a `StreamWorker<TEvent>` hosted-service adapter.
+different consumer class. `ATProtoNet.Hosting` provides a `StreamWorker<TEvent>` hosted-service
+adapter, so worker services need no ASP.NET Core.
 
 **Rejected.** .NET events or callback registration (no back-pressure, error handling scattered).
 Public `Channel<T>` (leaks buffering decisions).
 
-## D-08 Spaces is quarantined as experimental
+## D-08 Spaces is experimental
 
 **Context.** The permissioned-data protocol is alpha. 0.8 alone changed its credential signing
 (#212), type naming (#211), revision model (#213) and revocation schema (#214), and each was a
-breaking change for every `ATProtoNet` user.
+breaking change for every `ATProtoNet` user, because nothing marked the Spaces API as unstable.
 
-**Decision.** Spaces lives in its own package family, `ATProtoNet.Spaces`,
-`ATProtoNet.Spaces.AspNetCore` and `ATProtoNet.Spaces.EntityFrameworkCore`, versioned `0.x`
-prerelease, with all public types `[Experimental("ATPROTO001")]`. Its generated
-`com.atproto.space.*` and `com.atproto.simplespace.*` code is generated from vendored proposal
-Lexicons into `ATProtoNet.Spaces`, not `ATProtoNet`. BLAKE3 moves with it (Spaces is its only
-user). Nothing stable references a Spaces package, and the stable hosting packages contain no
-Spaces knowledge (0.8's central in-memory-defaults warning knows about Spaces stores).
+**Decision.** Spaces stays in the existing packages (client, syncer and receiver in `ATProtoNet`,
+namespace `ATProtoNet.Spaces`; server endpoints in `ATProtoNet.AspNetCore`; EF stores in
+`ATProtoNet.EntityFrameworkCore`), with every public Spaces type marked
+`[Experimental("ATPROTO001")]`. Callers opt in by suppressing the diagnostic. Experimental APIs
+may change in any release without counting as a breaking change of the 0.9 line (D-02). The
+generated `com.atproto.space.*` and `com.atproto.simplespace.*` code is generated from vendored
+proposal Lexicons and carries the same attribute. BLAKE3 lives with Spaces (its only user). Stable
+code outside the Spaces namespaces contains no Spaces knowledge (0.8's transport signs Spaces
+requests, and its central in-memory-defaults warning knows Spaces stores).
 
-**Consequences.** Spaces work can move as fast as the protocol does without touching the stable
-packages. Spaces is the last phase of the rewrite, so it ports against the protocol as it stands
-then, not as it stood in 0.8.
+**Consequences.** Spaces can track the protocol without breaking anyone who has not opted in.
+Spaces is the last phase of the rewrite, so it ports against the protocol as it stands then, not
+as it stood in 0.8.
 
 ## D-09 Blazor components
 
@@ -191,7 +204,8 @@ broken until 0.7.
 ## D-10 Serialization: System.Text.Json with source generation, generated union converters
 
 **Decision.** All JSON goes through System.Text.Json with source-generated
-`JsonSerializerContext`s (one per package, combined by a resolver chain). Unions get generated
+`JsonSerializerContext`s (the SDK's, plus one per set of user Lexicons, combined by a resolver
+chain). Unions get generated
 converters ([D-18](#d-18-unions-are-interfaces)): read `$type` (anywhere in the object), dispatch
 to known variants, fall back to `Unknown…` for open unions, fail for closed ones. Unknown object
 fields round-trip through `[JsonExtensionData]`. User-defined union variants register through
@@ -232,31 +246,33 @@ any need for a hand-maintained parameter-order convention, and the generator nee
 
 ## D-13 Lexicon namespace access through extension properties
 
-**Decision.** `AtProtoClient` exposes only `com.atproto.*` namespaces (`client.Repo`,
-`client.Server`, …, generated). Other packages add theirs through C# 14 extension members
+**Decision.** `AtProtoClient` itself exposes only the generated `com.atproto.*` namespaces
+(`client.Repo`, `client.Server`, …). The other Lexicon families attach through C# 14 extension
+members declared next to their generated code
 (`extension(AtProtoClient client) { public BskyNamespace Bsky => new(client); }`), so
-`client.Bsky.Feed.GetTimelineAsync(…)` works once `ATProtoNet.Bluesky` is referenced, and the
-core knows nothing about Bluesky. Users' generated Lexicons get the same treatment
-(`client.Lexicons().Com.Example.Todo` or a configured accessor name).
+`client.Bsky.Feed.GetTimelineAsync(…)` works with no wiring in the client. Users' generated
+Lexicons attach the same way (a configured accessor name).
 
-**Rationale.** It removes the core's compile-time dependency on every Lexicon namespace, which
-is what made `AtProtoClient.cs` an 884-line wiring file.
+**Rationale.** It keeps the client-core namespace free of references to the Lexicon families (the
+layering rule in [02](02-architecture.md#rules)), removes the wiring that made 0.8's
+`AtProtoClient.cs` 884 lines, and gives users' Lexicons exactly the same shape as the SDK's.
 
-## D-14 Identity resolution is its own package with explicit network policy
+## D-14 Identity resolution is its own layer with explicit network policy
 
-**Decision.** `ATProtoNet.Identity` owns DID documents, `did:plc`/`did:web` resolution, handle
-resolution (DNS TXT through a pluggable `IDnsTxtResolver`, defaulting to DNS-over-HTTPS as
-today, plus HTTPS well-known), bidirectional verification, caching, and the PLC directory
-client and operation builder. All identity HTTP goes through an `HttpClient` whose handler
-enforces the SSRF policy. The client package depends on it. The foundation packages do not.
+**Decision.** The `ATProtoNet.Identity` namespace (layer 1) owns DID documents,
+`did:plc`/`did:web` resolution, handle resolution (DNS TXT through a pluggable `IDnsTxtResolver`,
+defaulting to DNS-over-HTTPS as today, plus HTTPS well-known), bidirectional verification,
+caching, and the PLC directory client and operations. All identity HTTP goes through an
+`HttpClient` whose handler enforces the SSRF policy (D-21). The client layer depends on it; the
+foundation layer does not.
 
-## D-15 Stores are interfaces in the package that uses them; implementations live elsewhere
+## D-15 Store interfaces live next to their consumers; implementations live with their dependencies
 
 **Decision.** `ISessionStore`, `IOAuthStateStore`, `ICursorStore`, `IReplayStore` and
 `IRepoSyncStateStore` are defined next to their consumer. In-memory implementations ship with
-the interface. File implementations (and, for OAuth state, a distributed-cache one) go in
-`ATProtoNet.Hosting`. EF Core
-implementations go in `ATProtoNet.EntityFrameworkCore`. Each interface has a shared contract
+the interface. File implementations (and, for OAuth state, a distributed-cache one) live in the
+`ATProtoNet.Hosting` namespace of the base package. EF Core implementations live in
+`ATProtoNet.EntityFrameworkCore`. Each interface has a shared contract
 test suite that every implementation runs, **including concurrency cases** (0.8's EF session
 store races on the first write for a DID because the contract never tested it). The session
 store contract includes compare-and-swap (D-22). Details: [specs/stores.md](specs/stores.md).
@@ -279,7 +295,7 @@ removed.
 
 **Decision.** The `next` branch holds the new tree. Each phase lands as one or more PRs into
 `next`, each tied to a tracker issue and following the existing issue workflow (CHANGELOG
-excepted: `next` keeps its own `CHANGELOG.md` that starts at 1.0.0). `main` merges into `next`
+excepted: `next` keeps its own `CHANGELOG.md` that starts at 0.9.0). `main` merges into `next`
 only for vendored-Lexicon or spec-relevant fixes. When phase 11 passes, `next` replaces `main`.
 
 ## D-18 Unions are interfaces
@@ -297,14 +313,14 @@ the `$type` and raw JSON, which writes back byte for byte. Closed unions have no
 and fail on an unrecognised `$type`. Generated converters do the dispatch. Pattern matching works
 naturally: `if (post.Embed is Images images)`.
 
-A variant defined in an *upstream* package cannot implement an interface generated in a
-downstream one (22 of the 103 upstream unions have such members, for example
-`com.atproto.label.defs#selfLabels` in `app.bsky.feed.post#labels`). For those, the downstream
-package generates a derived record (`PostLabelsSelfLabels : SelfLabels, IPostLabels`) that the
-converter produces, so `post.Labels is SelfLabels labels` still works and the wire shape is
-unchanged. This requires generated named object and record types to be unsealed `partial record`s,
-a documented exception to [AG-6](03-api-guidelines.md#types). See
-[LEX-49](specs/lexicon.md#generated-clients).
+All first-party Lexicons are generated into the one `ATProtoNet` assembly, so every first-party
+variant can implement every union it belongs to. Users' assemblies are different: a variant
+defined in `ATProtoNet` cannot implement an interface generated in the user's assembly (for
+example a user union that includes `com.atproto.repo.strongRef`). For those, the user's assembly
+generates a derived record (`MyUnionStrongRef : StrongRef, IMyUnion`) that the converter
+produces, so `value is StrongRef strongRef` still works and the wire shape is unchanged. This
+requires generated named object and record types to be unsealed `partial record`s, a documented
+exception to [AG-6](03-api-guidelines.md#types). See [LEX-49](specs/lexicon.md#generated-clients).
 
 ## D-19 Lexicon `integer` maps to `int` when the bounds fit, otherwise `long`
 
@@ -326,7 +342,7 @@ bodies already have.
 
 **Decision.** The SSRF-guarded HTTP machinery (connect-time address checks on every resolved
 address, no proxy, no redirects, bounded bodies, timeouts, a concurrency cap, DNS TXT via
-DNS-over-HTTPS) is a public layer in `ATProtoNet.Net` (package `ATProtoNet.Identity`), with its
+DNS-over-HTTPS) is a public layer in the `ATProtoNet.Net` namespace (layer 1), with its
 own `UntrustedFetchException`. Identity resolution, OAuth discovery, Lexicon resolution and repo
 fetchers all use it. In 0.8 it is `internal` in `Identity/`, used by OAuth and Lexicon code that
 then has to catch `DidResolutionException` for non-identity failures, and it keeps process-wide
@@ -386,11 +402,11 @@ alone is 56% of `ATProtoNet.Server`'s public API.
 
 | # | Question | Default if unanswered | Blocks |
 |---|---|---|---|
-| Q-1 | Keep a minimal Blazor package (accessor + login form) in 1.0, or drop it (D-09)? | Keep it minimal; widgets become sample code. | Phase 9 |
+| Q-1 | Keep a minimal Blazor package (accessor + login form) in 0.9, or drop it (D-09)? | Keep it minimal; widgets become sample code. | Phase 9 |
 | Q-2 | Keep `PdsAdminClient` and `ATProtoNet.Aspire.Hosting` in scope? The non-goals exclude implementing a PDS, but administering and orchestrating one is in scope today. | Keep both. | Phase 11 |
 | Q-3 | Accept explicit `Parse` for identifiers (D-11), or allow implicit conversion from `string` for ergonomics? | Explicit only. | Phase 1 |
 | Q-4 | Check in generated first-party Lexicon code (D-04) or generate at build time? | Check in. | Phase 3 |
-| Q-5 | Is `ATProtoNet.Ozone` worth keeping as a package, or should Ozone users generate it themselves from the vendored schemas? | Keep (it is cheap once generated). | Phase 8 |
+| Q-5 | ~~Is `ATProtoNet.Ozone` worth keeping as a package?~~ **Resolved by D-03** (maintainer, 2026-10-17): `tools.ozone` is generated into `ATProtoNet` like every other first-party family. | — | — |
 | Q-6 | Should the GitHub mirror and issue sync stay as they are during the rewrite? | Yes, unchanged. | none |
 | Q-7 | Minimum PDS versions to test against in CI (official `bluesky-social/pds` and Tranquil)? | Latest official release plus the pinned CI version. | Phase 5 |
 | Q-8 | First-party generated namespaces: mechanical `ATProtoNet.Lexicons.App.Bsky.Feed` (D-05) or friendly `ATProtoNet.Bluesky.Feed` via a namespace map? | Mechanical. | Phase 3 |
@@ -398,3 +414,4 @@ alone is 56% of `ATProtoNet.Server`'s public API.
 | Q-10 | Keep `atproto-lexgen lexicon` (C# → Lexicon JSON by reflection)? | Drop it; Lexicon JSON is the source of truth, C# is generated from it. | Phase 3 |
 | Q-11 | How much of Spaces to port (D-24): primitives + client + syncer only, or the server too? | Primitives, client, syncer and notification receiver; server only if the protocol is stable by phase 10. | Phase 10 |
 | Q-12 | Keep the Jetstream v1 wire protocol, or v2 only (keeping the v1 timestamp-cursor migration)? | Keep v1 as a second codec; public instances still serve it. | Phase 7 |
+| Q-13 | Name the ASP.NET Core package `ATProtoNet.AspNetCore` (D-03), or keep 0.8's `ATProtoNet.Server`? | `ATProtoNet.AspNetCore`: "Server" reads like a PDS, and the package changes shape anyway. | Phase 9 |

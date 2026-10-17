@@ -1,7 +1,7 @@
 # Cryptography and JOSE — spec
 
-**Status:** Draft · **Package:** `ATProtoNet.Primitives` (namespaces `ATProtoNet.Crypto`,
-`ATProtoNet.Crypto.Jose`) · **Phase:** 1
+**Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet.Crypto`,
+`ATProtoNet.Crypto.Jose`; foundation layer) · **Phase:** 1
 
 **Normative references:** [Cryptography](https://atproto.com/specs/cryptography) ·
 [DID: did:key](https://atproto.com/specs/did) · [W3C did:key](https://w3c-ccg.github.io/did-method-key/) ·
@@ -275,8 +275,8 @@ public sealed record JsonWebKeySet(IReadOnlyList<JsonWebKey> Keys);
   a private export. `ToPublic()` drops it. `ToString()` never shows it. A key set served as client
   metadata contains public keys only.
   *Source:* AG-29 · auth audit §3.N ("public keys only")
-- **CRY-38** (MUST) `JsonWebKey`, the JWS primitives and thumbprints live in Primitives
-  (`ATProtoNet.Crypto.Jose`), not in OAuth, because DPoP, service auth, client assertions and
+- **CRY-38** (MUST) `JsonWebKey`, the JWS primitives and thumbprints live in the foundation
+  layer (`ATProtoNet.Crypto.Jose`), not in the OAuth namespace, because DPoP, service auth, client assertions and
   Spaces all use them.
   *Source:* **Decision** · auth audit, problem 9 (`JsonWebKey` in `OAuthModels`, the thumbprint
   in `DPoP` used by Spaces)
@@ -369,8 +369,8 @@ A pinned PLC genesis operation vector is added (none exists in 0.8; see identity
 1. **Managed K-256 verification (CRY-16).** It needs a reviewed implementation of secp256k1
    point arithmetic. *Proposed default:* include it, verification only, in its own internal file
    with the W3C and interop vectors plus cross-checks against the platform implementation on
-   Linux in CI. If the review cost is judged too high, the fallback becomes an optional add-on
-   package and CRY-16 drops to SHOULD.
+   Linux in CI. If the review cost is judged too high, the fallback is deferred (K-256
+   verification is then unavailable on such platforms) and CRY-16 drops to SHOULD.
 2. **Raw private-scalar import.** PDS rotation keys and similar are often configured as hex
    scalars (`PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`). *Proposed default:* keep
    `ImportRawPrivateScalar`, validated as `1 ≤ d < n`.
