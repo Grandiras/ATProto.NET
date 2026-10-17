@@ -4,16 +4,18 @@
 |---|---|
 | **Status** | Draft |
 | **Package** | `ATProtoNet` (namespaces `ATProtoNet.Net`, `ATProtoNet.Identity`, `ATProtoNet.Identity.Plc`; network layer, above the foundation namespaces) |
-| **Phase** | 4 |
+| **Phase** | 4 (space host and key-agreement lookups included) |
 | **Depends on** | [syntax](syntax.md), [data-model](data-model.md) (DRISL for PLC operations), [crypto](crypto.md) (`DidKey`, `VerificationKey`, `SigningKey`, `SignedObject`) |
-| **Normative references** | [DID](https://atproto.com/specs/did) · [Handle](https://atproto.com/specs/handle) · [Cryptography](https://atproto.com/specs/cryptography) · [did:plc](https://web.plc.directory/spec/v0.1/did-plc) · [did:web method](https://w3c-ccg.github.io/did-method-web/) · reference `@atproto/identity` (cache semantics) |
+| **Normative references** | [DID](https://atproto.com/specs/did) · [Handle](https://atproto.com/specs/handle) · [Cryptography](https://atproto.com/specs/cryptography) · [did:plc](https://web.plc.directory/spec/v0.1/did-plc) · [did:web method](https://w3c-ccg.github.io/did-method-web/) · reference `@atproto/identity` (cache semantics) · DID-document entries for Spaces per [spaces.md](spaces.md) (proposal 0016 at its pin) |
 
 ## Scope
 
 **In:** the untrusted-fetch layer every component uses to reach attacker-chosen hosts
 ([D-21](../06-decisions.md#d-21-one-untrusted-fetch-layer)); DNS TXT lookups; DID documents;
 `did:plc` and `did:web` resolution; handle resolution and bidirectional verification; caching;
-verify-with-refresh; the PLC directory client and typed PLC operations.
+verify-with-refresh; the PLC directory client and typed PLC operations; the DID-document entries
+Spaces adds (the space host service, the space signing key and the key-agreement key used by
+the space commitment scheme), read with the same typed, strict lookups as every other entry.
 
 **Out:** the PLC export *stream* (a WebSocket event stream; [streaming](streaming.md) owns it on
 the shared stream runtime, reusing this spec's `PlcOperation` types); OAuth discovery
@@ -79,6 +81,12 @@ public sealed class DidDocument
     public DidDocumentEntry<DidKey> TryGetVerificationKey(string fragment);
     public DidDocumentEntry<Uri> TryGetServiceEndpoint(string fragment, string? type = null);
     public Uri? GetPdsEndpoint();                                   // #atproto_pds, AtprotoPersonalDataServer
+
+    // Spaces entries (IDN-55…IDN-59); identifiers pinned with the spaces spec
+    public DidDocumentEntry<Uri> TryGetSpaceHostEndpoint();          // #atproto_space_host, AtprotoSpaceHost
+    public Uri? GetSpaceHostEndpoint();                              // the entry, else the PDS (IDN-56)
+    public DidDocumentEntry<DidKey> TryGetSpaceSigningKey();         // #atproto_space, else #atproto (IDN-57)
+    public DidDocumentEntry<KeyAgreementPublicKey> TryGetKeyAgreementKey();   // IDN-58
 }
 public readonly record struct DidDocumentEntry<T>(DidDocumentEntryStatus Status, T? Value);   // Found, Absent, Malformed
 
@@ -104,6 +112,7 @@ public sealed record ResolvedIdentity(Did Did, Handle? Handle, bool HandleVerifi
 {
     public Uri? Pds => Document.GetPdsEndpoint();
     public DidKey? SigningKey => Document.GetSigningKey();
+    public Uri? SpaceHost => Document.GetSpaceHostEndpoint();
 }
 
 public sealed class DidResolver(IReadOnlyDictionary<string, IDidResolver> methods) : IDidResolver;     // dispatch on method
@@ -268,6 +277,38 @@ public sealed class PlcOperationRejectedException : AtProtoException { public st
   `#atproto_label` (label key), `#atproto_pds` / `AtprotoPersonalDataServer`, `#atproto_labeler` /
   `AtprotoLabeler`.
   *Source:* [Label spec](https://atproto.com/specs/label), 0.8 `DidDocument.cs:19-28`
+
+### Spaces entries in DID documents
+
+Spaces are part of the protocol, so resolving where an account's spaces live and which keys
+they use is ordinary identity resolution, not Spaces-specific code.
+
+- **IDN-55** (MUST) The well-known constants (IDN-18) include the space host service
+  (`#atproto_space_host`, type `AtprotoSpaceHost`), the space signing key (`#atproto_space`) and
+  the key-agreement key of the space commitment scheme, with the identifiers and types of the
+  pinned proposal ([spaces.md](spaces.md)). They live in one place, so an identifier change
+  upstream is a one-line change.
+  *Source:* 0.8 `Spaces/SpaceAuthority.cs:25-31` · forum "Post-alpha plans" (DID docs) ·
+  "Space commitment changes" (new key in DID documents)
+- **IDN-56** (MUST) `GetSpaceHostEndpoint` returns the `#atproto_space_host` endpoint when the
+  entry is present and usable, and the PDS endpoint when the document has no such entry. A
+  present but malformed entry (wrong type, non-HTTPS or non-absolute endpoint) is an error, not
+  a fallback to the PDS.
+  *Source:* 0.8 `SpaceCredentialProvider.cs:311-320`, `SpaceAuthority.cs:16-18` (#133) · test
+  `SpaceUriTests.HostAudience_NamesTheAuthoritysSpaceHostServiceEntry`
+- **IDN-57** (MUST) `TryGetSpaceSigningKey` returns the `#atproto_space` key when present; when
+  the document has no such entry it falls back to `#atproto`. A present but malformed
+  `#atproto_space` entry is `Malformed`, never a silent fallback.
+  *Source:* 0.8 `Spaces/SpaceAuthority.cs:8-18`, `SpaceTokens.cs:176`
+- **IDN-58** (MUST) `TryGetKeyAgreementKey` reads the key-agreement key the pinned commitment
+  scheme names into a `KeyAgreementPublicKey` ([crypto.md](crypto.md), CRY-53). It never returns
+  a signing key, even if no key-agreement key is published.
+  *Source:* forum "Space commitment changes" (2026-10-12/13) · CRY-50
+- **IDN-59** (MUST) The fallback semantics of IDN-56 and IDN-57 follow the pinned proposal.
+  Upstream is still discussing whether dedicated entries are required, whether the space host is
+  always the account host, and the account status of a space authority; the GA answer replaces
+  these defaults in one place.
+  *Source:* forum "Post-alpha plans" (DID docs, account status; 2026-10-01/08)
 
 ### DID resolution
 
@@ -526,6 +567,7 @@ served through the real resolvers instead of resolver substitutes ([04 — Testi
 | PLC export stream moves to the streaming namespaces (`ATProtoNet.Streaming.Plc`) | one stream runtime (D-07); 0.8's export stream ended silently on a dropped connection |
 | Reserved TLDs apply to `did:web` hosts | DID spec |
 | `IsEnforced` reports when the address policy cannot run | 0.8 skipped it silently on WASM |
+| Space host, space signing key and key-agreement key are typed `DidDocument` lookups | Spaces is core protocol; 0.8 resolved them inside `Spaces/SpaceAuthority` and the credential provider |
 
 ## Open points
 
@@ -542,3 +584,7 @@ served through the real resolvers instead of resolver substitutes ([04 — Testi
    phase 4.
 4. **WASM behaviour.** Should `UntrustedHttp` refuse to run when `IsEnforced` is false unless the
    caller opts in? Proposed: no (browser apps cannot do otherwise); log and expose the flag.
+5. **Spaces DID-document identifiers.** Dedicated `#atproto_space_host` / `#atproto_space`
+   entries versus reusing `#atproto_pds` / `#atproto`, the key-agreement key's id and type, and a
+   space authority's account status are open upstream (IDN-59). Proposed: implement the pinned
+   proposal and switch to the GA identifiers before 0.9.0; cover both in identity vectors.

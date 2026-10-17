@@ -1,7 +1,8 @@
 # XRPC client — spec
 
 **Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet` for `AtProtoClient`,
-`ATProtoNet.Xrpc`, `ATProtoNet.Records`, `ATProtoNet.Admin`) · **Phase:** 5 (client core) ·
+`ATProtoNet.Xrpc`, `ATProtoNet.Records`, `ATProtoNet.Admin`; the space-scoped records API from
+`ATProtoNet.Spaces.Access`) · **Phase:** 5 (client core; space records with phase 6) ·
 **Prefix:** `XRC`
 
 **Normative references:** [atproto HTTP API (XRPC)](https://atproto.com/specs/xrpc) ·
@@ -15,7 +16,8 @@
 In scope: `AtProtoClient` and its call-option views; the generated method descriptors as seen by
 the runtime; the `IXrpcHandler` contract that sessions implement; `XrpcInvoker`, the one HTTP
 implementation of XRPC; request building, headers, response reading, response metadata, the error
-model, the retry policy, pagination, the records API and `PdsAdminClient`.
+model, the retry policy, pagination, the records API for both data protocols (public
+repositories and spaces) and `PdsAdminClient`.
 
 Out of scope: how sessions obtain, refresh and attach credentials ([auth.md](auth.md)); what the
 generator emits ([lexicon.md](lexicon.md)); serving XRPC ([server.md](server.md)); event streams
@@ -53,8 +55,32 @@ public sealed class AtProtoClient                       // immutable, thread-saf
     public RecordCollection<T> Records<T>() where T : class, IAtProtoRecord<T>;
     public RecordReader<T> Records<T>(AtIdentifier repo) where T : class, IAtProtoRecord<T>;  // read-only, any repo
 
+    public SpaceClient Space(SpaceUri space);                                        // XRC-59: records in a space
+
     public static Task<AtProtoClient> LoginAsync(Uri service, AtIdentifier identifier, string password,
         CancellationToken cancellationToken = default);                                  // scripts; see auth.md
+}
+
+namespace ATProtoNet.Records;
+
+public union RecordAddress(AtUri, SpaceUri);                                         // where a record lives
+public interface IRecordCollection<T> where T : class, IAtProtoRecord<T>              // shared shape (XRC-61)
+{
+    Task<RecordRef> CreateAsync(T record, RecordKey? rkey = null, RecordWriteOptions? options = null, CancellationToken cancellationToken = default);
+    Task<RecordView<T>?> FindAsync(RecordKey rkey, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<RecordView<T>> EnumerateAsync(CancellationToken cancellationToken = default);
+    // … the members of XRC-47
+}
+public sealed record RecordRef(RecordAddress Address, Cid Cid);
+
+namespace ATProtoNet.Spaces.Access;                                                 // spaces.md owns the behaviour
+
+public sealed class SpaceClient                                                      // a view of AtProtoClient bound to one space
+{
+    public SpaceUri Space { get; }
+    public SpaceRecordCollection<T> Records<T>() where T : class, IAtProtoRecord<T>;              // the account's own repo in the space
+    public SpaceRecordReader<T> Records<T>(Did author) where T : class, IAtProtoRecord<T>;      // another member's repo
+    public IAsyncEnumerable<Did> EnumerateWritersAsync(CancellationToken cancellationToken = default);
 }
 
 namespace ATProtoNet.Xrpc;
@@ -437,6 +463,36 @@ public static class Pagination
   *Source:* 0.8 #49 · tests `RecordTypeDiscriminatorTests`,
   `AtProtoRecord_TypeFromAnotherNsid_IsNotKeptOrEchoed` (generation rule in [lexicon.md](lexicon.md))
 
+### Records in spaces
+
+Spaces are the protocol's data layer for non-public records, so the records API covers them with
+the same shape as public repositories. The protocol rules (credentials, audiences, sync) are in
+[spaces.md](spaces.md); this section fixes how they surface on the client.
+
+- **XRC-59** (MUST) `client.Space(SpaceUri)` returns a `SpaceClient` view that shares the client's
+  handler and options. `Records<T>()` addresses the signed-in account's own repository in that
+  space (writes go to the account's repository host, using the session's credentials); `Records<T>(Did)`
+  reads another member's repository in the space through a space credential. A record address
+  passed to `Space` is a `FormatException` (it must address the space itself).
+  *Source:* **Decision** (Spaces is core; maintainer review 2026-10-17) · 0.8 `SpaceReader`,
+  `SpaceClient` (two unrelated APIs for the same records)
+- **XRC-60** (MUST) Calls that need a space credential go through a `SpaceRequestHandler`
+  (an `IXrpcHandler`, [spaces.md](spaces.md)) that the `SpaceClient` composes over the session.
+  Its audience is passed explicitly by the API that knows it (the repository owner for repository
+  operations, the space authority for authority operations); nothing derives it from parameter
+  names. `XrpcInvoker` and the core handler contract contain no Spaces code.
+  *Source:* 0.8 `XrpcClient.cs:690-701` (audience guessed from a `repo` parameter; `Did.Parse` threw
+  on handles) · streaming audit, problem 5
+- **XRC-61** (MUST) `SpaceRecordCollection<T>` and `RecordCollection<T>` both implement
+  `IRecordCollection<T>` and follow XRC-47…XRC-52 with the same semantics (`FindAsync` maps only the
+  protocol's not-found error, swap guards where the space write API offers them, one `$type`
+  first). Their refs and views carry a `RecordAddress` (a C# 15 union of `AtUri` and `SpaceUri`),
+  so code that handles records from either protocol needs no casts.
+  *Source:* **Decision** (one records shape for both data protocols)
+- **XRC-62** (MUST) Records read from a space repository are verified as [spaces.md](spaces.md)
+  requires before they reach the caller; an unverifiable response is an error, not a record.
+  *Source:* 0.8 `SpaceReader` and `SpaceSyncer` verification
+
 ### PDS administration
 
 - **XRC-53** (MUST) `PdsAdminClient` is a thin wrapper over two `AtProtoClient`s on the same
@@ -535,6 +591,8 @@ public static class Pagination
 | `PdsAdminClient` re-authenticates on 400 `ExpiredToken` | bug fix (XRC-54) |
 | Collection only from `T.Collection`; `AtProtoRecord` base dropped | one record pattern ([lexicon.md](lexicon.md)) |
 | Case-insensitive property reads and numbers-from-strings dropped | D-20 |
+| Records API covers spaces (`client.Space(uri).Records<T>()`), with a shared `IRecordCollection<T>` and `RecordAddress` | Spaces is a core data protocol; 0.8 had separate `SpaceReader`/`SpaceClient` APIs |
+| No Spaces signing inside the transport | the signed-request handler composes over sessions (XRC-60) |
 
 ## Open points
 

@@ -1,7 +1,7 @@
 # Cryptography and JOSE — spec
 
 **Status:** Draft · **Package:** `ATProtoNet` (namespaces `ATProtoNet.Crypto`,
-`ATProtoNet.Crypto.Jose`; foundation layer) · **Phase:** 1
+`ATProtoNet.Crypto.Jose`, `ATProtoNet.Crypto.HttpSignatures`; foundation layer) · **Phase:** 1
 
 **Normative references:** [Cryptography](https://atproto.com/specs/cryptography) ·
 [DID: did:key](https://atproto.com/specs/did) · [W3C did:key](https://w3c-ccg.github.io/did-method-key/) ·
@@ -9,7 +9,12 @@
 [RFC 7515 (JWS)](https://www.rfc-editor.org/rfc/rfc7515) · [RFC 7517 (JWK)](https://www.rfc-editor.org/rfc/rfc7517) ·
 [RFC 7518 (JWA)](https://www.rfc-editor.org/rfc/rfc7518) · [RFC 8812 (ES256K)](https://www.rfc-editor.org/rfc/rfc8812) ·
 [RFC 7638 (JWK thumbprint)](https://www.rfc-editor.org/rfc/rfc7638) ·
-[Repository: commit signatures](https://atproto.com/specs/repository#commit-objects)
+[Repository: commit signatures](https://atproto.com/specs/repository#commit-objects) ·
+[BLAKE3](https://github.com/BLAKE3-team/BLAKE3-specs) ·
+[RFC 9421 (HTTP Message Signatures)](https://www.rfc-editor.org/rfc/rfc9421) ·
+[RFC 8941 (Structured Field Values)](https://www.rfc-editor.org/rfc/rfc8941) ·
+[RFC 5869 (HKDF)](https://www.rfc-editor.org/rfc/rfc5869) · [FIPS 203 (ML-KEM)](https://csrc.nist.gov/pubs/fips/203/final) ·
+the space commitment scheme of [spaces.md](spaces.md) (key agreement)
 
 ## Scope
 
@@ -22,6 +27,10 @@
 - an injectable verification-key cache;
 - JOSE primitives: compact JWS encode/decode/sign/verify, `JsonWebKey`, RFC 7638 thumbprints;
 - signing and verifying `SignedObject`s;
+- BLAKE3 (hash and extendable output);
+- key-agreement keys and key encapsulation, kept apart from signing keys (the space commitment
+  scheme establishes a shared secret with a repository host's published key);
+- HTTP message signatures (RFC 9421) and the RFC 8941 structured fields they are carried in;
 - the key-ownership rule.
 
 **Out:**
@@ -31,7 +40,8 @@
 - which claims a JWT carries and what a verifier checks for DPoP proofs, service-auth tokens and
   client assertions ([auth.md](auth.md));
 - label signing rules ([labels.md](labels.md));
-- BLAKE3, LtHash and HTTP message signatures ([spaces.md](spaces.md));
+- LtHash, space commits, and *which* components and keys a Spaces request or commitment uses
+  ([spaces.md](spaces.md));
 - the DRISL bytes a signature covers ([data-model.md](data-model.md#signed-objects-encoding-side)).
 
 ## Public API sketch
@@ -125,6 +135,49 @@ public sealed record JsonWebKey                                    // EC keys on
     public JsonWebKey ToPublic();
 }
 public sealed record JsonWebKeySet(IReadOnlyList<JsonWebKey> Keys);
+
+namespace ATProtoNet.Crypto;
+
+public static class Blake3
+{
+    public static void Hash(ReadOnlySpan<byte> input, Span<byte> output);   // any output length (XOF)
+    public static Blake3Hasher CreateHasher();                              // incremental
+}
+
+// Key agreement: never the same key material as a SigningKey (CRY-50).
+public enum KeyAgreementAlgorithm { /* pinned by the GA space commitment scheme: ECDH today, ML-KEM later */ }
+public sealed class KeyAgreementPublicKey : IEquatable<KeyAgreementPublicKey>
+{
+    public KeyAgreementAlgorithm Algorithm { get; }
+    public string Multikey { get; }                                         // as published in a DID document
+    public static KeyAgreementPublicKey FromMultikey(string multikey);
+    public KeyEncapsulation Encapsulate();                                  // fresh shared secret + ciphertext for the holder
+}
+public sealed class KeyAgreementKey : IDisposable                           // private; ToString is redacted
+{
+    public static KeyAgreementKey Generate(KeyAgreementAlgorithm algorithm);
+    public static KeyAgreementKey ImportPkcs8(ReadOnlySpan<byte> pkcs8, KeyAgreementAlgorithm algorithm);
+    public KeyAgreementPublicKey PublicKey { get; }
+    public byte[] Decapsulate(ReadOnlySpan<byte> encapsulation);           // the shared secret
+}
+public readonly record struct KeyEncapsulation(byte[] SharedSecret, byte[] Encapsulation);
+
+namespace ATProtoNet.Crypto.HttpSignatures;
+
+public sealed record HttpSignatureParameters
+{
+    public required string Label { get; init; }                             // e.g. "atproto-space"
+    public required IReadOnlyList<string> Components { get; init; }         // e.g. ["authorization", "atproto-space-audience"]
+    public string? KeyId { get; init; }
+    public DateTimeOffset? Created { get; init; }
+}
+public static class HttpMessageSignature
+{
+    public static void Sign(HttpRequestMessage request, HttpSignatureParameters parameters, SigningKey key);
+    public static HttpSignatureVerdict Verify(HttpSignatureRequest request, string label,
+        IReadOnlyList<string> requiredComponents, VerificationKey key);
+}
+public static class StructuredFields { /* RFC 8941 parse and serialize: items, lists, dictionaries, parameters */ }
 ```
 
 ## Requirements
@@ -173,8 +226,7 @@ public sealed record JsonWebKeySet(IReadOnlyList<JsonWebKey> Keys);
 - **CRY-12** (MUST) `SignaturePolicy.AcceptHighS` normalises a high-S signature before
   verifying, applies the same length and range checks, and is used only where a foreign signer
   may legitimately produce high-S: JWS verification (CRY-31) and HTTP message signatures
-  ([spaces.md](spaces.md)). Repository commits, labels and PLC operations verify with
-  `LowSOnly`.
+  (CRY-55). Repository commits, labels and PLC operations verify with `LowSOnly`.
   *Source:* 0.8 `DidKeyCache.VerifyJws` (`DidKeyCache.cs:56-70`) · service-auth verifier accepts
   high-S (auth audit §3.M)
 - **CRY-13** (MUST) A scalar of `n` or more makes verification return false. It MUST NOT
@@ -314,6 +366,62 @@ public sealed record JsonWebKeySet(IReadOnlyList<JsonWebKey> Keys);
   ([auth.md](auth.md)).
   *Source:* test `AtProtoCryptoTests.Sign_ThrowsWhenDisposed` · 0.8 `XrpcClient.cs:619-629`
 
+### BLAKE3
+
+- **CRY-48** (MUST) `Blake3` implements the BLAKE3 hash, keyed mode and extendable output, one-shot
+  and incremental, and matches every official BLAKE3 test vector (all input lengths, outputs past
+  64 bytes). It lives in the foundation layer because it is a general primitive; LtHash
+  ([spaces.md](spaces.md)) is its first user.
+  *Source:* BLAKE3 specification · 0.8 `Crypto/Blake3.cs` (internal; tests sat under `Spaces/`) ·
+  tests `Blake3Tests` (official vectors)
+- **CRY-49** (SHOULD) The implementation is vectorised where the runtime offers it (0.8's SIMD
+  path) and allocation-free for one-shot hashing.
+  *Source:* 0.8 #112 (vectorised BLAKE3 and LtHash)
+
+### Key agreement
+
+- **CRY-50** (MUST) Key-agreement keys are their own types (`KeyAgreementKey`,
+  `KeyAgreementPublicKey`). The SDK never derives one from, or uses one as, a `SigningKey`:
+  using the same material for ECDSA and key agreement is unsound, which is why upstream adds a
+  separate key to DID documents for the space commitment scheme.
+  *Source:* forum "Space commitment changes" (2026-10-12: shared secret via a KEM; "you're not
+  supposed to use the same key material for ECDSA & ECDH")
+- **CRY-51** (MUST) The API is a key-encapsulation mechanism (encapsulate to a public key, the
+  holder decapsulates), so an elliptic-curve construction (an ephemeral key and ECDH) and ML-KEM
+  (FIPS 203) fit behind the same types. The algorithms offered are exactly those the pinned space
+  commitment scheme names; nothing else is accepted.
+  *Source:* forum "Space commitment changes" (KEM framing for post-quantum agility) ·
+  **Decision** (closed algorithm set)
+- **CRY-52** (MUST) Shared secrets are never used directly as MAC keys; consumers derive keys
+  with HKDF (`System.Security.Cryptography.HKDF`) bound to a context string their spec defines.
+  Secrets and private keys are redacted in `ToString()` and zeroed on disposal where the platform
+  allows.
+  *Source:* RFC 5869 · 0.8 `SpaceCommit` (HKDF-Expand over a context) · CRY-46 by analogy
+- **CRY-53** (MUST) A key-agreement public key round-trips through its DID-document encoding
+  (multikey) exactly; a key of an algorithm not in CRY-51's set is a `FormatException`.
+  *Source:* **Decision** · DID-document publication per [identity.md](identity.md)
+
+### HTTP message signatures
+
+- **CRY-54** (MUST) `HttpMessageSignature` builds the RFC 9421 signature base from exactly the
+  components and parameters given, in the given order, and writes `Signature-Input` and
+  `Signature` as RFC 8941 dictionaries under the given label. Which components a protocol signs
+  is that protocol's decision ([spaces.md](spaces.md)), not this layer's.
+  *Source:* RFC 9421 §2.5, §4 · 0.8 `Spaces/SpaceHttpSignature.cs` · tests `SpaceHttpSignatureTests`
+  (vectors from atproto@679724ad)
+- **CRY-55** (MUST) Signatures are ES256 or ES256K as 64-byte `r‖s`. Verification rejects DER,
+  accepts high-S (`SignaturePolicy.AcceptHighS`), refuses a label that appears more than once,
+  refuses a signature whose covered components do not include every required component, and
+  refuses a `keyid` parameter that does not name the expected key.
+  *Source:* RFC 9421 §3.2 · 0.8 `SpaceHttpSignature.cs` · tests `SpaceHttpSignatureTests`
+- **CRY-56** (MUST) `StructuredFields` parses and serialises RFC 8941 items, lists and
+  dictionaries strictly (the RFC's failure rules; no lenient recovery) and passes the HTTP WG
+  structured-field test suite. Header values are bounded before parsing.
+  *Source:* RFC 8941 §4 · 0.8 `Spaces/StructuredFields.cs` (internal) · tests `StructuredFieldsTests`
+- **CRY-57** (MUST) Time parameters (`created`, `expires`) read the clock from an injected
+  `TimeProvider`; verification applies the clock-skew limit its caller passes.
+  *Source:* AG-28
+
 ## Limits
 
 | Constant | Value | Applies to |
@@ -324,6 +432,7 @@ public sealed record JsonWebKeySet(IReadOnlyList<JsonWebKey> Keys);
 | `Multikey.PrefixLength` | 2 bytes | CRY-20 |
 | `Jws.MaxTokenLength` | 16 KiB | CRY-30 (new; 0.8 had no cap) |
 | `VerificationKeyCache` default capacity | 1,024 keys | CRY-25 |
+| `StructuredFields.MaxHeaderValueLength` | 8 KiB | CRY-56 (new; bounds `Signature`/`Signature-Input` parsing) |
 
 ## Errors
 
@@ -336,7 +445,9 @@ public sealed record JsonWebKeySet(IReadOnlyList<JsonWebKey> Keys);
 | Algorithm/curve mismatch in a JWS | `false` from `Verify` |
 | Signed-object bytes not strict DRISL | `FormatException` |
 | K-256 signing unsupported by the platform | `PlatformNotSupportedException` |
-| Disposed `SigningKey` | `ObjectDisposedException` |
+| Disposed `SigningKey` or `KeyAgreementKey` | `ObjectDisposedException` |
+| Malformed structured field, duplicate signature label, missing covered component | verdict with a reason from `HttpMessageSignature.Verify`, never an exception |
+| Key-agreement algorithm not in the pinned set | `FormatException` |
 
 ## Conformance and tests
 
@@ -346,10 +457,16 @@ public sealed record JsonWebKeySet(IReadOnlyList<JsonWebKey> Keys);
 and PLC vectors of [repo.md](repo.md), [labels.md](labels.md) and [identity.md](identity.md).
 A pinned PLC genesis operation vector is added (none exists in 0.8; see identity.md).
 
+**More vectors:** the official BLAKE3 vectors (today pasted into `Spaces/Blake3Tests`), the HTTP
+WG structured-field test suite, the RFC 9421 examples, the atproto@679724ad HTTP-signature
+vectors (refreshed at each spaces pin), and key-agreement vectors from the pinned space
+commitment scheme.
+
 **0.8 test classes whose scenarios are ported:** `AtProtoCryptoTests`,
 `AtProtoInteropCryptoTests`, `SignatureScalarRangeTests`, `DidKeyCacheTests`, `DPoPTests`
-(thumbprint), and the JWS encode/decode scenarios currently covered through
-`DPoPProofGeneratorTests` and `ServiceAuthVerifierTests`.
+(thumbprint), `Blake3Tests`, `StructuredFieldsTests`, `SpaceHttpSignatureTests` (the generic
+RFC 9421 scenarios; the Spaces component choice stays in spaces.md), and the JWS encode/decode
+scenarios currently covered through `DPoPProofGeneratorTests` and `ServiceAuthVerifierTests`.
 
 ## Changes from 0.8
 
@@ -363,6 +480,8 @@ A pinned PLC genesis operation vector is added (none exists in 0.8; see identity
 | K-256 verification fallback where the platform lacks secp256k1. | Verifying most `did:plc` accounts must not depend on the OS. |
 | The SDK never disposes keys it is given. | One ownership rule. |
 | JWS token length cap. | Principle 2. |
+| BLAKE3, RFC 9421 HTTP message signatures and RFC 8941 structured fields move into `ATProtoNet.Crypto` (public). | General primitives used by Spaces, the core data protocol for non-public data; 0.8 kept them internal under `Spaces/`. |
+| Key-agreement keys and a KEM API are added. | The space commitment scheme moves to a shared secret established with the repository host's published key. |
 
 ## Open points
 
@@ -374,3 +493,9 @@ A pinned PLC genesis operation vector is added (none exists in 0.8; see identity
 2. **Raw private-scalar import.** PDS rotation keys and similar are often configured as hex
    scalars (`PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`). *Proposed default:* keep
    `ImportRawPrivateScalar`, validated as `1 ≤ d < n`.
+3. **Key-agreement algorithms.** Upstream proposes an elliptic-curve KEM now and ML-KEM later,
+   with the exact curve, KDF and multikey codec still in review (proposal PR "Move space repo
+   commit to a shared secret"). .NET 10+ ships `MLKem`, available where the platform provides it
+   (OpenSSL 3.5+, recent Windows). *Proposed default:* implement exactly the GA algorithm set;
+   if ML-KEM is part of it and the platform lacks it, fail with `PlatformNotSupportedException`
+   rather than falling back silently.

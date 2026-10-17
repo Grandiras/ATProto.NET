@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft |
 | **Package** | `ATProtoNet` (namespace `ATProtoNet.Repo`, foundation layer) |
-| **Phase** | 2 |
+| **Phase** | 2 (together with space repositories, [spaces](spaces.md)) |
 | **Depends on** | [syntax](syntax.md), [data-model](data-model.md) (DRISL-CBOR, `Cid`, CAR), [crypto](crypto.md) (`SigningKey`, `VerificationKey`, `SignedObject`) |
 | **Normative references** | [Repository](https://atproto.com/specs/repository) · [Sync](https://atproto.com/specs/sync) · [Data model](https://atproto.com/specs/data-model) · reference implementation `@atproto/repo` 0.10.14 (`mst.ts`, `verifyProofs`, `getCoveringProof`) · indigo `atproto/repo/mst` |
 
@@ -19,9 +19,13 @@ records), the `IBlockStore` seam, commit diffs (the blocks a `#commit` event car
 **Out:** CAR framing and bounds ([data-model](data-model.md)), signatures and keys
 ([crypto](crypto.md)), Sync 1.1 chain rules, `prevData` inductive checks over a stream and resync
 ([streaming](streaming.md); they *use* this namespace's inversion and proof walk), fetching a CAR
-from a host ([identity](identity.md) untrusted fetch, [streaming](streaming.md) fetchers), space
-repositories (LtHash set hashes, [spaces](spaces.md)). This namespace does no I/O (architecture
-tests enforce it for the foundation layer).
+from a host ([identity](identity.md) untrusted fetch, [streaming](streaming.md) fetchers). Space
+repositories, the protocol's second repository kind (records committed to by an LtHash set hash
+and serialized as STAR, no MST), are specified in [spaces](spaces.md) and live in the
+`ATProtoNet.Spaces` namespace of the same foundation layer; they are built in the same phase and
+share this namespace's conventions: strict DRISL for everything hashed, `Cid` everywhere, limits
+as named constants. This namespace does no I/O (architecture tests enforce it for the
+foundation layer).
 
 ## Public API sketch
 
@@ -435,4 +439,5 @@ hostile-input cases (REP-11..REP-14, REP-27) join the regression corpus.
    `DataModelValue` view? Proposed: raw block plus `DecodeAs<T>()` via the Lexicon contracts.
 4. **Writable repository helper.** 0.8 has no PDS-side "apply writes and produce a commit + diff"
    type beyond `RepoWritePathTests`. Proposed: a small `RepoWriter` (tree + block store + signer →
-   `SignedCommit` + diff blocks) in phase 2, since Spaces and test fixtures need it.
+   `SignedCommit` + diff blocks) in phase 2, since test fixtures and the repository-host side of
+   the server need it (space repositories get the equivalent writer in spaces.md).
