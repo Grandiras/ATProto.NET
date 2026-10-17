@@ -331,9 +331,7 @@ migration guide.
 ## Immediate next steps
 
 1. ~~The maintainer answers the open questions and reviews the decisions.~~ Done (2026-10-17):
-   every question is resolved and every decision accepted except
-   [D-20](06-decisions.md#d-20-json-reads-are-case-sensitive-and-strict-about-number-types),
-   which must be settled before phase 3 fixes the serializer options.
+   every question is resolved and every decision accepted.
 2. Fix the two build-health defects on `main` ([01 — Current state](01-current-state.md#build-health)),
    because `Adapter.Legacy` builds against 0.8.
 3. Create the phase tracking issues.

@@ -9,7 +9,7 @@ Architecture decision records for the rewrite. Each has a status:
 The maintainer's first review (2026-10-17) accepted D-02 (version 0.9) and D-03 (few packages)
 in revised form, and D-08 and D-24 (Spaces). The second review answered every open question: Q-1,
 Q-6 and Q-8 explicitly, the rest by accepting the defaults. The third review accepted every
-remaining record except **D-20**, which stays Proposed pending more context. The
+remaining record, D-20 after more context. Every record is now Accepted. The
 [questions](#open-questions) stay listed at the end with their outcomes.
 
 ---
@@ -442,7 +442,8 @@ with no rule; the old generator used `long` everywhere.
 
 ## D-20 JSON reads are case-sensitive and strict about number types
 
-**Status: Proposed.** The maintainer asked for more context (2026-10-17).
+**Status: Accepted** (maintainer, 2026-10-17, after the context below and the string-carried
+numbers addition).
 
 **Context.** 0.8's shared serializer options (`AtProtoJsonDefaults`) have enabled
 `PropertyNameCaseInsensitive` and `JsonNumberHandling.AllowReadingFromString` since the initial
