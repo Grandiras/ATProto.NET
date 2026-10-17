@@ -6,7 +6,8 @@ runtime), `ATProtoNet.LexiconResolution` (runtime resolution), and the generated
 `ATProtoNet.Lexicons.*` families checked in under `src/ATProtoNet/Generated/`. Internal build
 projects: `ATProtoNet.Lexicon.CodeGen` (emitter, `netstandard2.0`) and
 `ATProtoNet.Lexicon.Generator` (Roslyn), which ships as an analyzer inside the `ATProtoNet`
-package · **Phase:** 3 (model, validation, CodeGen, first-party `com.atproto` generation), 6
+package. Runtime code targets `net11.0` with C# 15; the generator projects target
+`netstandard2.0` but emit C# 15 ([D-25](../06-decisions.md)) · **Phase:** 3 (model, validation, CodeGen, first-party `com.atproto` generation), 6
 (runtime resolution), 8 (bundled source generator, the remaining Lexicon families) ·
 **Normative references:** [Lexicon](https://atproto.com/specs/lexicon),
 [Lexicon versioning](https://atproto.com/guides/lexicon#versioning),
@@ -114,16 +115,30 @@ public interface IAtProtoRecord : ILexiconObject
     static abstract Nsid Collection { get; }
     static abstract RecordKeyType KeyType { get; }        // Tid | Nsid | Any | Literal(value)
 }
-public interface IAtProtoRecord<TSelf> : IAtProtoRecord where TSelf : IAtProtoRecord<TSelf>
+public interface ILexiconType<TSelf> : ILexiconObject where TSelf : ILexiconType<TSelf>
 {
+    static abstract string LexiconType { get; }          // "app.bsky.embed.images", "nsid#def": the $type in union position
     static abstract JsonTypeInfo<TSelf> JsonTypeInfo { get; }
 }
+public interface IAtProtoRecord<TSelf> : IAtProtoRecord, ILexiconType<TSelf> where TSelf : IAtProtoRecord<TSelf>;
 public interface ICreatedAtRecord<TSelf> where TSelf : ICreatedAtRecord<TSelf>
 {
     AtDatetime? CreatedAt { get; }
     static abstract TSelf WithCreatedAt(TSelf record, AtDatetime createdAt);
 }
-public interface IUnknownUnionVariant { string Type { get; } JsonElement Raw { get; } }
+// The extra case of every open union (LEX-50). One shared type: a case type needs no per-union
+// declaration, because C# 15 unions take any types as cases (D-18).
+public sealed record LexiconUnknown
+{
+    public string Type { get; }                           // the $type as received
+    public JsonElement Raw { get; }                       // detached copy, written back unchanged
+    public static LexiconUnknown From<T>(T value) where T : class, ILexiconType<T>;  // user extension variants (LEX-86)
+    public bool TryAs<T>([NotNullWhen(true)] out T? value) where T : class, ILexiconType<T>;
+}
+// Base of the generated union converters: buffering, $type search, case dispatch and $type
+// insertion on write; each generated subclass supplies only its case table (LEX-51, LEX-54).
+public abstract class LexiconUnionConverter<TUnion> : JsonConverter<TUnion>
+    where TUnion : struct, System.Runtime.CompilerServices.IUnion;
 public interface IKnownValue<TSelf> where TSelf : struct, IKnownValue<TSelf>
 {
     string Value { get; }
@@ -135,14 +150,13 @@ public interface ICursorParameters<TSelf> where TSelf : ICursorParameters<TSelf>
 public readonly record struct Optional<T>;                // absent vs present (possibly null): Lexicon `nullable` + not required
 // PermissionSetRef lives in ATProtoNet.Auth (it formats scopes with XrpcServiceRef); see auth.md.
 
-public sealed class LexiconTypeRegistry                   // an instance, never a global (D-10)
+public sealed class LexiconTypeRegistry                   // an instance, never a global (D-10); records only
 {
-    public void AddUnionVariant<TUnion, TVariant>(string type) where TVariant : TUnion;
     public void AddRecord<TRecord>() where TRecord : class, IAtProtoRecord<TRecord>;
     public bool TryGetRecordType(Nsid collection, out JsonTypeInfo typeInfo);
 }
 
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]   // generated unions are structs
 public sealed class LexiconDefinitionAttribute(string reference) : Attribute;   // "app.bsky.feed.defs#postView"
 [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
 public sealed class LexiconAssemblyAttribute(Type lexiconsClass) : Attribute;  // points at the generated {X}Lexicons class
@@ -178,7 +192,7 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   `params` properties are limited to `boolean`, `integer`, `string` and arrays of those.
   Violations are `LexiconDiagnostic`s with a JSON pointer; `Parse` throws `FormatException`
   naming the first one. Named `ref`, `union` and `unknown` defs, which the spec does not allow but
-  published schemas use, are accepted with a lint warning: a named `union` generates an interface
+  published schemas use, are accepted with a lint warning: a named `union` generates a union type
   named after the def, a named `ref` is an alias for its target, a named `unknown` maps to
   `DataModelValue`.
   *Source:* [Lexicon spec: Lexicon Files, params](https://atproto.com/specs/lexicon) · 0.8
@@ -342,9 +356,17 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   or a user project) emits one `{Name}Lexicons` static class (`AtProtoLexicons`,
   `BlueskyLexicons`, …) and `[assembly: LexiconAssembly(typeof({Name}Lexicons))]`; an assembly
   may carry several. The class exposes the unit's `IJsonTypeInfoResolver`, a
-  `Register(LexiconTypeRegistry)` method that adds its records and union-extension variants, and
-  the NSID → type table that external generators read.
+  `Register(LexiconTypeRegistry)` method that adds its records, and the NSID → type table that
+  external generators read. (Union extensions need no registration since the switch to C# 15
+  unions; see LEX-86.)
   *Source:* Decision (replaces 0.8 `ILexiconPlugin` and the global registry)
+- **LEX-83** (MUST) Emitted code is C# 15 and requires `net11.0` or later: it declares `union`
+  types, which rely on `System.Runtime.CompilerServices.UnionAttribute` and `IUnion` from the
+  .NET 11 runtime. The generator and CodeGen themselves stay `netstandard2.0` (a Roslyn
+  requirement). In a user project that targets an older framework or sets `LangVersion` below 15,
+  the source generator emits nothing and reports one error diagnostic (`ATLEX0xx`) naming the
+  requirement, instead of producing code that fails to compile.
+  *Source:* [D-25](../06-decisions.md) · [What's new in C# 15](https://learn.microsoft.com/dotnet/csharp/whats-new/csharp-15)
 
 ### Configuration
 
@@ -359,7 +381,7 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   | `renames` | `nsid#def` (or `nsid#def.property`) → C# name | none |
   | `proxies` | NSID glob → default `XrpcServiceRef`, with exclusions | none |
   | `experimental` | NSID glob → diagnostic ID | none |
-  | `unionExtensions` | `nsid#def` → list of open unions in referenced assemblies it joins | none |
+  | `unionExtensions` | `nsid#def` → open unions in referenced assemblies it extends; generates typed helpers (LEX-86) | none |
   | `visibility` | `public` or `internal` | `public` |
 
   First-party configuration sets `accessors` (`com.atproto` → `@root`, `app.bsky` → `Bsky`,
@@ -394,12 +416,12 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   *Source:* [D-05](../06-decisions.md#d-05-lexicon-generated-type-naming)
 - **LEX-34** (MUST) Inline schemas get deterministic nested names: an inline object property
   `foo` → nested type `FooObject`; inline `knownValues`/`enum` on property `foo` → nested struct
-  `FooValue`; a union at property `foo` → a namespace-level interface
-  `I{OwnerPath}{Foo}`, where `OwnerPath` concatenates the enclosing generated type names while
-  omitting `Parameters`, `Input`, `Output` and `Message` (`Post.embed` → `IPostEmbed`,
-  `GetPostThread.Output.thread` → `IGetPostThreadThread`); array items use the array property's
-  name; a subscription's `message` union is `I{Method}Message` (`ISubscribeReposMessage`). The
-  unknown variant of union `IXxx` is `UnknownXxx`. Token defs of a document become
+  `FooValue`; a union at property `foo` → a namespace-level union type `{OwnerPath}{Foo}`, where
+  `OwnerPath` concatenates the enclosing generated type names while omitting `Parameters`,
+  `Input`, `Output` and `Message` (`Post.embed` → `PostEmbed`, `GetPostThread.Output.thread` →
+  `GetPostThreadThread`); array items use the array property's name; a subscription's `message`
+  union is `{Method}Message` (`SubscribeReposMessage`). Open unions share the `LexiconUnknown`
+  case (LEX-50); no per-union unknown type exists. Token defs of a document become
   `public const string` members of a static class `{MainName}Tokens` (`Tokens` for a `defs`
   document), grouping token families in one class.
   *Source:* Decision · 0.8 `Emit_InlineObjectSchema_GeneratesNestedClass`,
@@ -442,9 +464,10 @@ namespace ATProtoNet.Lexicons.App.Bsky.Feed;
 
 /// <summary>Record containing a Bluesky post.</summary>
 [LexiconDefinition("app.bsky.feed.post")]
-public partial record Post : IAtProtoRecord<Post>                 // a record (LEX-56)
+public sealed partial record Post : IAtProtoRecord<Post>          // a record (LEX-56)
 {
     public static Nsid Collection { get; } = Nsid.Parse("app.bsky.feed.post");
+    public static string LexiconType => "app.bsky.feed.post";
     public static RecordKeyType KeyType => RecordKeyType.Tid;
     public static JsonTypeInfo<Post> JsonTypeInfo => BlueskyLexiconsJsonContext.Default.Post;
 
@@ -452,30 +475,44 @@ public partial record Post : IAtProtoRecord<Post>                 // a record (L
     /// <remarks>Lexicon: maxLength 3000 (UTF-8 bytes), maxGraphemes 300.</remarks>
     [JsonPropertyName("text")] public required string Text { get; init; }
     [JsonPropertyName("reply")] public ReplyRef? Reply { get; init; }
-    [JsonPropertyName("embed")] public IPostEmbed? Embed { get; init; }
-    [JsonPropertyName("labels")] public IPostLabels? Labels { get; init; }
+    // Optional unions are the union struct itself; default (no active case) = absent (LEX-84).
+    [JsonPropertyName("embed"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public PostEmbed Embed { get; init; }
+    [JsonPropertyName("labels"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public PostLabels Labels { get; init; }
     [JsonPropertyName("langs")] public IReadOnlyList<Language>? Langs { get; init; }
     [JsonPropertyName("createdAt")] public required AtDatetime CreatedAt { get; init; }
     [JsonExtensionData] public IDictionary<string, JsonElement>? ExtensionData { get; init; }
 
     [LexiconDefinition("app.bsky.feed.post#replyRef")]
-    public partial record ReplyRef : ILexiconObject
+    public sealed partial record ReplyRef : ILexiconType<ReplyRef>
     {
+        public static string LexiconType => "app.bsky.feed.post#replyRef";
+        public static JsonTypeInfo<ReplyRef> JsonTypeInfo => BlueskyLexiconsJsonContext.Default.PostReplyRef;
         [JsonPropertyName("root")] public required StrongRef Root { get; init; }
         [JsonPropertyName("parent")] public required StrongRef Parent { get; init; }
         [JsonExtensionData] public IDictionary<string, JsonElement>? ExtensionData { get; init; }
     }
 }
 
-// An open union (LEX-49–LEX-54). Images, Video, External, Record and RecordWithMedia implement it.
+// An open union (LEX-49–LEX-54): the five embed kinds plus the shared unknown case. The case
+// types implement nothing union-specific; Record is also a case of chat message embeds. (Type
+// names abbreviated here; generated code is global::-qualified, LEX-29.)
+[LexiconDefinition("app.bsky.feed.post#embed")]
 [JsonConverter(typeof(PostEmbedConverter))]
-public partial interface IPostEmbed : ILexiconObject;
-public sealed partial record UnknownPostEmbed : IPostEmbed, IUnknownUnionVariant
-{
-    public required string Type { get; init; }                 // the $type as received
-    public required JsonElement Raw { get; init; }             // written back unchanged
-    IDictionary<string, JsonElement>? ILexiconObject.ExtensionData => null;
-}
+public union PostEmbed(Embed.Images, Embed.Video, Embed.External, Embed.Record, Embed.RecordWithMedia, LexiconUnknown);
+
+internal sealed class PostEmbedConverter : LexiconUnionConverter<PostEmbed> { /* generated $type → case table */ }
+
+// Usage (LEX-85): implicit conversion in, type patterns out.
+//   var post = new Post { Text = "hi", CreatedAt = AtDatetime.Now(), Embed = new Embed.Images { … } };
+//   string kind = post.Embed switch
+//   {
+//       Embed.Images => "images", Embed.Video => "video", Embed.External => "link",
+//       Embed.Record => "quote", Embed.RecordWithMedia => "quote with media",
+//       LexiconUnknown unknown => unknown.Type,
+//       null => "none",                           // the null pattern tests for no active case
+//   };
 
 // A paginated query (LEX-60, LEX-63, LEX-70) with inline known values (LEX-47).
 public static partial class GetAuthorFeed
@@ -559,10 +596,12 @@ public static class BlueskyClientExtensions
 - **LEX-38** (MUST) One generated type per def. Two defs with the same shape are still two types.
   *Source:* Decision · 0.8 merged shapes (`FeedResponse` serves 5 methods, `ConvoIdRequest` 10)
   that needed 86 `DefOf` drift mappings
-- **LEX-39** (MUST) Object defs, records, `Input`/`Output`/`Message` objects become
-  `partial record` classes implementing `ILexiconObject`, with `init` properties (sealed except as
-  LEX-49 requires).
-  Lexicon-required properties are `required`; optional properties are nullable.
+- **LEX-39** (MUST) Object defs, records, `Input`/`Output`/`Message` objects become **sealed**
+  `partial record` classes implementing `ILexiconObject`, with `init` properties; named object
+  and record defs also implement `ILexiconType<TSelf>` (their `$type` string and contract), which
+  union converters and `LexiconUnknown` use. Lexicon-required properties are `required`; optional
+  properties are nullable, except optional unions (LEX-84). Generated types never use the C# 15
+  `closed` modifier, which is reserved for hand-written SDK hierarchies.
   *Source:* [AG-7](../03-api-guidelines.md#types) · 0.8 CONTRIBUTING "Lexicon models and clients"
 - **LEX-40** (MUST) Lexicon `nullable`: a required, nullable property is a nullable C# property
   that is always written (JSON `null` when null). A non-required, nullable property is an
@@ -597,7 +636,7 @@ public static class BlueskyClientExtensions
   | `array` | `IReadOnlyList<T>` |
   | `unknown` | `DataModelValue` |
   | `ref` | the target's type |
-  | `union` | union interface (LEX-49) |
+  | `union` | C# 15 `union` struct (LEX-49); optional fields use the union itself (LEX-84) |
 
   *Source:* 0.8 CONTRIBUTING (typed identifiers), `TypedIdentifierGuardTests` · 0.8 #211
   (`space-ref` → `SpaceUri`) · [D-19](../06-decisions.md#d-19-lexicon-integer-maps-to-int-when-the-bounds-fit-otherwise-long)
@@ -633,39 +672,44 @@ public static class BlueskyClientExtensions
 
 #### Unions
 
-- **LEX-49** (MUST) A union is a generated `partial interface` with `[JsonConverter]` pointing at a
-  generated converter. A variant type in the same assembly implements every union interface of
-  that assembly it belongs to. All first-party Lexicons are generated into the one `ATProtoNet`
-  assembly, so every first-party union is a plain interface, including the 22 of 103 upstream
-  unions that cross Lexicon families (for example `com.atproto.label.defs#selfLabels` in
-  `app.bsky.feed.post#labels`: `SelfLabels` simply implements `IPostLabels`). A **user's**
-  assembly cannot make an SDK type implement its interface, so when a user union names an SDK
-  type, the user assembly generates a derived record `{Union}{Variant}`
-  (`MyThingLabelsSelfLabels : SelfLabels, IMyThingLabels`) and a static
-  `IMyThingLabels.From(SelfLabels)` factory. The converter reads such members as the derived type,
-  so `thing.Labels is SelfLabels labels` works; the wire shape is the variant's own. For this to
-  work, generated named object and record types are `partial record` but **not sealed** (a
-  documented exception to [AG-6](../03-api-guidelines.md#types)); method `Parameters`, `Input`,
-  `Output` and inline types stay sealed.
-  *Source:* [D-18](../06-decisions.md#d-18-unions-are-interfaces) · Lexicon survey (cross-family
-  union members: Ozone→core 10, Bluesky→core 6, Ozone→Bluesky 4, StandardSite→core 2; all
-  resolved inside the one assembly)
-- **LEX-50** (MUST) Open unions get an `Unknown…` variant implementing `IUnknownUnionVariant`
-  (`Type` = the `$type`, `Raw` = a detached copy of the object) that writes back its raw JSON
-  unchanged. Closed unions have no unknown variant.
+- **LEX-49** (MUST) A Lexicon union is a generated C# 15 `union` type,
+  `public union {Name}(CaseA, CaseB, …)`, named by LEX-34, carrying `[LexiconDefinition]` and
+  `[JsonConverter(typeof({Name}Converter))]`. Its cases are the referenced defs' types in `refs`
+  order, plus `LexiconUnknown` for open unions (LEX-50). A case type implements nothing
+  union-specific, so any type can be a case of any number of unions in any assembly: first-party
+  unions that cross Lexicon families (22 of 103 upstream) and users' unions that name SDK types
+  need no extra mechanism. Union cases are reference types, so the union's single `object?`
+  storage boxes nothing.
+  ~~A union is a generated `partial interface` that each variant implements; a user assembly
+  generates a derived record `{Union}{Variant}` for SDK types in its unions, which requires
+  unsealed generated types.~~ Superseded by C# 15 unions
+  ([D-18](../06-decisions.md#d-18-unions-are-interfaces), revised): interfaces could not span
+  assemblies, and derived records cost the sealedness of every generated type.
+  *Source:* [D-18](../06-decisions.md#d-18-unions-are-interfaces) ·
+  [C# 15 union types](https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/union) ·
+  Lexicon survey (cross-family union members: Ozone→core 10, Bluesky→core 6, Ozone→Bluesky 4,
+  StandardSite→core 2)
+- **LEX-50** (MUST) Open unions have the shared `LexiconUnknown` case (`Type` = the `$type` as
+  received, `Raw` = a detached copy of the object), which writes back its raw JSON unchanged.
+  Closed unions have no unknown case.
   *Source:* [D-18](../06-decisions.md#d-18-unions-are-interfaces) · 0.8
   `OpenUnionTests.Deserialize_UnknownVariant_ReadsAsUnknownAndWritesBackByteForByte`,
   `UnknownVariant_Constructor_DetachesRawFromTheCallersDocument`
-- **LEX-51** (MUST) Union read: find `$type` anywhere in the object (not only first); match escaped
-  discriminators unescaped; dispatch to the known variant; for open unions, consult the options'
-  `LexiconTypeRegistry` and then fall back to `Unknown…`; for closed unions, throw `JsonException`
-  on an unlisted `$type`. A member that is not an object or has no `$type` throws; JSON `null`
-  reads as `null`.
+- **LEX-51** (MUST) Union read (generated converter, not System.Text.Json's built-in union
+  handling): buffer the object; find `$type` anywhere among its root properties (not only
+  first); match escaped discriminators unescaped; dispatch to the matching case's source-generated
+  `JsonTypeInfo`; for an unlisted `$type`, produce `LexiconUnknown` in an open union and throw
+  `JsonException` with the JSON path in a closed one. A member that is not an object or has no
+  `$type` throws `JsonException`; JSON `null` reads as the default union (no active case).
   *Source:* 0.8 #50 · `OutOfOrderTypeMetadataTests`, `OpenUnionTests.Deserialize_EscapedDiscriminatorValue_IsMatchedUnescaped`,
   `…UnknownVariantOfClosedUnion_Throws`, `…UnionMemberWithoutType_Throws`,
-  `…UnionMemberThatIsNotAnObject_Throws`, `…NullUnionMember_ReadsAsNull`, `CustomUnionTests`
+  `…UnionMemberThatIsNotAnObject_Throws`, `…NullUnionMember_ReadsAsNull` · .NET 11
+  System.Text.Json serializes a C# union by writing only the active case, classifies by token type
+  or property names, and offers no per-case contract (`JsonUnionCaseInfo` has only `CaseType` and
+  `IsNullable`), so it cannot read or write atproto's `$type` format
+  ([docs](https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/union-types))
 - **LEX-52** (MUST) One unknown variant never fails its container: a page with one unrecognised
-  embed or thread node deserializes, with that member as `Unknown…`.
+  embed or thread node deserializes, with that member as `LexiconUnknown`.
   *Source:* 0.8 #115 · `Deserialize_UnknownEmbedInsidePostView_KeepsTheRestOfThePage`,
   `Deserialize_UnknownThreadNodeAmongReplies_KeepsTheKnownNodes`
 - **LEX-53** (MUST) An invalid member inside a variant fails with the JSON path within the
@@ -674,17 +718,52 @@ public static class BlueskyClientExtensions
   *Source:* `Deserialize_InvalidMemberOfAVariant_NamesItsPathWithinTheVariant`,
   `…InvalidMemberUnderDeeplyNestedUnions_FailsFastWithTheErrorOfOneDeserialize`,
   `…VariantConverterThatReadsPastItsValue_CannotReachTheNextMember`
-- **LEX-54** (MUST) Union write: the converter writes `$type` first (the NSID for a `main` def,
-  `nsid#name` otherwise), then the variant's members. Writing a variant that is neither declared
-  nor registered throws `NotSupportedException`. A variant serialized on its own, outside union
-  context, writes no `$type`.
+- **LEX-54** (MUST) Union write: the active case is written with `$type` as its **first**
+  property (the NSID for a `main` def, `nsid#name` otherwise, from `ILexiconType<TSelf>`). A
+  `LexiconUnknown` writes its raw JSON unchanged. **Outside union position**, a plain `ref` to an
+  object writes **no** `$type`; record types always write `$type` (LEX-57). A default union (no
+  active case) in an optional property is omitted (LEX-84). The mechanism is not normative; the
+  reference approach serializes the case through its own contract into a pooled buffer and
+  inserts `"$type":"…"` after the opening brace (records, which already lead with `$type`, are
+  copied as they are), and generated per-type member writers are an allowed optimisation if
+  benchmarks call for them. Putting a non-case type into a union is a compile error, so no
+  runtime "undeclared variant" failure exists.
   *Source:* `OpenUnionTests.Serialize_KnownVariant_LeadsWithType…` ·
-  `CustomUnionTests.Serialize_VariantThatIsNeitherDeclaredNorRegistered_Throws` ·
-  [Lexicon spec: ref](https://atproto.com/specs/lexicon) (no `$type` on plain refs)
-- **LEX-55** (MUST) `unionExtensions` lets a user def join an open union from a referenced
+  [Lexicon spec: ref](https://atproto.com/specs/lexicon) ("When a `ref` points to an `object`
+  type… the `$type` field should not be included in encoded data as a discriminator. This does
+  not apply to references to `record` types, which always include the `$type` discriminator.")
+- ~~**LEX-55** (MUST) `unionExtensions` lets a user def join an open union from a referenced
   assembly: the generated type implements that union's interface and `{Name}Lexicons.Register`
-  adds it to a registry, so data with its `$type` reads as the typed variant.
+  adds it to a registry, so data with its `$type` reads as the typed variant.~~ Superseded by
+  LEX-86: a C# 15 union's case list is fixed where it is declared, so a user type cannot join an
+  SDK union; it travels as `LexiconUnknown` with typed helpers instead.
+  *Source:* 0.8 `LexiconTypeRegistry.RegisterUnionVariant`
+- **LEX-84** (MUST) A union-typed property that the Lexicon makes optional is typed as the union
+  struct itself (not `Nullable<TUnion>`): `default` (no active case) means absent, is omitted on
+  write, reads from an absent property or JSON `null`, and `post.Embed is null` tests for it (the
+  C# `null` pattern on a union tests its value). A required union property is `required`; a
+  missing or JSON-`null` required union fails deserialization with `JsonException`, and writing
+  one left `default` throws `JsonException` naming the property (for example through a
+  generated property-level converter).
+  *Source:* Decision · [C# 15 union types: null and default](https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/union)
+- **LEX-85** (MUST) The generated shape keeps the C# 15 union guarantees available to callers:
+  each case type converts implicitly to the union (`Embed = new Images { … }`); type patterns
+  test the active case (`post.Embed is Images images`); a `switch` over a closed union that
+  handles every case needs no discard arm; an open union additionally needs a `LexiconUnknown`
+  arm or a discard. A Lexicon update that adds a case therefore shows up as a compiler warning at
+  every exhaustive `switch` that does not handle it. A compile test over generated code checks
+  these (warnings as errors).
+  *Source:* [D-18](../06-decisions.md#d-18-unions-are-interfaces) ·
+  [What's new in C# 15](https://learn.microsoft.com/dotnet/csharp/whats-new/csharp-15)
+- **LEX-86** (MUST) A user def that extends an open union declared in a referenced assembly (for
+  example a custom embed in `app.bsky.feed.post#embed`) reads as `LexiconUnknown`, and
+  `unknown.TryAs<MyEmbed>(out var embed)` deserializes it through the user type's contract when
+  the `$type` equals `MyEmbed.LexiconType`. `LexiconUnknown.From(myEmbed)` builds the case for
+  writing (`$type` first, then the user type's members). For each `unionExtensions` entry, the
+  generator also emits C# 14 extension members on the SDK union (`embed.TryGetMyEmbed(out …)`,
+  `PostEmbed.FromMyEmbed(…)`), so user code reads the same as for SDK cases.
   *Source:* 0.8 `LexiconTypeRegistry.RegisterUnionVariant` · `RegisteredVariant_OnSdkUnion_IsUsedByTheOptionsTheClientsUse`
+  (scenario carried over in the new form)
 
 #### Records
 
@@ -720,7 +799,7 @@ public static class BlueskyClientExtensions
   | procedure, JSON or no input, JSON output | `XrpcProcedure<TInput, TOutput>` |
   | procedure, no output | `XrpcProcedure<TInput>` |
   | procedure, binary input (`*/*`, `video/mp4`, CAR, octet-stream) | `XrpcProcedure<XrpcBinaryContent, TOutput>` |
-  | subscription | `XrpcSubscription<Parameters, I{Method}Message>` (the `message` union, LEX-34) |
+  | subscription | `XrpcSubscription<Parameters, {Method}Message>` (the `message` union, LEX-34) |
 
   `TOutput`/`TInput` is the nested `Output`/`Input` record for inline schemas or the referenced
   type for `ref` schemas. Methods declaring no parameters or no input use `XrpcEmpty`. The
@@ -875,11 +954,10 @@ public static class BlueskyClientExtensions
 | `MaxSchemaNestingDepth` | 32 | inline nesting within one def |
 | `MaxValidationDepth` | 64 | data validation recursion (matches the DRISL depth limit) |
 | `MaxValidationErrors` | 100 | violations collected before validation stops |
-| `MaxRegistryVariantsPerUnion` | 256 | `LexiconTypeRegistry` additions per union |
 | `MaxRefAliasDepth` | 8 | chains of named `ref` defs (LEX-7) |
 
-The union converter searches for `$type` only within the current object, which the XRPC
-success-body cap already bounds ([xrpc-client.md](xrpc-client.md)).
+The union converter buffers one object to find `$type` and searches only within it; the XRPC
+success-body cap already bounds that object ([xrpc-client.md](xrpc-client.md)).
 
 ## Errors
 
@@ -888,8 +966,9 @@ success-body cap already bounds ([xrpc-client.md](xrpc-client.md)).
 | Malformed Lexicon document | `FormatException` from `Parse`; diagnostics from `TryParse` |
 | Lint findings, unresolved refs, collisions | `LexiconDiagnostic` (rule ID, severity, pointer); generator diagnostics `ATLEX0xx` |
 | Data violates a schema | `LexiconValidationResult` with paths; `LexiconValidationException` where an API must throw |
-| JSON does not fit a generated type (missing required, wrong type, invalid identifier, unknown variant of a closed union) | `JsonException` with JSON path (wrapped by the XRPC layer as `XrpcResponseFormatException`) |
-| Writing an undeclared, unregistered union variant | `NotSupportedException` |
+| JSON does not fit a generated type (missing required, wrong type, invalid identifier, unknown variant of a closed union, missing or `null` required union) | `JsonException` with JSON path (wrapped by the XRPC layer as `XrpcResponseFormatException`) |
+| Writing a required union property left `default` | `JsonException` naming the property |
+| Putting a type that is not a case into a union | compile error (C# 15 union conversions) |
 | `As<T>()` on a value of another `$type` | `InvalidOperationException` |
 | Runtime resolution failure | `LexiconResolutionException : AtProtoException` |
 
@@ -901,10 +980,13 @@ success-body cap already bounds ([xrpc-client.md](xrpc-client.md)).
 - **Generator:** all vendored Lexicons generate and compile with zero diagnostics (extends #141,
   `CSharpEmitterCompileTests`); golden emitter output for a representative set (record, paginated
   query, procedure with binary input, open union, closed union, known values, nested defs,
-  permission set, space def); CLI and source-generator output are byte-identical; CI
-  regeneration check.
+  permission set, space def, and an object used both as a union case and as a plain `ref`, which
+  writes `$type` only in union position); a compile test of generated unions with exhaustive
+  switches under warnings-as-errors (LEX-85); CLI and source-generator output are byte-identical;
+  CI regeneration check.
 - **Scenarios to port:** `OpenUnionTests`, `OutOfOrderTypeMetadataTests`,
-  `RecordTypeDiscriminatorTests`, `UnknownFieldTests`, `CustomUnionTests`, `LexiconUnionTests`,
+  `RecordTypeDiscriminatorTests`, `UnknownFieldTests`, `CustomUnionTests` (registry-based
+  variants become `LexiconUnknown.TryAs`/`From` scenarios, LEX-86), `LexiconUnionTests`,
   `WireFidelityTests`, `EmptyResponseBodyTests` (now driven by Lexicon data),
   `CSharpEmitterTests` (naming and collision cases), `LexiconLinterTests`, `LexiconDifferTests`,
   `LexiconResolverTests`, the record parts of `RecordCollectionTests`.
@@ -917,10 +999,12 @@ success-body cap already bounds ([xrpc-client.md](xrpc-client.md)).
 |---|---|
 | All Lexicon models and clients are generated; 100% of vendored methods are covered (0.8: 279 of 321) | D-04 |
 | One type per def; merged shapes (`FeedResponse`, `ConvoIdRequest`) and their names disappear | LEX-38: generated code cannot share shapes without heuristics |
-| Unions are interfaces with generated converters; no `Unknown*` hand classes, no duplicate embed types | D-18 |
-| Named object and record types are unsealed so users' Lexicon assemblies can derive from them to join their unions | LEX-49 |
+| Unions are C# 15 `union` types with generated converters and one shared `LexiconUnknown` case; no `Unknown*` hand classes, no duplicate embed types, no base classes or interfaces for variants | D-18 (revised), LEX-49 |
+| Optional union fields are the union struct, `default` = absent (0.8: nullable base-class references) | LEX-84 |
+| User types extending SDK open unions travel as `LexiconUnknown` with generated typed helpers instead of registry registration | LEX-86: C# 15 union cases are fixed at declaration |
+| Generated code needs C# 15 and `net11.0` | D-25, LEX-83 |
 | The source generator ships inside the `ATProtoNet` package; there is no generator package to add | One base package ([D-03](../06-decisions.md#d-03-package-map)) |
-| A union variant serialized outside union context writes no `$type` (0.8 always wrote it) | Lexicon spec: no `$type` on plain refs; records and union members are unaffected |
+| A union variant in plain-`ref` position writes no `$type` (0.8 wrote it for union-variant types in every context) | Lexicon spec: `$type` should not be written for plain object refs; records always write it. Records the SDK writes that contain such objects in plain-ref positions therefore get different bytes, and different CIDs, than 0.8 produced, intentionally |
 | No `AtProtoRecord` base class or #49 contract modifier; `createdAt` stamping via `ICreatedAtRecord<TSelf>` | One record pattern |
 | `integer` maps by the D-19 rule (0.8: `int` 189×, `long` 33×, no rule) | D-19 |
 | Known values are open structs; closed C# enums for open strings (`RepoOpAction`) are gone | AG-9 |
@@ -928,7 +1012,7 @@ success-body cap already bounds ([xrpc-client.md](xrpc-client.md)).
 | Case-sensitive reads, no numbers from strings | D-20 |
 | `language` maps to `Language` (0.8: `string`) | Typed identifiers everywhere ([syntax.md](syntax.md)) |
 | Non-required `nullable` fields are `Optional<T?>`; 0.8 could not send `swapRecord: null` | LEX-40 |
-| `LexiconTypeRegistry` is an instance; `ILexiconPlugin` is replaced by generated `Register` | D-10 |
+| `LexiconTypeRegistry` is an instance holding records only; `ILexiconPlugin` is replaced by generated `Register` | D-10 |
 | Diff treats loosening a constraint and making a field optional as breaking (0.8: compatible) | Lexicon versioning guide |
 | Unresolvable refs are errors (0.8: `JsonElement?` with a warning) | LEX-6 |
 | Generated `ToString()` prints no members | AG-29 |
@@ -940,7 +1024,9 @@ success-body cap already bounds ([xrpc-client.md](xrpc-client.md)).
 | LEX-O1 | Align `lexicons.json` exactly with `@atproto/lex`'s manifest (`version`, `lexicons`, `resolvers`, `resolutions`) so one manifest serves several SDKs? | Yes where the formats overlap; our extra fields (CID-in-record-form, provenance) go under an `x-atprotonet` key. Verify against `@atproto/lex-installer` at phase 3 start. |
 | LEX-O2 | Closed `enum` as an open struct (LEX-47) or a C# `enum`? | Open struct, lenient read, validator-enforced; a C# enum breaks readers when upstream breaks the rule. |
 | LEX-O3 | Exact extension-data property type (`IDictionary<string, JsonElement>` vs `JsonObject`) under STJ source generation with `init`. | Whichever STJ source generation supports with `init` and no reflection; decided in the phase 3 spike. |
-| LEX-O4 | Union membership of SDK types in users' unions (LEX-49): derived records (unsealed object types) or wrapper adapters (`{Union}{Variant}(Value)`, types stay sealed)? First-party unions need neither (one assembly). | Derived records: pattern matching on the SDK type keeps working in user code. Adapters need `is X { Value: var v }` everywhere such fields are read. |
+| ~~LEX-O4~~ | ~~Union membership of SDK types in users' unions: derived records or wrapper adapters?~~ | **Resolved** by C# 15 unions (D-18 revised): any type can be a case of any union, so neither is needed. |
 | LEX-O5 | Generate `Enumerate*Async` for every paginated query (LEX-71) or only listed ones? | Every one. |
 | LEX-O6 | Direct DRISL-CBOR binding for generated types (skipping `DataModelValue`)? | Later optimisation behind the same API (D-10). |
 | LEX-O7 | Should `app.bsky.unspecced.*` be generated at all? | Yes, marked `ATPROTO002`. |
+| LEX-O8 | C# 15 union details (syntax, null semantics, runtime types) may still change before .NET 11 GA (November 2026). | Re-check against the GA compiler at phase 3 start. The emitter isolates the union shape, so a change is a regeneration, not a redesign. |
+| LEX-O9 | System.Text.Json's built-in union support cannot express `$type` discriminators today (LEX-51). | Keep the generated converters; revisit if a later System.Text.Json adds discriminator-based union classification and per-case contracts. |
