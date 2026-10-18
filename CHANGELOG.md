@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **MessagePack lifted to 2.5.303** — `ATProtoNet.Aspire.Hosting` now references the patched MessagePack, so Aspire.Hosting 13.6.0 no longer brings in 2.5.302 (GHSA-qhrr-8q5h-9q3h) (#224)
+
 ## [0.8.0] - 2026-10-05
 
 A catch-up and performance release. The Spaces implementation follows the permissioned-data alpha of 2026-10-01 — HTTP message signatures instead of DPoP, short-lived key-bound credentials, `repoRev`/`spaceRev` sequencing and credential revocation — and the public Lexicons follow upstream as of 2026-10-02. Identity resolution is faster (DNS-preferred handles, a handle cache, HTTP/2), the request, firehose and DID document paths allocate less, and the code base is about 1,100 lines smaller.
