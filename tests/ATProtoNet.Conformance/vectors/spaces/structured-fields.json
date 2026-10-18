@@ -1,0 +1,469 @@
+{
+  "comment": "RFC 8941 dictionaries: the canonical serialization of one member, or a refusal. `reference` records where structured-headers 1.0.1 differs.",
+  "cases": [
+    {
+      "name": "canonical sig=(\"a\" \"b\")",
+      "field": "sig=(\"a\" \"b\")",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\" \"b\")"
+      }
+    },
+    {
+      "name": "canonical sig=(  \"a\"   \"b\"  )",
+      "field": "sig=(  \"a\"   \"b\"  )",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\" \"b\")"
+      }
+    },
+    {
+      "name": "canonical sig=()",
+      "field": "sig=()",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "()"
+      }
+    },
+    {
+      "name": "canonical sig=(\"a\");keyid=\"x\"",
+      "field": "sig=(\"a\");keyid=\"x\"",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\");keyid=\"x\""
+      }
+    },
+    {
+      "name": "canonical sig=(\"a\");  keyid=\"x\"",
+      "field": "sig=(\"a\");  keyid=\"x\"",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\");keyid=\"x\""
+      }
+    },
+    {
+      "name": "canonical sig=(\"a\");alg=\"p\";keyid=\"x\"",
+      "field": "sig=(\"a\");alg=\"p\";keyid=\"x\"",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\");alg=\"p\";keyid=\"x\""
+      }
+    },
+    {
+      "name": "canonical sig=(\"a\";sf \"b\")",
+      "field": "sig=(\"a\";sf \"b\")",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\";sf \"b\")"
+      }
+    },
+    {
+      "name": "canonical sig=(\"a\");n=1;d=1.50;t=tok;b=:YWJj:;f;g=?0;h=?1",
+      "field": "sig=(\"a\");n=1;d=1.50;t=tok;b=:YWJj:;f;g=?0;h=?1",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\");n=1;d=1.5;t=tok;b=:YWJj:;f;g=?0;h"
+      }
+    },
+    {
+      "name": "canonical sig=(\"a\");d=-0.0",
+      "field": "sig=(\"a\");d=-0.0",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\");d=0.0"
+      },
+      "reference": {
+        "parsed": true,
+        "member": "(\"a\");d=0"
+      }
+    },
+    {
+      "name": "canonical sig=(\"a\");n=-42",
+      "field": "sig=(\"a\");n=-42",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\");n=-42"
+      }
+    },
+    {
+      "name": "canonical sig=(\"a\");s=\"q\\\"\\\\\"",
+      "field": "sig=(\"a\");s=\"q\\\"\\\\\"",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\");s=\"q\\\"\\\\\""
+      }
+    },
+    {
+      "name": "canonical sig=(\"a\");b=:YWJjZA:",
+      "field": "sig=(\"a\");b=:YWJjZA:",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\");b=:YWJjZA==:"
+      },
+      "reference": {
+        "parsed": true,
+        "member": "(\"a\");b=:YWJjZA:"
+      }
+    },
+    {
+      "name": "canonical sig=(\"a\");k=1;k=2",
+      "field": "sig=(\"a\");k=1;k=2",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\");k=2"
+      }
+    },
+    {
+      "name": "canonical sig=(\"a\");k=1;j=1;k=2",
+      "field": "sig=(\"a\");k=1;j=1;k=2",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\");k=2;j=1"
+      }
+    },
+    {
+      "name": "member a among others",
+      "field": "a=1, b=\"two\" ,\tc=(\"x\"), d, sig=(\"a\")",
+      "key": "a",
+      "expect": {
+        "parsed": true,
+        "member": "1"
+      }
+    },
+    {
+      "name": "member b among others",
+      "field": "a=1, b=\"two\" ,\tc=(\"x\"), d, sig=(\"a\")",
+      "key": "b",
+      "expect": {
+        "parsed": true,
+        "member": "\"two\""
+      }
+    },
+    {
+      "name": "member c among others",
+      "field": "a=1, b=\"two\" ,\tc=(\"x\"), d, sig=(\"a\")",
+      "key": "c",
+      "expect": {
+        "parsed": true,
+        "member": "(\"x\")"
+      }
+    },
+    {
+      "name": "member d among others",
+      "field": "a=1, b=\"two\" ,\tc=(\"x\"), d, sig=(\"a\")",
+      "key": "d",
+      "expect": {
+        "parsed": true,
+        "member": "?1"
+      }
+    },
+    {
+      "name": "member sig among others",
+      "field": "a=1, b=\"two\" ,\tc=(\"x\"), d, sig=(\"a\")",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "(\"a\")"
+      }
+    },
+    {
+      "name": "member missing among others",
+      "field": "a=1, b=\"two\" ,\tc=(\"x\"), d, sig=(\"a\")",
+      "key": "missing",
+      "expect": {
+        "parsed": true,
+        "member": null
+      }
+    },
+    {
+      "name": "byte sequence",
+      "field": "sig=:AQID:",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": ":AQID:"
+      }
+    },
+    {
+      "name": "empty field",
+      "field": "",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": null
+      }
+    },
+    {
+      "name": "repeated key",
+      "field": "sig=1, other=2, sig=3",
+      "key": "sig",
+      "expect": {
+        "parsed": true,
+        "member": "3",
+        "duplicated": true
+      }
+    },
+    {
+      "name": "key next to a repeated one",
+      "field": "sig=1, other=2, sig=3",
+      "key": "other",
+      "expect": {
+        "parsed": true,
+        "member": "2",
+        "duplicated": false
+      }
+    },
+    {
+      "name": "largest integer",
+      "field": "n=999999999999999",
+      "key": "n",
+      "expect": {
+        "parsed": true,
+        "member": "999999999999999"
+      }
+    },
+    {
+      "name": "largest decimal",
+      "field": "n=999999999999.999",
+      "key": "n",
+      "expect": {
+        "parsed": true,
+        "member": "999999999999.999"
+      }
+    },
+    {
+      "name": "malformed sig=",
+      "field": "sig=",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=1,",
+      "field": "sig=1,",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed ,sig=1",
+      "field": ",sig=1",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=1 sig2=2",
+      "field": "sig=1 sig2=2",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed Sig=1",
+      "field": "Sig=1",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed 1sig=1",
+      "field": "1sig=1",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=(\"a\"",
+      "field": "sig=(\"a\"",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=(\"a\"\"b\")",
+      "field": "sig=(\"a\"\"b\")",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=(\"a\";)",
+      "field": "sig=(\"a\";)",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=\"unterminated",
+      "field": "sig=\"unterminated",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=\"bad\\escape\"",
+      "field": "sig=\"bad\\escape\"",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=\"tab\there\"",
+      "field": "sig=\"tab\there\"",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=\"café\"",
+      "field": "sig=\"café\"",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=?2",
+      "field": "sig=?2",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=?",
+      "field": "sig=?",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=:YWJj",
+      "field": "sig=:YWJj",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=:YW!j:",
+      "field": "sig=:YW!j:",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=:Y:",
+      "field": "sig=:Y:",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      },
+      "reference": {
+        "parsed": true,
+        "member": ":Y:"
+      }
+    },
+    {
+      "name": "malformed sig=1.",
+      "field": "sig=1.",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=1.2345",
+      "field": "sig=1.2345",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=1234567890123456",
+      "field": "sig=1234567890123456",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=1234567890123.5",
+      "field": "sig=1234567890123.5",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=-",
+      "field": "sig=-",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=@1618884473",
+      "field": "sig=@1618884473",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=%\"display\"",
+      "field": "sig=%\"display\"",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=(\"a\");k=",
+      "field": "sig=(\"a\");k=",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    },
+    {
+      "name": "malformed sig=1;",
+      "field": "sig=1;",
+      "key": "sig",
+      "expect": {
+        "parsed": false
+      }
+    }
+  ]
+}

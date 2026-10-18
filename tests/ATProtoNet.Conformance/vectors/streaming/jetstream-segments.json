@@ -1,0 +1,96 @@
+{
+  "comment": "Jetstream .jss segment pieces: the reference encoder's golden block and a real sealed segment's header (see README.md), what they decode to, and hostile variants. A case reads `file` (or `hex`), applies `patch` ({offset, hex}) and `truncateBy`, then decodes it as a `block` (decompressed) or a 256-byte `header`. `expect` is the decoded rows or header, or \"rejected\".",
+  "cases": [
+    {
+      "name": "golden block",
+      "spec": "STR-76",
+      "part": "block",
+      "file": "jetstream-golden-block.bin",
+      "expect": [
+        {
+          "seq": 1, "witnessedAt": 1700000000000000, "indexedAt": 0, "timeUs": 1700000000000000, "kind": "create",
+          "did": "did:plc:abcdefghijklmnopqrstuvwx", "collection": "app.bsky.feed.post", "rkey": "3l3qo2vuowo2b", "rev": "3l3qo2vutsw2b",
+          "payload": "a16568656c6c6f05",
+          "event": {
+            "kind": "event", "type": "commit", "did": "did:plc:abcdefghijklmnopqrstuvwx", "timeUs": 1700000000000000, "cursor": 1,
+            "operation": "create", "collection": "app.bsky.feed.post", "rkey": "3l3qo2vuowo2b", "rev": "3l3qo2vutsw2b",
+            "uri": "at://did:plc:abcdefghijklmnopqrstuvwx/app.bsky.feed.post/3l3qo2vuowo2b",
+            "cid": "bafyreielxxj7sntlufajnoo4xdicwdjogtt33zfosmi4b6qvmcaupq7ivm", "record": { "hello": 5 }
+          }
+        },
+        {
+          "seq": 2, "witnessedAt": 1700000001000000, "indexedAt": 1700000000500000, "timeUs": 1700000000500000, "kind": "identity",
+          "did": "did:web:example.com", "collection": "", "rkey": "", "payload": "",
+          "event": { "kind": "event", "type": "identity", "did": "did:web:example.com", "timeUs": 1700000000500000, "cursor": 2, "handle": null }
+        },
+        {
+          "seq": 3, "witnessedAt": 1700000002000000, "indexedAt": 0, "timeUs": 1700000002000000, "kind": "delete",
+          "did": "did:plc:zzzzzzzzzzzzzzzzzzzzzzzz", "collection": "app.bsky.feed.like", "rkey": "3l3qo2vuowo2c", "rev": "3l3qo2vutsw2c",
+          "payload": "",
+          "event": {
+            "kind": "event", "type": "commit", "did": "did:plc:zzzzzzzzzzzzzzzzzzzzzzzz", "cursor": 3, "operation": "delete",
+            "collection": "app.bsky.feed.like", "rkey": "3l3qo2vuowo2c", "cid": null, "record": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "sealed segment header",
+      "spec": "STR-76",
+      "part": "header",
+      "file": "jetstream-golden-header.bin",
+      "expect": {
+        "checksum": "90990e50dd911597", "version": 1, "blockCount": 2, "eventCount": 12, "uniqueDidCount": 3,
+        "minSeq": 1, "maxSeq": 12, "minWitnessedAt": 1, "maxWitnessedAt": 12,
+        "footerOffset": 578, "blockIndexOffset": 578, "didBloomOffset": 682, "blockDidBloomOffset": 771, "collectionIndexOffset": 17597
+      }
+    },
+    {
+      "name": "implausible event count",
+      "spec": "STR-76",
+      "part": "block",
+      "hex": "ffffffff000000000000000000000000",
+      "expect": "rejected"
+    },
+    {
+      "name": "truncated golden block",
+      "spec": "STR-76",
+      "part": "block",
+      "file": "jetstream-golden-block.bin",
+      "truncateBy": 8,
+      "expect": "rejected"
+    },
+    {
+      "name": "header without the magic",
+      "spec": "STR-76",
+      "part": "header",
+      "file": "jetstream-golden-header.bin",
+      "patch": { "offset": 0, "hex": "78" },
+      "expect": "rejected"
+    },
+    {
+      "name": "header of an active segment",
+      "spec": "STR-76",
+      "part": "header",
+      "file": "jetstream-golden-header.bin",
+      "patch": { "offset": 4, "hex": "0000000000000000" },
+      "expect": "rejected"
+    },
+    {
+      "name": "header shorter than 256 bytes",
+      "spec": "STR-76",
+      "part": "header",
+      "file": "jetstream-golden-header.bin",
+      "truncateBy": 1,
+      "expect": "rejected"
+    },
+    {
+      "name": "footer offset inside the header",
+      "spec": "STR-76",
+      "part": "header",
+      "file": "jetstream-golden-header.bin",
+      "patch": { "offset": 58, "hex": "ff00000000000000" },
+      "expect": "rejected"
+    }
+  ]
+}

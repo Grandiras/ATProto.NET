@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The benchmark scenarios against the 0.8 packages, as published on nuget.org. Run once in
+       phase 0 to record baseline/0.8.0; retired with Adapter.Legacy when 0.9 ships. -->
+
+  <Import Project="..\Shared\Benchmarks.Shared.props" />
+
+  <ItemGroup>
+    <PackageReference Include="ATProtoNet" />
+  </ItemGroup>
+
+</Project>

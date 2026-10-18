@@ -192,13 +192,14 @@ public sealed class LexiconFormatTypeAttribute(string format, Type type) : Attri
   `permission-set`, `space`), and only under the name `main`; `params` cannot be a named def;
   `params` properties are limited to `boolean`, `integer`, `string` and arrays of those.
   Violations are `LexiconDiagnostic`s with a JSON pointer; `Parse` throws `FormatException`
-  naming the first one. Named `ref`, `union` and `unknown` defs, which the spec does not allow but
-  published schemas use, are accepted with a lint warning: a named `union` generates a union type
-  named after the def, a named `ref` is an alias for its target, a named `unknown` maps to
-  `DataModelValue`.
+  naming the first one. A named `ref` or `unknown` def is a violation. A named `union` def, which
+  the spec does not allow either, is accepted with a lint warning and generates a union type named
+  after the def.
   *Source:* [Lexicon spec: Lexicon Files, params](https://atproto.com/specs/lexicon) · 0.8
   `LexiconLinter.cs:46-51` ("used by published schemas"),
-  `LexiconLinterTests.Lint_InvalidIdOrNoDefinitions_IsAnError`
+  `LexiconLinterTests.Lint_InvalidIdOrNoDefinitions_IsAnError` · atproto-interop-tests
+  `lexicon/lexicon-invalid.json` ("defined unknown", "defined ref"; phase 0 made them violations
+  instead of warnings, since upstream wins, and no vendored Lexicon uses them)
 - **LEX-4** (MUST) An unknown def or field `type` is preserved as `LexUnknownType` with a warning,
   never a parse failure, so newer schemas stay readable. A JSON `null` where a schema is expected
   is an error wherever it appears.
@@ -1091,7 +1092,7 @@ records the outcome here in the same PR.
 
 | # | Question | Default |
 |---|---|---|
-| LEX-O1 | Align `lexicons.json` exactly with `@atproto/lex`'s manifest (`version`, `lexicons`, `resolvers`, `resolutions`) so one manifest serves several SDKs? | Yes where the formats overlap; our extra fields (CID-in-record-form, provenance) go under an `x-atprotonet` key. Verify against `@atproto/lex-installer` at phase 3 start. |
+| LEX-O1 | Align `lexicons.json` exactly with `@atproto/lex`'s manifest (`version`, `lexicons`, `resolvers`, `resolutions`) so one manifest serves several SDKs? | Yes where the formats overlap; our extra fields (CID-in-record-form, provenance) go under an `x-atprotonet` key. Verify against `@atproto/lex-installer` at phase 3 start. *Phase 0:* `scripts/vendor-lexicons.py` writes it in the SDK's own shape for now (`version`, `sources` with repository, commit and licence, `lexicons` → `{source, cid}`); its CIDs (LEX-23) reproduce the published `site.standard` record CIDs. |
 | LEX-O2 | Closed `enum` as an open struct (LEX-47) or a C# `enum`? | Open struct, lenient read, validator-enforced; a C# enum breaks readers when upstream breaks the rule. |
 | LEX-O3 | Exact extension-data property type (`IDictionary<string, JsonElement>` vs `JsonObject`) under STJ source generation with `init`. | Whichever STJ source generation supports with `init` and no reflection; decided in the phase 3 spike. |
 | ~~LEX-O4~~ | ~~Union membership of SDK types in users' unions: derived records or wrapper adapters?~~ | **Resolved** by C# 15 unions (D-18 revised): any type can be a case of any union, so neither is needed. |

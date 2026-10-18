@@ -1,0 +1,321 @@
+{
+  "source": "ATProto.NET 0.8.0 tests/ATProtoNet.Tests/Lexicon/EndpointRequestTests.cs at 6aee361",
+  "cases": [
+    {
+      "case": "chat.bsky.actor.deleteAccount",
+      "nsid": "chat.bsky.actor.deleteAccount",
+      "params": {},
+      "request": {"method": "POST", "query": [], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {}}
+    },
+    {
+      "case": "chat.bsky.actor.getStatus",
+      "nsid": "chat.bsky.actor.getStatus",
+      "params": {},
+      "request": {"method": "GET", "query": [], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"chatDisabled": false, "canCreateGroups": true, "groupMemberLimit": 100}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.notification.getPreferences",
+      "nsid": "chat.bsky.notification.getPreferences",
+      "params": {},
+      "request": {"method": "GET", "query": [], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"preferences": {"chat": {"include": "all", "push": true}, "chatRequest": {"include": "follows", "push": false}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.notification.putPreferences",
+      "nsid": "chat.bsky.notification.putPreferences",
+      "params": {"chatRequest": {"include": "follows", "push": false}},
+      "request": {"method": "POST", "query": [], "body": {"chatRequest": {"include": "follows", "push": false}}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"preferences": {"chat": {"include": "all", "push": true}, "chatRequest": {"include": "follows", "push": false}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.listConvos",
+      "nsid": "chat.bsky.convo.listConvos",
+      "params": {"readState": "unread", "status": "accepted", "kind": "group", "lockStatus": "locked-permanently", "limit": 10, "cursor": "abc"},
+      "request": {"method": "GET", "query": [["readState", "unread"], ["status", "accepted"], ["kind", "group"], ["lockStatus", "locked-permanently"], ["limit", "10"], ["cursor", "abc"]], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convos": [{"id": "convo-1", "rev": "rev-1", "members": [{"did": "did:plc:user1", "handle": "alice.bsky.social"}], "muted": false, "unreadCount": 0}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.getConvo",
+      "nsid": "chat.bsky.convo.getConvo",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "GET", "query": [["convoId", "convo-1"]], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "rev-1", "members": [{"did": "did:plc:user1", "handle": "alice.bsky.social"}], "muted": false, "unreadCount": 0}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.getConvoForMembers",
+      "nsid": "chat.bsky.convo.getConvoForMembers",
+      "params": {"members": ["did:plc:user1", "did:plc:user2"]},
+      "request": {"method": "GET", "query": [["members", "did:plc:user1"], ["members", "did:plc:user2"]], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "rev-1", "members": [{"did": "did:plc:user1", "handle": "alice.bsky.social"}], "muted": false, "unreadCount": 0}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.getUnreadCounts",
+      "nsid": "chat.bsky.convo.getUnreadCounts",
+      "params": {"includeGroupChats": false},
+      "request": {"method": "GET", "query": [["includeGroupChats", "false"]], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"unreadAcceptedConvos": 100, "unreadRequestConvos": 3}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.getMessages",
+      "nsid": "chat.bsky.convo.getMessages",
+      "params": {"convoId": "convo-1", "limit": 25},
+      "request": {"method": "GET", "query": [["convoId", "convo-1"], ["limit", "25"]], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"messages": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.getLog",
+      "nsid": "chat.bsky.convo.getLog",
+      "params": {"cursor": "cur123"},
+      "request": {"method": "GET", "query": [["cursor", "cur123"]], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"logs": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.muteConvo",
+      "nsid": "chat.bsky.convo.muteConvo",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "rev-1", "members": [{"did": "did:plc:user1", "handle": "alice.bsky.social"}], "muted": false, "unreadCount": 0}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.lockConvo",
+      "nsid": "chat.bsky.convo.lockConvo",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "rev-1", "members": [{"did": "did:plc:user1", "handle": "alice.bsky.social"}], "muted": false, "unreadCount": 0}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.unlockConvo",
+      "nsid": "chat.bsky.convo.unlockConvo",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "rev-1", "members": [{"did": "did:plc:user1", "handle": "alice.bsky.social"}], "muted": false, "unreadCount": 0}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.updateAllRead",
+      "nsid": "chat.bsky.convo.updateAllRead",
+      "params": {},
+      "request": {"method": "POST", "query": [], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"updatedCount": 0}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.addReaction",
+      "nsid": "chat.bsky.convo.addReaction",
+      "params": {"convoId": "convo-1", "messageId": "msg-1", "value": "❤️"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "messageId": "msg-1", "value": "❤️"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"message": {"$type": "chat.bsky.convo.defs#messageView", "id": "msg-1", "rev": "rev-1", "text": "hi", "sender": {"did": "did:plc:user1"}, "sentAt": "2024-01-01T00:00:00Z"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.sendMessage (quoted post)",
+      "nsid": "chat.bsky.convo.sendMessage",
+      "params": {"convoId": "convo-1", "message": {"text": "look", "embed": {"$type": "app.bsky.embed.record", "record": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}}}},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "message": {"text": "look", "embed": {"$type": "app.bsky.embed.record", "record": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}}}}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"$type": "chat.bsky.convo.defs#messageView", "id": "msg-1", "rev": "rev-1", "text": "hi", "sender": {"did": "did:plc:user1"}, "sentAt": "2024-01-01T00:00:00Z"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.convo.sendMessageBatch",
+      "nsid": "chat.bsky.convo.sendMessageBatch",
+      "params": {"items": [{"convoId": "convo-1", "message": {"text": "#1"}}, {"convoId": "convo-2", "message": {"text": "#2"}}]},
+      "request": {"method": "POST", "query": [], "body": {"items": [{"convoId": "convo-1", "message": {"text": "#1"}}, {"convoId": "convo-2", "message": {"text": "#2"}}]}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"items": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.createGroup",
+      "nsid": "chat.bsky.group.createGroup",
+      "params": {"members": ["did:plc:alice", "did:plc:bob"], "name": "Book club"},
+      "request": {"method": "POST", "query": [], "body": {"members": ["did:plc:alice", "did:plc:bob"], "name": "Book club"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "2222222222225", "members": [], "muted": false, "unreadCount": 0, "status": "accepted", "kind": {"$type": "chat.bsky.convo.defs#groupConvo", "name": "Book club", "memberCount": 1, "memberLimit": 100, "lockStatus": "unlocked", "lockStatusModerationOverride": false, "createdAt": "2026-06-01T12:00:00.000Z"}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.editGroup",
+      "nsid": "chat.bsky.group.editGroup",
+      "params": {"convoId": "convo-1", "name": "Book club"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "name": "Book club"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "2222222222225", "members": [], "muted": false, "unreadCount": 0, "status": "accepted", "kind": {"$type": "chat.bsky.convo.defs#groupConvo", "name": "Book club", "memberCount": 1, "memberLimit": 100, "lockStatus": "unlocked", "lockStatusModerationOverride": false, "createdAt": "2026-06-01T12:00:00.000Z"}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.addMembers",
+      "nsid": "chat.bsky.group.addMembers",
+      "params": {"convoId": "convo-1", "members": ["did:plc:alice"]},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "members": ["did:plc:alice"]}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "2222222222225", "members": [], "muted": false, "unreadCount": 0, "status": "accepted", "kind": {"$type": "chat.bsky.convo.defs#groupConvo", "name": "Book club", "memberCount": 1, "memberLimit": 100, "lockStatus": "unlocked", "lockStatusModerationOverride": false, "createdAt": "2026-06-01T12:00:00.000Z"}}, "addedMembers": [{"did": "did:plc:alice", "handle": "alice.bsky.social"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.removeMembers",
+      "nsid": "chat.bsky.group.removeMembers",
+      "params": {"convoId": "convo-1", "members": ["did:plc:alice"]},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "members": ["did:plc:alice"]}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "2222222222225", "members": [], "muted": false, "unreadCount": 0, "status": "accepted", "kind": {"$type": "chat.bsky.convo.defs#groupConvo", "name": "Book club", "memberCount": 1, "memberLimit": 100, "lockStatus": "unlocked", "lockStatusModerationOverride": false, "createdAt": "2026-06-01T12:00:00.000Z"}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.listMutualGroups",
+      "nsid": "chat.bsky.group.listMutualGroups",
+      "params": {"subject": "did:plc:alice", "limit": 10, "cursor": "abc"},
+      "request": {"method": "GET", "query": [["subject", "did:plc:alice"], ["limit", "10"], ["cursor", "abc"]], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"cursor": "next", "convos": [{"id": "convo-1", "rev": "2222222222225", "members": [], "muted": false, "unreadCount": 0, "status": "accepted", "kind": {"$type": "chat.bsky.convo.defs#groupConvo", "name": "Book club", "memberCount": 1, "memberLimit": 100, "lockStatus": "unlocked", "lockStatusModerationOverride": false, "createdAt": "2026-06-01T12:00:00.000Z"}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.createJoinLink",
+      "nsid": "chat.bsky.group.createJoinLink",
+      "params": {"convoId": "convo-1", "requireApproval": true, "joinRule": "followedByOwner"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "requireApproval": true, "joinRule": "followedByOwner"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"joinLink": {"code": "abc123", "enabledStatus": "enabled", "requireApproval": true, "joinRule": "followedByOwner", "createdAt": "2026-06-01T12:00:10.000Z"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.createJoinLink (approval left to the server)",
+      "nsid": "chat.bsky.group.createJoinLink",
+      "params": {"convoId": "convo-1", "joinRule": "anyone"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "joinRule": "anyone"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"joinLink": {"code": "abc123", "enabledStatus": "enabled", "requireApproval": true, "joinRule": "followedByOwner", "createdAt": "2026-06-01T12:00:10.000Z"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.editJoinLink",
+      "nsid": "chat.bsky.group.editJoinLink",
+      "params": {"convoId": "convo-1", "requireApproval": false},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "requireApproval": false}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"joinLink": {"code": "abc123", "enabledStatus": "enabled", "requireApproval": true, "joinRule": "followedByOwner", "createdAt": "2026-06-01T12:00:10.000Z"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.enableJoinLink",
+      "nsid": "chat.bsky.group.enableJoinLink",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"joinLink": {"code": "abc123", "enabledStatus": "enabled", "requireApproval": true, "joinRule": "followedByOwner", "createdAt": "2026-06-01T12:00:10.000Z"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.disableJoinLink",
+      "nsid": "chat.bsky.group.disableJoinLink",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"joinLink": {"code": "abc123", "enabledStatus": "enabled", "requireApproval": true, "joinRule": "followedByOwner", "createdAt": "2026-06-01T12:00:10.000Z"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.requestJoin",
+      "nsid": "chat.bsky.group.requestJoin",
+      "params": {"code": "abc123"},
+      "request": {"method": "POST", "query": [], "body": {"code": "abc123"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"status": "joined", "convo": {"id": "convo-1", "rev": "2222222222225", "members": [], "muted": false, "unreadCount": 0, "status": "accepted", "kind": {"$type": "chat.bsky.convo.defs#groupConvo", "name": "Book club", "memberCount": 1, "memberLimit": 100, "lockStatus": "unlocked", "lockStatusModerationOverride": false, "createdAt": "2026-06-01T12:00:00.000Z"}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.requestJoin (pending: no convo yet)",
+      "nsid": "chat.bsky.group.requestJoin",
+      "params": {"code": "abc123"},
+      "request": {"method": "POST", "query": [], "body": {"code": "abc123"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"status": "pending"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.withdrawJoinRequest",
+      "nsid": "chat.bsky.group.withdrawJoinRequest",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {}}
+    },
+    {
+      "case": "chat.bsky.group.listJoinRequests",
+      "nsid": "chat.bsky.group.listJoinRequests",
+      "params": {"convoId": "convo-1", "limit": 5, "cursor": "abc"},
+      "request": {"method": "GET", "query": [["convoId", "convo-1"], ["limit", "5"], ["cursor", "abc"]], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"cursor": "next", "requests": [{"convoId": "convo-1", "requestedAt": "2026-06-01T12:05:00.000Z", "requestedBy": {"did": "did:plc:alice", "handle": "alice.bsky.social"}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.approveJoinRequest",
+      "nsid": "chat.bsky.group.approveJoinRequest",
+      "params": {"convoId": "convo-1", "member": "did:plc:alice"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "member": "did:plc:alice"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "2222222222225", "members": [], "muted": false, "unreadCount": 0, "status": "accepted", "kind": {"$type": "chat.bsky.convo.defs#groupConvo", "name": "Book club", "memberCount": 1, "memberLimit": 100, "lockStatus": "unlocked", "lockStatusModerationOverride": false, "createdAt": "2026-06-01T12:00:00.000Z"}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.group.rejectJoinRequest",
+      "nsid": "chat.bsky.group.rejectJoinRequest",
+      "params": {"convoId": "convo-1", "member": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "member": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {}}
+    },
+    {
+      "case": "chat.bsky.group.updateJoinRequestsRead",
+      "nsid": "chat.bsky.group.updateJoinRequestsRead",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {}}
+    },
+    {
+      "case": "chat.bsky.moderation.updateActorAccess",
+      "nsid": "chat.bsky.moderation.updateActorAccess",
+      "clientProxy": "did:plc:ozone#atproto_labeler",
+      "params": {"actor": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "allowAccess": false, "ref": "ozone-event-42"},
+      "request": {"method": "POST", "query": [], "body": {"actor": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "allowAccess": false, "ref": "ozone-event-42"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:plc:ozone#atproto_labeler"}},
+      "response": {"text": ""}
+    },
+    {
+      "case": "chat.bsky.moderation.getActorMetadata",
+      "nsid": "chat.bsky.moderation.getActorMetadata",
+      "params": {"actor": "did:plc:alice"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:alice"]]},
+      "response": {"body": {"day": {"messagesSent": 3, "messagesReceived": 4, "convos": 1, "convosStarted": 1}, "month": {"messagesSent": 30, "messagesReceived": 40, "convos": 5, "convosStarted": 2}, "all": {"messagesSent": 300, "messagesReceived": 400, "convos": 9, "convosStarted": 6}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.moderation.getMessageContext",
+      "nsid": "chat.bsky.moderation.getMessageContext",
+      "params": {"convoId": "convo-1", "messageId": "msg-2", "before": 3, "after": 0, "maxInterleavedSystemMessages": 2},
+      "request": {"method": "GET", "query": [["convoId", "convo-1"], ["messageId", "msg-2"], ["before", "3"], ["after", "0"], ["maxInterleavedSystemMessages", "2"]]},
+      "response": {"body": {"messages": [{"$type": "chat.bsky.convo.defs#messageView", "id": "msg-1", "rev": "rev-1", "text": "hi", "sender": {"did": "did:plc:user1"}, "sentAt": "2024-01-01T00:00:00Z"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.moderation.getMessageContext (message only)",
+      "nsid": "chat.bsky.moderation.getMessageContext",
+      "params": {"messageId": "msg-2"},
+      "request": {"method": "GET", "query": [["messageId", "msg-2"]]},
+      "response": {"body": {"messages": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.moderation.getConvo",
+      "nsid": "chat.bsky.moderation.getConvo",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "GET", "query": [["convoId", "convo-1"]]},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "r", "kind": {"$type": "chat.bsky.moderation.defs#directConvo"}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "chat.bsky.moderation.getConvoMembers",
+      "nsid": "chat.bsky.moderation.getConvoMembers",
+      "params": {"convoId": "convo-1", "limit": 10, "cursor": "abc"},
+      "request": {"method": "GET", "query": [["convoId", "convo-1"], ["limit", "10"], ["cursor", "abc"]]},
+      "response": {"body": {"cursor": "next", "members": [{"did": "did:plc:alice", "handle": "alice.bsky.social", "kind": {"$type": "chat.bsky.actor.defs#pastGroupConvoMember"}}]}},
+      "expect": {"outputIsResponse": true}
+    }
+  ]
+}

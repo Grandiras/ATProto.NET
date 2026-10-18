@@ -1,0 +1,51 @@
+{
+  "note": "The atproto reference regular expressions (.NET syntax, \\z-anchored) the hand-written validators are held to, from 0.8 IdentifierSyntaxTests. Inputs: the seed files' lines, 25 seeded mutations of each, 2,000 generated values and the values at the length limit, from System.Random(190).",
+  "seed": 190,
+  "mutationsPerSeed": 25,
+  "generated": 2000,
+  "grammars": [
+    {
+      "name": "did",
+      "kind": "Did",
+      "pattern": "^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]\\z",
+      "maxLength": 2048,
+      "seedFiles": ["did_syntax_valid.txt", "did_syntax_invalid.txt", "atidentifier_syntax_invalid.txt"]
+    },
+    {
+      "name": "handle",
+      "kind": "Handle",
+      "pattern": "^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\z",
+      "maxLength": 253,
+      "stripPrefix": "@",
+      "lowerCase": true,
+      "seedFiles": ["handle_syntax_valid.txt", "handle_syntax_invalid.txt", "atidentifier_syntax_valid.txt"]
+    },
+    {
+      "name": "nsid",
+      "kind": "Nsid",
+      "pattern": "^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\\.[a-zA-Z]([a-zA-Z0-9]{0,62})?)\\z",
+      "maxLength": 317,
+      "seedFiles": ["nsid_syntax_valid.txt", "nsid_syntax_invalid.txt"]
+    },
+    {
+      "name": "recordkey",
+      "kind": "RecordKey",
+      "pattern": "^[A-Za-z0-9._:~-]{1,512}\\z",
+      "excluded": [".", ".."],
+      "seedFiles": ["recordkey_syntax_valid.txt", "recordkey_syntax_invalid.txt", "tid_syntax_valid.txt"]
+    },
+    {
+      "name": "tid",
+      "kind": "Tid",
+      "pattern": "^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}\\z",
+      "seedFiles": ["tid_syntax_valid.txt", "tid_syntax_invalid.txt"]
+    },
+    {
+      "name": "aturi",
+      "kind": "AtUri",
+      "compose": "at://AUTHORITY[/COLLECTION[/RKEY]]: AUTHORITY a did (when it starts with did:) or a handle without the @ prefix, COLLECTION an nsid, RKEY a recordkey",
+      "maxLength": 8192,
+      "seedFiles": ["aturi_syntax_valid.txt", "aturi_syntax_invalid.txt"]
+    }
+  ]
+}

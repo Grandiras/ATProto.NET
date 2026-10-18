@@ -1,0 +1,153 @@
+{
+  "source": "ATProto.NET 0.8.0 tests at 6aee361 tests/ATProtoNet.Tests/Lexicon/WireFidelityTests.cs",
+  "cases": [
+    {
+      "case": "com.atproto.server.deactivateAccount (no arguments: an empty JSON body)",
+      "nsid": "com.atproto.server.deactivateAccount",
+      "params": {},
+      "request": {"method": "POST", "query": [], "body": {}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "com.atproto.server.deactivateAccount (deleteAfter)",
+      "nsid": "com.atproto.server.deactivateAccount",
+      "params": {"deleteAfter": "2026-10-01T00:00:00.000Z"},
+      "request": {"method": "POST", "query": [], "body": {"deleteAfter": "2026-10-01T00:00:00.000Z"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "chat.bsky.convo.updateAllRead (status)",
+      "nsid": "chat.bsky.convo.updateAllRead",
+      "params": {"status": "accepted"},
+      "request": {"method": "POST", "query": [], "body": {"status": "accepted"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"updatedCount": 3}},
+      "expect": {"output": {"updatedCount": 3}}
+    },
+    {
+      "case": "chat.bsky.convo.updateAllRead (no status: an empty JSON body)",
+      "nsid": "chat.bsky.convo.updateAllRead",
+      "params": {},
+      "request": {"method": "POST", "query": [], "body": {}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"updatedCount": 0}},
+      "expect": {"output": {"updatedCount": 0}}
+    },
+    {
+      "case": "chat.bsky.convo.muteConvo",
+      "nsid": "chat.bsky.convo.muteConvo",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "rev-2", "members": [], "muted": true, "unreadCount": 0, "status": "accepted"}}},
+      "expect": {"output": {"convo": {"id": "convo-1", "rev": "rev-2", "muted": true}}}
+    },
+    {
+      "case": "chat.bsky.convo.unmuteConvo",
+      "nsid": "chat.bsky.convo.unmuteConvo",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "rev-2", "members": [], "muted": true, "unreadCount": 0, "status": "accepted"}}},
+      "expect": {"output": {"convo": {"id": "convo-1", "rev": "rev-2", "muted": true}}}
+    },
+    {
+      "case": "chat.bsky.convo.updateRead",
+      "nsid": "chat.bsky.convo.updateRead",
+      "params": {"convoId": "convo-1", "messageId": "msg-1"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "messageId": "msg-1"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"convo": {"id": "convo-1", "rev": "rev-2", "members": [], "muted": true, "unreadCount": 0, "status": "accepted"}}},
+      "expect": {"output": {"convo": {"id": "convo-1", "rev": "rev-2", "muted": true}}}
+    },
+    {
+      "case": "chat.bsky.convo.addReaction",
+      "nsid": "chat.bsky.convo.addReaction",
+      "params": {"convoId": "convo-1", "messageId": "msg-1", "value": "👍"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "messageId": "msg-1", "value": "👍"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"message": {"id": "msg-1", "rev": "rev-3", "text": "hi", "sender": {"did": "did:plc:z72i7hdynmk6r22z27h6tvur"}, "sentAt": "2026-09-01T00:00:00.000Z"}}},
+      "expect": {"output": {"message": {"id": "msg-1", "text": "hi"}}}
+    },
+    {
+      "case": "chat.bsky.convo.removeReaction",
+      "nsid": "chat.bsky.convo.removeReaction",
+      "params": {"convoId": "convo-1", "messageId": "msg-1", "value": "👍"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1", "messageId": "msg-1", "value": "👍"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"message": {"id": "msg-1", "rev": "rev-3", "text": "hi", "sender": {"did": "did:plc:z72i7hdynmk6r22z27h6tvur"}, "sentAt": "2026-09-01T00:00:00.000Z"}}},
+      "expect": {"output": {"message": {"id": "msg-1", "text": "hi"}}}
+    },
+    {
+      "case": "chat.bsky.convo.getConvoAvailability",
+      "nsid": "chat.bsky.convo.getConvoAvailability",
+      "params": {"members": ["did:plc:z72i7hdynmk6r22z27h6tvur"]},
+      "request": {"method": "GET", "query": [["members", "did:plc:z72i7hdynmk6r22z27h6tvur"]], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"canChat": true, "convo": {"id": "convo-1", "rev": "rev-2", "members": [], "muted": true, "unreadCount": 0, "status": "accepted"}}},
+      "expect": {"output": {"canChat": true, "convo": {"id": "convo-1"}}}
+    },
+    {
+      "case": "chat.bsky.convo.acceptConvo",
+      "nsid": "chat.bsky.convo.acceptConvo",
+      "params": {"convoId": "convo-1"},
+      "request": {"method": "POST", "query": [], "body": {"convoId": "convo-1"}, "contentType": "application/json", "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"body": {"rev": "rev-4"}},
+      "expect": {"output": {"rev": "rev-4"}}
+    },
+    {
+      "case": "chat.bsky.actor.exportAccountData (JSON Lines come back unparsed)",
+      "nsid": "chat.bsky.actor.exportAccountData",
+      "params": {},
+      "request": {"method": "GET", "query": [], "headers": {"atproto-proxy": "did:web:api.bsky.chat#bsky_chat"}},
+      "response": {"contentType": "application/jsonl", "text": "{\"id\":\"msg-1\"}\n{\"id\":\"msg-2\"}\n"},
+      "expect": {"binary": {"text": "{\"id\":\"msg-1\"}\n{\"id\":\"msg-2\"}\n", "contentType": "application/jsonl"}}
+    },
+    {
+      "case": "app.bsky.feed.searchPosts (tags: one tag parameter each)",
+      "nsid": "app.bsky.feed.searchPosts",
+      "params": {"q": "q", "tag": ["atproto", "dotnet"]},
+      "request": {"method": "GET", "query": [["q", "q"], ["tag", "atproto"], ["tag", "dotnet"]]},
+      "response": {"body": {"posts": []}},
+      "expect": {"output": {"posts": []}}
+    },
+    {
+      "case": "app.bsky.graph.getLists (purposes: one parameter each)",
+      "nsid": "app.bsky.graph.getLists",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur", "purposes": ["modlist", "curatelist"], "limit": 5},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"], ["purposes", "modlist"], ["purposes", "curatelist"], ["limit", "5"]]},
+      "response": {"body": {"lists": []}},
+      "expect": {"output": {"lists": []}}
+    },
+    {
+      "case": "app.bsky.graph.getFollowers (sort before the paging)",
+      "nsid": "app.bsky.graph.getFollowers",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur", "sort": "top", "limit": 5},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"], ["sort", "top"], ["limit", "5"]]},
+      "response": {"body": {"subject": {"did": "did:plc:z72i7hdynmk6r22z27h6tvur", "handle": "bsky.app"}, "followers": []}},
+      "expect": {"output": {"followers": []}}
+    },
+    {
+      "case": "app.bsky.graph.muteActor (scope)",
+      "nsid": "app.bsky.graph.muteActor",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur", "onlyReposts": true, "onlyQuoteposts": false},
+      "request": {"method": "POST", "query": [], "body": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur", "onlyReposts": true, "onlyQuoteposts": false}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "app.bsky.graph.unmuteActor (only the actor)",
+      "nsid": "app.bsky.graph.unmuteActor",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "POST", "query": [], "body": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "com.atproto.moderation.createReport (modTool)",
+      "nsid": "com.atproto.moderation.createReport",
+      "params": {"subject": {"$type": "com.atproto.admin.defs#repoRef", "did": "did:plc:z72i7hdynmk6r22z27h6tvur"}, "reasonType": "com.atproto.moderation.defs#reasonSpam", "modTool": {"name": "bsky-app/android"}},
+      "request": {"method": "POST", "query": [], "body": {"subject": {"$type": "com.atproto.admin.defs#repoRef", "did": "did:plc:z72i7hdynmk6r22z27h6tvur"}, "reasonType": "com.atproto.moderation.defs#reasonSpam", "modTool": {"name": "bsky-app/android"}}, "contentType": "application/json"},
+      "response": {"body": {"id": 1, "reasonType": "com.atproto.moderation.defs#reasonSpam", "subject": {"$type": "com.atproto.admin.defs#repoRef", "did": "did:plc:z72i7hdynmk6r22z27h6tvur"}, "reportedBy": "did:plc:z72i7hdynmk6r22z27h6tvur", "createdAt": "2026-09-01T00:00:00.000Z"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.actor.getProfile (associated, verification and viewer, captured from the appview)",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"body": {"did": "did:plc:z72i7hdynmk6r22z27h6tvur", "handle": "bsky.app", "displayName": "Bluesky", "associated": {"lists": 18, "feedgens": 7, "starterPacks": 15, "labeler": false, "chat": {"allowIncoming": "none"}, "activitySubscription": {"allowSubscriptions": "followers"}}, "verification": {"verifications": [{"issuer": "did:plc:z72i7hdynmk6r22z27h6tvur", "issuerDisplayName": "Bluesky", "issuerHandle": "bsky.app", "uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.graph.verification/3lndptszmee2u", "isValid": true, "createdAt": "2025-04-21T10:46:44.369Z"}], "verifiedStatus": "valid", "trustedVerifierStatus": "valid"}, "viewer": {"muted": false, "mutedOnlyReposts": true, "blockedBy": false, "mutedByList": {"uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.graph.list/3k2la", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "name": "Mutes", "purpose": "app.bsky.graph.defs#modlist"}}}},
+      "expect": {"outputIsResponse": true}
+    }
+  ]
+}

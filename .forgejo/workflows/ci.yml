@@ -1,71 +1,60 @@
+# Every job only calls build.sh, which holds the CI logic (design/04-testing.md, "CI shape").
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [next]
   pull_request:
-    branches: [main]
+    branches: [next]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/dotnet/sdk:10.0
+      image: mcr.microsoft.com/dotnet/sdk:11.0.100-rc.2
     steps:
       - name: Checkout
-        run: |
-          git config --global --add safe.directory "$(pwd)"
-          git init
-          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
-          git fetch --depth=1 origin "${GITHUB_SHA}"
-          git checkout "${GITHUB_SHA}"
-
-      - name: Restore dependencies
-        run: dotnet restore --source https://api.nuget.org/v3/index.json
-
+        run: git config --global --add safe.directory "$PWD" && git init -q && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" && git fetch -q --depth=1 origin "$GITHUB_SHA" && git checkout -q "$GITHUB_SHA"
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: ./build.sh build
+      - name: Test
+        run: ./build.sh test
+      - name: API baseline
+        run: ./build.sh api
 
-      - name: Run unit tests
-        run: dotnet test tests/ATProtoNet.Tests/ --no-build --configuration Release --verbosity normal
-
-      # Publishing is the path least covered by unit tests: it is where local-only
-      # defaults (dev mode, a localhost hostname, generated hex secrets) would otherwise
-      # leak into a deployment. Generating the manifest needs no container runtime.
-      - name: Verify Aspire publish manifest
-        # One variable names the manifest for both the publish and the assertions, so the
-        # two cannot drift apart. `dotnet test --filter` exits 0 both when everything it
-        # matched skipped and when it matched nothing at all, so a drifted variable or a
-        # renamed test class would otherwise leave a green check that asserted nothing:
-        # ATPROTO_REQUIRE_INTEGRATION closes the first, TreatNoTestsAsError the second.
-        run: |
-          dotnet run --project samples/ManagedPdsSample.AppHost --no-build --configuration Release -- \
-            --publisher manifest --output-path "$ATPROTO_ASPIRE_MANIFEST"
-          cat "$ATPROTO_ASPIRE_MANIFEST"
-          dotnet test tests/ATProtoNet.Tests/ --no-build --configuration Release \
-            --filter "FullyQualifiedName~AspireManifestTests" \
-            -- RunConfiguration.TreatNoTestsAsError=true
-        env:
-          ATPROTO_ASPIRE_MANIFEST: ${{ github.workspace }}/manifest.json
-          ATPROTO_REQUIRE_INTEGRATION: "1"
-
-  # Exercises the SDK against the real reference PDS: PdsAdminClient's wire format and admin
-  # auth scheme, account provisioning, login/session/refresh, and record CRUD — seams a scripted
-  # HTTP stub cannot cover.
-  pds-integration:
+  lexicons:
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/dotnet/sdk:10.0
+      image: mcr.microsoft.com/dotnet/sdk:11.0.100-rc.2
+    steps:
+      - name: Checkout
+        run: git config --global --add safe.directory "$PWD" && git init -q && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" && git fetch -q --depth=1 origin "$GITHUB_SHA" && git checkout -q "$GITHUB_SHA"
+      - name: Install Python
+        run: apt-get update -qq && apt-get install -y -qq python3 > /dev/null
+      - name: Lexicons
+        run: ./build.sh lexicons
+
+  aot:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:11.0.100-rc.2-aot
+    steps:
+      - name: Checkout
+        run: git config --global --add safe.directory "$PWD" && git init -q && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" && git fetch -q --depth=1 origin "$GITHUB_SHA" && git checkout -q "$GITHUB_SHA"
+      - name: Publish the AOT smoke app
+        run: ./build.sh aot
+
+  integration-pds:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:11.0.100-rc.2
     services:
       pds:
         image: ghcr.io/bluesky-social/pds:0.4.5037
         env:
           PDS_HOSTNAME: localhost
           PDS_DEV_MODE: "true"
-          # A service container gets no volume, and the PDS will not create its data
-          # directory — pointing it at /pds would exit with "Cannot open database because
-          # the directory does not exist". /tmp already exists and the server is
-          # ephemeral, so nothing needs to outlive the job.
+          # A service container gets no volume and the PDS does not create its data directory.
           PDS_DATA_DIRECTORY: /tmp
           PDS_BLOBSTORE_DISK_LOCATION: /tmp/blocks
           PDS_ADMIN_PASSWORD: ci-admin-password
@@ -74,39 +63,49 @@ jobs:
           PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
     steps:
       - name: Checkout
+        run: git config --global --add safe.directory "$PWD" && git init -q && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" && git fetch -q --depth=1 origin "$GITHUB_SHA" && git checkout -q "$GITHUB_SHA"
+      - name: Wait for the PDS
         run: |
-          git config --global --add safe.directory "$(pwd)"
-          git init
-          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
-          git fetch --depth=1 origin "${GITHUB_SHA}"
-          git checkout "${GITHUB_SHA}"
-
-      - name: Wait for the PDS to come up
-        run: |
-          for i in $(seq 1 60); do
-            if curl -sf "http://pds:3000/xrpc/_health"; then
-              echo "PDS is up"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "PDS did not become healthy in time"
-          exit 1
-
-      - name: Run PDS integration tests
-        # Beyond PdsAdminTests: login/refresh/session (AuthenticationTests), custom and
-        # well-known record CRUD (RepositoryTests, CustomRecordTests), and handle resolution
-        # (IdentityResolutionTests) — everything AuthenticatedClientFixture's own provisioned
-        # account can reach on a bare PDS. BlueskyFeatureTests' app-view-gated cases
-        # (IntegrationRequirement.Bluesky) stay out: this container has no app.bsky.* services,
-        # so ATPROTO_REQUIRE_INTEGRATION would fail them rather than skip.
-        run: |
-          dotnet test tests/ATProtoNet.IntegrationTests/ --configuration Release \
-            --filter "FullyQualifiedName~PdsAdminTests|FullyQualifiedName~AuthenticationTests|FullyQualifiedName~RepositoryTests|FullyQualifiedName~CustomRecordTests|FullyQualifiedName~IdentityResolutionTests" \
-            --verbosity normal \
-            -- RunConfiguration.TreatNoTestsAsError=true
+          for i in $(seq 1 60); do curl -sf http://pds:3000/xrpc/_health && exit 0; sleep 2; done
+          echo "PDS did not become healthy in time"; exit 1
+      - name: PDS integration tests
+        run: ./build.sh integration-pds
         env:
           ATPROTO_PDS_URL: http://pds:3000
           ATPROTO_PDS_ADMIN_PASSWORD: ci-admin-password
-          # Refuse to pass by skipping if the variables above ever drift.
-          ATPROTO_REQUIRE_INTEGRATION: "1"
+
+  # Gets the Spaces reference PDS as a service container once a GA image exists.
+  integration-spaces:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:11.0.100-rc.2
+    steps:
+      - name: Checkout
+        run: git config --global --add safe.directory "$PWD" && git init -q && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" && git fetch -q --depth=1 origin "$GITHUB_SHA" && git checkout -q "$GITHUB_SHA"
+      - name: Spaces integration tests
+        run: ./build.sh integration-spaces
+
+  aspire:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:11.0.100-rc.2
+    steps:
+      - name: Checkout
+        run: git config --global --add safe.directory "$PWD" && git init -q && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" && git fetch -q --depth=1 origin "$GITHUB_SHA" && git checkout -q "$GITHUB_SHA"
+      - name: Aspire manifest
+        run: ./build.sh aspire
+
+  changelog:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:11.0.100-rc.2
+    steps:
+      - name: Checkout
+        run: git config --global --add safe.directory "$PWD" && git init -q && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" && git fetch -q --depth=1 origin "$GITHUB_SHA" && git checkout -q "$GITHUB_SHA"
+      - name: CHANGELOG entry
+        run: ./build.sh changelog
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}

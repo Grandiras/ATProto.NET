@@ -1,0 +1,113 @@
+[
+  {
+    "name": "nesting at the limit",
+    "note": "DAT-30: 64 levels",
+    "input": [
+      {
+        "repeat": "81",
+        "count": 64
+      },
+      "01"
+    ],
+    "outputText": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"
+  },
+  {
+    "name": "nesting past the limit",
+    "note": "DAT-30: 65 levels",
+    "input": [
+      {
+        "repeat": "81",
+        "count": 65
+      },
+      "01"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "100k nested arrays",
+    "note": "DAT-32: rejected, not a stack overflow",
+    "input": [
+      {
+        "repeat": "81",
+        "count": 100000
+      },
+      "01"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "100k nested maps",
+    "note": "DAT-32: {\"a\": {\"a\": ...}}",
+    "input": [
+      {
+        "repeat": "a16161",
+        "count": 100000
+      },
+      "01"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "link wrapper inside the limit",
+    "note": "DAT-30: a link at array depth 63",
+    "input": [
+      {
+        "repeat": "81",
+        "count": 63
+      },
+      "d82a58250001711220c19a797fa1fd590cd2e5b42d1cf5f246e29b91684e2f87404b81dc345c7a56a0"
+    ],
+    "outputText": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[{\"$link\":\"bafyreigbtj4x7ip5legnfznufuopl4sg4knzc2cof6duas4b3q2fy6swua\"}]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"
+  },
+  {
+    "name": "link wrapper past the limit",
+    "note": "DAT-30: the {\"$link\"} wrapper is the 65th level",
+    "input": [
+      {
+        "repeat": "81",
+        "count": 64
+      },
+      "d82a58250001711220c19a797fa1fd590cd2e5b42d1cf5f246e29b91684e2f87404b81dc345c7a56a0"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "huge declared text length",
+    "note": "DAT-33: 2^32 bytes declared, 1 present",
+    "input": [
+      "7b0000000100000000",
+      "61"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "huge declared array length",
+    "note": "DAT-33: 2^63 - 1 items declared",
+    "input": [
+      "9b7fffffffffffffff",
+      "01"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "huge declared map length",
+    "note": "DAT-33: 2^31 entries declared",
+    "input": [
+      "ba80000000",
+      "616101"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "100k unknown tags",
+    "note": "DAT-23",
+    "input": [
+      {
+        "repeat": "c1",
+        "count": 100000
+      },
+      "07"
+    ],
+    "rejected": true
+  }
+]

@@ -1,0 +1,138 @@
+{
+  "source": "ATProto.NET 0.8.0 tests at 6aee361 tests/ATProtoNet.Tests/Http/EmptyResponseBodyTests.cs",
+  "cases": [
+    {
+      "case": "com.atproto.identity.updateHandle",
+      "nsid": "com.atproto.identity.updateHandle",
+      "params": {"handle": "alice.example.com"},
+      "request": {"method": "POST", "query": [], "body": {"handle": "alice.example.com"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "com.atproto.identity.requestPlcOperationSignature",
+      "nsid": "com.atproto.identity.requestPlcOperationSignature",
+      "params": {},
+      "request": {"method": "POST", "query": []},
+      "response": {"text": ""}
+    },
+    {
+      "case": "com.atproto.identity.submitPlcOperation",
+      "nsid": "com.atproto.identity.submitPlcOperation",
+      "params": {"operation": {}},
+      "request": {"method": "POST", "query": [], "body": {"operation": {}}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "com.atproto.sync.notifyOfUpdate",
+      "nsid": "com.atproto.sync.notifyOfUpdate",
+      "params": {"hostname": "pds.example.com"},
+      "request": {"method": "POST", "query": [], "body": {"hostname": "pds.example.com"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "com.atproto.sync.requestCrawl",
+      "nsid": "com.atproto.sync.requestCrawl",
+      "params": {"hostname": "pds.example.com"},
+      "request": {"method": "POST", "query": [], "body": {"hostname": "pds.example.com"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "app.bsky.actor.putPreferences",
+      "nsid": "app.bsky.actor.putPreferences",
+      "params": {"preferences": []},
+      "request": {"method": "POST", "query": [], "body": {"preferences": []}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "app.bsky.graph.muteActor",
+      "nsid": "app.bsky.graph.muteActor",
+      "params": {"actor": "did:plc:alice"},
+      "request": {"method": "POST", "query": [], "body": {"actor": "did:plc:alice"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "app.bsky.graph.unmuteActor",
+      "nsid": "app.bsky.graph.unmuteActor",
+      "params": {"actor": "did:plc:alice"},
+      "request": {"method": "POST", "query": [], "body": {"actor": "did:plc:alice"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "app.bsky.graph.muteActorList",
+      "nsid": "app.bsky.graph.muteActorList",
+      "params": {"list": "at://did:plc:alice/app.bsky.graph.list/1"},
+      "request": {"method": "POST", "query": [], "body": {"list": "at://did:plc:alice/app.bsky.graph.list/1"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "app.bsky.graph.unmuteActorList",
+      "nsid": "app.bsky.graph.unmuteActorList",
+      "params": {"list": "at://did:plc:alice/app.bsky.graph.list/1"},
+      "request": {"method": "POST", "query": [], "body": {"list": "at://did:plc:alice/app.bsky.graph.list/1"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "app.bsky.graph.muteThread",
+      "nsid": "app.bsky.graph.muteThread",
+      "params": {"root": "at://did:plc:alice/app.bsky.feed.post/1"},
+      "request": {"method": "POST", "query": [], "body": {"root": "at://did:plc:alice/app.bsky.feed.post/1"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "app.bsky.graph.unmuteThread",
+      "nsid": "app.bsky.graph.unmuteThread",
+      "params": {"root": "at://did:plc:alice/app.bsky.feed.post/1"},
+      "request": {"method": "POST", "query": [], "body": {"root": "at://did:plc:alice/app.bsky.feed.post/1"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "app.bsky.notification.updateSeen",
+      "nsid": "app.bsky.notification.updateSeen",
+      "params": {"seenAt": "2026-07-25T00:00:00.000Z"},
+      "request": {"method": "POST", "query": [], "body": {"seenAt": "2026-07-25T00:00:00.000Z"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "app.bsky.notification.registerPush",
+      "nsid": "app.bsky.notification.registerPush",
+      "params": {"serviceDid": "did:web:push.example.com", "token": "token", "platform": "web", "appId": "com.example.app"},
+      "request": {"method": "POST", "query": [], "body": {"serviceDid": "did:web:push.example.com", "token": "token", "platform": "web", "appId": "com.example.app"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "tools.ozone.communication.deleteTemplate",
+      "nsid": "tools.ozone.communication.deleteTemplate",
+      "params": {"id": "template-1"},
+      "request": {"method": "POST", "query": [], "body": {"id": "template-1"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "tools.ozone.team.deleteMember",
+      "nsid": "tools.ozone.team.deleteMember",
+      "params": {"did": "did:plc:alice"},
+      "request": {"method": "POST", "query": [], "body": {"did": "did:plc:alice"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "tools.ozone.set.deleteSet",
+      "nsid": "tools.ozone.set.deleteSet",
+      "params": {"name": "set-1"},
+      "request": {"method": "POST", "query": [], "body": {"name": "set-1"}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "tools.ozone.set.addValues",
+      "nsid": "tools.ozone.set.addValues",
+      "params": {"name": "set-1", "values": ["a"]},
+      "request": {"method": "POST", "query": [], "body": {"name": "set-1", "values": ["a"]}, "contentType": "application/json"},
+      "response": {"text": ""}
+    },
+    {
+      "case": "tools.ozone.set.deleteValues",
+      "nsid": "tools.ozone.set.deleteValues",
+      "params": {"name": "set-1", "values": ["a"]},
+      "request": {"method": "POST", "query": [], "body": {"name": "set-1", "values": ["a"]}, "contentType": "application/json"},
+      "response": {"text": ""}
+    }
+  ]
+}

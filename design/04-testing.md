@@ -126,7 +126,7 @@ tests/
   bans `Task.Delay`, `Thread.Sleep` and `Stopwatch` in test code.
 - **Store contract base classes**, one per store interface ([specs/stores.md](specs/stores.md)).
   Every implementation (in-memory, file, distributed cache where one exists, EF) derives a test class from the
-  contract.
+  contract. Each arrives with its interface, in the phase that defines it (phase 0 outcome).
 - **`TestKeys`**, **`TestIds`**: deterministic keys and identifiers.
 
 ### Rules

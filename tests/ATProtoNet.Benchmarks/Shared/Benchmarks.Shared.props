@@ -1,0 +1,17 @@
+<Project>
+
+  <!-- What every benchmark project (Legacy over 0.8, Next over the rewrite) shares: the entry
+       point, the job, the deterministic inputs and the captured firehose frames. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ATProtoNet.Benchmarks</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)*.cs" LinkBase="Shared" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)..\..\ATProtoNet.Conformance\vectors\streaming\firehose-sync-frames.json" LogicalName="firehose-sync-frames.json" />
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+</Project>

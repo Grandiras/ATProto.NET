@@ -177,6 +177,21 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   recorded in an assembly-level attribute next to the Spaces code, in the release notes and in
   `docs/spaces.md`. The integration environment pins the reference PDS image digest.
   *Source:* 0.8 `docs/spaces.md:12-16`, `docs/testing-spaces.md:13` · **Decision** (pin to GA)
+
+  *Pin (phase 0, 2026-10-18, #225):* proposal 0016 at
+  [`c76714ac`](https://github.com/bluesky-social/proposals/blob/c76714ac3bc30318496d5d7f29d9341d4d8c0c69/0016-permissioned-data/README.md)
+  (2026-10-15: the 2026-10-01 alpha text plus *Repo lifecycle*, #121); reference implementation
+  `bluesky-social/atproto` branch `permissioned-data` at `619c6e85` (2026-10-15). Since 0.8's pin
+  `679724ad` the reference changed only PDS internals (`describeServer` flag, the space-exists
+  check of SPC-53): `packages/space` and `lexicons/` are unchanged, so 0.8's BLAKE3, LtHash,
+  HTTP-signature and structured-field vectors still match it. The Spaces Lexicons are vendored
+  from it (`lexicons.json` source `spaces`). Re-validated against the pinned text: SPC-53 matches
+  *Repo lifecycle*; SPC-5 matches the addressing (`at://…/space/…`, plus the `space-ref` string
+  format); SPC-31 matches the DID document entries and their fallbacks. Still not in the pinned
+  text, so still in flux: the shared-secret commitment (SPC-54…58; PR #122 is open), STAR
+  (SPC-59) and tokenless credentials (SPC-62; the pinned text still requires the delegation
+  token). Neither the reference nor the proposal has STAR or KEM-commitment vectors yet. The
+  pin moves to the GA specification when it is published (SPC-2).
 - **SPC-2** (MUST) Moving to a new protocol revision is one change set. It updates the pin, the
   vendored Spaces Lexicons, the reference vectors (regenerated from the reference
   implementation) and the affected requirements of this spec.
@@ -790,6 +805,9 @@ records the outcome here in the same PR.
 
    *Default:* `AtAddress` (SPC-52) for `at-uri` fields of Lexicons that reference
    spaces, `AtUri` elsewhere.
+
+   *Phase 0 (Q-15 re-check):* the pinned text still uses `at://…/space/…`, and the Lexicons
+   reference spaces through the `space-ref` format. Nothing to change; re-checked at GA.
 3. **DID document entries.** Debated: whether dedicated `#atproto_space_host`/`#atproto_space`
    entries stay, whether a credential may be signed with `#atproto` when `#atproto_space` exists,
    and whether the space host is simply the account host. *Default:* the current

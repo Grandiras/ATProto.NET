@@ -1,22 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>A comprehensive .NET SDK for the AT Protocol — build custom AT Proto apps with typed records, XRPC, and full repository CRUD.</Description>
-    <PackageTags>atproto;bluesky;at-protocol;sdk;dotnet</PackageTags>
+    <Description>AT Protocol SDK for .NET: identifiers, data model, repositories, Lexicon, identity, XRPC client, OAuth, streaming and Spaces.</Description>
+    <PackageTags>atproto;bluesky;at-protocol;xrpc;spaces</PackageTags>
   </PropertyGroup>
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="ATProtoNet.Tests" />
-    <InternalsVisibleTo Include="ATProtoNet.Server" />
-    <!-- The EF Core session store reads and writes sessions in the SDK's JSON form. -->
-    <InternalsVisibleTo Include="ATProtoNet.Server.EntityFrameworkCore" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- IDistributedCache, the optional shared backing of CachingDidResolver. -->
-    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.12" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
-    <PackageReference Include="System.Formats.Cbor" Version="10.0.12" />
-  </ItemGroup>
 
 </Project>

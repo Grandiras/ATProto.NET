@@ -1,0 +1,256 @@
+{
+  "leaf": "bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454",
+  "note": "Every key maps to leaf. Each step applies its ops (insert or delete, in order) to the tree the previous steps built, then the root must be the step's root (and the blocks its blocks, where given).",
+  "sequences": [
+    {
+      "name": "empty tree",
+      "note": "mst.test.ts; the node a2616580616cf6 (REP-6)",
+      "steps": [
+        {
+          "ops": [],
+          "root": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
+          "blocks": {
+            "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm": "a2616580616cf6"
+          }
+        }
+      ]
+    },
+    {
+      "name": "trivial",
+      "note": "mst.test.ts",
+      "steps": [
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3fo2j",
+              "op": "insert"
+            }
+          ],
+          "root": "bafyreibj4lsc3aqnrvphp5xmrnfoorvru4wynt6lwidqbm2623a6tatzdu"
+        }
+      ]
+    },
+    {
+      "name": "singlelayer2",
+      "note": "mst.test.ts",
+      "steps": [
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3fx2j",
+              "op": "insert"
+            }
+          ],
+          "root": "bafyreih7wfei65pxzhauoibu3ls7jgmkju4bspy4t2ha2qdjnzqvoy33ai"
+        }
+      ]
+    },
+    {
+      "name": "simple",
+      "note": "mst.test.ts: four keys on layer 0, one on layer 1",
+      "steps": [
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3fp2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3fr2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3fs2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3ft2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm4fc2j",
+              "op": "insert"
+            }
+          ],
+          "root": "bafyreicmahysq4n6wfuxo522m6dpiy7z7qzym3dzs756t5n7nfdgccwq7m"
+        }
+      ]
+    },
+    {
+      "name": "trim top layer",
+      "note": "mst.test.ts: deleting the only key of the top layer trims the tree (REP-8)",
+      "steps": [
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3fn2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3fo2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3fp2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3fs2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3ft2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3fu2j",
+              "op": "insert"
+            }
+          ],
+          "root": "bafyreifnqrwbk6ffmyaz5qtujqrzf5qmxf7cbxvgzktl4e3gabuxbtatv4"
+        },
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3fs2j",
+              "op": "delete"
+            }
+          ],
+          "root": "bafyreie4kjuxbwkhzg2i5dljaswcroeih4dgiqq6pazcmunwt2byd725vi"
+        }
+      ]
+    },
+    {
+      "name": "split two layers down",
+      "note": "mst.test.ts: F sits on layer 2 and splits the layer-0 node of E, G and H (REP-8)",
+      "steps": [
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3fo2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3fp2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3fr2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3fs2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3ft2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3fz2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm4fc2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm4fd2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm4ff2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm4fg2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm4fh2j",
+              "op": "insert"
+            }
+          ],
+          "root": "bafyreiettyludka6fpgp33stwxfuwhkzlur6chs4d2v4nkmq2j3ogpdjem"
+        },
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3fx2j",
+              "op": "insert"
+            }
+          ],
+          "root": "bafyreid2x5eqs4w4qxvc5jiwda4cien3gw2q6cshofxwnvv7iucrmfohpm"
+        },
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3fx2j",
+              "op": "delete"
+            }
+          ],
+          "root": "bafyreiettyludka6fpgp33stwxfuwhkzlur6chs4d2v4nkmq2j3ogpdjem"
+        }
+      ]
+    },
+    {
+      "name": "two layers above the rest",
+      "note": "mst.test.ts: a layer-2 key over layer-0 keys, with empty layer-1 wrappers (REP-8)",
+      "steps": [
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3ft2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm3fz2j",
+              "op": "insert"
+            }
+          ],
+          "root": "bafyreidfcktqnfmykz2ps3dbul35pepleq7kvv526g47xahuz3rqtptmky"
+        },
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3fx2j",
+              "op": "insert"
+            }
+          ],
+          "root": "bafyreiavxaxdz7o7rbvr3zg2liox2yww46t7g6hkehx4i4h3lwudly7dhy"
+        },
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3fx2j",
+              "op": "delete"
+            }
+          ],
+          "root": "bafyreidfcktqnfmykz2ps3dbul35pepleq7kvv526g47xahuz3rqtptmky"
+        },
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm3fx2j",
+              "op": "insert"
+            },
+            {
+              "key": "com.example.record/3jqfcqzm4fd2j",
+              "op": "insert"
+            }
+          ],
+          "root": "bafyreig4jv3vuajbsybhyvb7gggvpwh2zszwfyttjrj6qwvcsp24h6popu"
+        },
+        {
+          "ops": [
+            {
+              "key": "com.example.record/3jqfcqzm4fd2j",
+              "op": "delete"
+            }
+          ],
+          "root": "bafyreiavxaxdz7o7rbvr3zg2liox2yww46t7g6hkehx4i4h3lwudly7dhy"
+        }
+      ]
+    }
+  ]
+}

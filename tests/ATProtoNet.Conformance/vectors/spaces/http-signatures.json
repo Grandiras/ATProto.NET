@@ -1,0 +1,858 @@
+{
+  "comment": "RFC 9421 space request signatures and the verdicts owed, checked against the reference verifySpaceSignature.",
+  "keys": {
+    "P-256": {
+      "privateKey": "decdb69fa3e2d875ad5af4e0fd3c328c96acde6d6fec51ca7225f62b01d02851",
+      "didKey": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
+    },
+    "K-256": {
+      "privateKey": "5bd91764ab61b1feb9f21f2a02754c76f119f0df5bcbf3e6f27ec398c6aa2574",
+      "didKey": "did:key:zQ3shVfKDU2jLYrCVtiEjFagvjQMzASR62rgGY7Cb6MwW1XW6"
+    }
+  },
+  "cases": [
+    {
+      "name": "reference request signature",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": true,
+        "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
+      },
+      "reference": true
+    },
+    {
+      "name": "reference exchange signature",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": true,
+        "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
+      },
+      "reference": true
+    },
+    {
+      "name": "high-S request signature",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pP0BP+0PXqZceubyn6Cdiu/DUmoI4y8+iifm3KcuA1xvg==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": true,
+        "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
+      },
+      "reference": true
+    },
+    {
+      "name": "optional parameters and other labels",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "other=(\"authorization\");keyid=\"other\", atproto-space=(\"authorization\" \"atproto-space-audience\");alg=\"ecdsa-p256-sha256\";keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
+      "signature": "other=:YWJj:, atproto-space=:RP1GzeKEeoo6nbEFV79relUTq9+0znynm/MsejW8SM1Iro48zrMxYHlEwBDv6D226zuPQHb41nWGnJLqoOpzGw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": true,
+        "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
+      },
+      "reference": true
+    },
+    {
+      "name": "input spelled loosely, signed canonically",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(  \"authorization\"   \"atproto-space-audience\"  );  keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\";alg=\"ecdsa-p256-sha256\"",
+      "signature": "atproto-space=:fFS8K19Z5q5npJDUMlONqvHVCEBwUGj/MfQCe9Ufvl4/LxNFPvoQZDMH6CV958IJKCBMgNyxmU5bewsabBSKCw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": true,
+        "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
+      },
+      "reference": true
+    },
+    {
+      "name": "every parameter type, signed in canonical form",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\";created=1618884473;nonce=\"a\\\"b\\\\c\";tag=tok;flag;b=:YWJj:;d=1.50",
+      "signature": "atproto-space=:js2fWnFHG5zngTwyuK97JQvBz1Kla9qZwNjvY4FylZEdlKc8gMeveIrK6cpFRlu6sfabAf0l5HjswO9/m9zGmg==:",
+      "expect": {
+        "ok": true,
+        "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
+      },
+      "reference": true
+    },
+    {
+      "name": "the same signature again",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": true,
+        "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
+      },
+      "reference": true
+    },
+    {
+      "name": "changed authorization",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln-changed",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "another credential",
+      "mode": "request",
+      "authorization": "Atproto-Space another.credential.jwt",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "changed audience",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:someoneelse",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "another signing key",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaeWu1aHomnSsmn6xRi87CaZakB58U8ykmwFQ2B1jr56Y9J",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "keyid differing from the credential key",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");keyid=\"did:key:zDnaeWu1aHomnSsmn6xRi87CaZakB58U8ykmwFQ2B1jr56Y9J\"",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "keyid keyid=1 that is not a string",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");keyid=1",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "keyid keyid that is not a string",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");keyid",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "keyid keyid=tok that is not a string",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");keyid=tok",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "a signature parameter added after signing",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");alg=\"ecdsa-p256-sha256\"",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "audience not covered by the signature",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
+      "signature": "atproto-space=:K4so4NZ+iBuq0zbng0cjiJ9Dboa/GqxGJYL9sZVwBNJawO1JtzOz+k3foMfR+Y0DB4nYGeNs25VOUuimuf2qIQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "components (\"atproto-space-audience\")",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "components (\"atproto-space-audience\" \"authorization\")",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"atproto-space-audience\" \"authorization\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "components (\"authorization\" \"atproto-space-audience\" \"content-type\")",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\" \"content-type\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "components (\"authorization\" \"authorization\" \"atproto-space-audience\")",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "components (\"authorization\";sf \"atproto-space-audience\")",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\";sf \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "components (authorization \"atproto-space-audience\")",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(authorization \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "components (\"Authorization\" \"atproto-space-audience\")",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"Authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "components (\"@method\" \"atproto-space-audience\")",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"@method\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "components ()",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=()",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature input \"not-a-list\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "not-a-list",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature input \"\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature input \"atproto-space\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature input \"atproto-space=1\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=1",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature input \"atproto-space=\\\"authorization\\\"\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=\"authorization\"",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature input \"other=(\\\"authorization\\\" \\\"atproto-space-audience\\\")\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "other=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature \"\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature \"not-a-byte-sequence\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "not-a-byte-sequence",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature \"atproto-space=not-a-byte-sequence\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=not-a-byte-sequence",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature \"atproto-space=:YWJj:\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:YWJj:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature \"atproto-space=:!!!:\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:!!!:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature \"atproto-space=1\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=1",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature \"other=:YWJj:\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "other=:YWJj:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature \"atproto-space=:YWJj:;x=1\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:YWJj:;x=1",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature \"atproto-space=(:YWJj:)\"",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=(:YWJj:)",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "DER-encoded signature",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:MEQCIBla6386JcBTACNEi8ZEnzqu9RKeEpFDWi0wGfUkadaTAiAL+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature of zeros",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "signature of ones",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=://///////////////////////////////////////////////////////////////////////////////////w==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "algorithm ecdsa-p384-sha384",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");alg=\"ecdsa-p384-sha384\"",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "algorithm ed25519",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");alg=\"ed25519\"",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "algorithm rsa-pss-sha512",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");alg=\"rsa-pss-sha512\"",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "algorithm as a token",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");alg=ecdsa-p256-sha256",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "request key that is not P-256",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zQ3shVfKDU2jLYrCVtiEjFagvjQMzASR62rgGY7Cb6MwW1XW6",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "empty request authorization",
+      "mode": "request",
+      "authorization": "",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "label repeated in the signature input",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\"), atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": true,
+      "beyondReference": true
+    },
+    {
+      "name": "label repeated in the signature",
+      "mode": "request",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:, atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": true,
+      "beyondReference": true
+    },
+    {
+      "name": "credential signature on the exchange",
+      "mode": "exchange",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "exchange algorithm ecdsa-p384-sha384",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\";alg=\"ecdsa-p384-sha384\"",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "exchange key that is not P-256",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zQ3shVfKDU2jLYrCVtiEjFagvjQMzASR62rgGY7Cb6MwW1XW6\"",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "exchange keyid \"\"",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\")",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "exchange keyid \";keyid\"",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\");keyid",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "exchange keyid \";keyid=123\"",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=123",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "exchange keyid \";keyid=\\\"not-a-key\\\"\"",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"not-a-key\"",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "exchange keyid \";keyid=\\\"did:key:z\\\"\"",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:z\"",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "exchange keyid \";keyid=\\\"did:web:example.com\\\"\"",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:web:example.com\"",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "exchange signed by a key other than its keyid",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaeWu1aHomnSsmn6xRi87CaZakB58U8ykmwFQ2B1jr56Y9J\"",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "changed delegation token",
+      "mode": "exchange",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2lnx",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    },
+    {
+      "name": "empty exchange authorization",
+      "mode": "exchange",
+      "authorization": "",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
+      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
+      "expect": {
+        "ok": false
+      },
+      "reference": false
+    }
+  ],
+  "signing": [
+    {
+      "name": "request",
+      "curve": "P-256",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "base": "\"authorization\": Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln\n\"atproto-space-audience\": did:plc:repoowner\n\"@signature-params\": (\"authorization\" \"atproto-space-audience\")"
+    },
+    {
+      "name": "exchange",
+      "curve": "P-256",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
+      "base": "\"authorization\": Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln\n\"@signature-params\": (\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\""
+    },
+    {
+      "name": "request with a K-256 key",
+      "curve": "K-256",
+      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": null
+    },
+    {
+      "name": "exchange with a K-256 key",
+      "curve": "K-256",
+      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
+      "signatureInput": null
+    }
+  ]
+}

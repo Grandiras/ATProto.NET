@@ -1,0 +1,146 @@
+[
+  {
+    "name": "P-256 r is zero",
+    "algorithm": "ES256",
+    "publicKeyDid": "did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABWExHptCfduPleDbG3rko3YZnn9Lw0IjpixVmexJDegg",
+    "validSignature": false
+  },
+  {
+    "name": "P-256 r is the order",
+    "algorithm": "ES256",
+    "publicKeyDid": "did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "/////wAAAAD//////////7zm+q2nF56E87nKwvxjJVFWExHptCfduPleDbG3rko3YZnn9Lw0IjpixVmexJDegg",
+    "validSignature": false
+  },
+  {
+    "name": "P-256 r is 2^256 - 1",
+    "algorithm": "ES256",
+    "publicKeyDid": "did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "//////////////////////////////////////////9WExHptCfduPleDbG3rko3YZnn9Lw0IjpixVmexJDegg",
+    "validSignature": false
+  },
+  {
+    "name": "P-256 s is zero",
+    "algorithm": "ES256",
+    "publicKeyDid": "did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "2vZNsG3UKvvO/CDlrdvyZRISOFylinBh0Jupc6KcWoIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "validSignature": false
+  },
+  {
+    "name": "P-256 s is the order",
+    "algorithm": "ES256",
+    "publicKeyDid": "did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "2vZNsG3UKvvO/CDlrdvyZRISOFylinBh0Jupc6KcWoL/////AAAAAP//////////vOb6racXnoTzucrC/GMlUQ",
+    "validSignature": false
+  },
+  {
+    "name": "P-256 s is 2^256 - 1",
+    "algorithm": "ES256",
+    "publicKeyDid": "did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "2vZNsG3UKvvO/CDlrdvyZRISOFylinBh0Jupc6KcWoL//////////////////////////////////////////w",
+    "validSignature": false
+  },
+  {
+    "name": "P-256 63 bytes",
+    "algorithm": "ES256",
+    "publicKeyDid": "did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "2vZNsG3UKvvO/CDlrdvyZRISOFylinBh0Jupc6KcWoJWExHptCfduPleDbG3rko3YZnn9Lw0IjpixVmexJDe",
+    "validSignature": false
+  },
+  {
+    "name": "P-256 65 bytes",
+    "algorithm": "ES256",
+    "publicKeyDid": "did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "2vZNsG3UKvvO/CDlrdvyZRISOFylinBh0Jupc6KcWoJWExHptCfduPleDbG3rko3YZnn9Lw0IjpixVmexJDeggA",
+    "validSignature": false
+  },
+  {
+    "name": "P-256 empty",
+    "algorithm": "ES256",
+    "publicKeyDid": "did:key:zDnaembgSGUhZULN2Caob4HLJPaxBh92N7rtH21TErzqf8HQo",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "",
+    "validSignature": false
+  },
+  {
+    "name": "K-256 r is zero",
+    "algorithm": "ES256K",
+    "publicKeyDid": "did:key:zQ3shqwJEJyMBsBXCWyCBpUBMqxcon9oHB7mCvx4sSpMdLJwc",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAn/FEznOndsz/qgiYb89zwxYCbB71f7yQK5Lr7NasfoA",
+    "validSignature": false
+  },
+  {
+    "name": "K-256 r is the order",
+    "algorithm": "ES256K",
+    "publicKeyDid": "did:key:zQ3shqwJEJyMBsBXCWyCBpUBMqxcon9oHB7mCvx4sSpMdLJwc",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "/////////////////////rqu3OavSKA7v9JejNA2QUEn/FEznOndsz/qgiYb89zwxYCbB71f7yQK5Lr7NasfoA",
+    "validSignature": false
+  },
+  {
+    "name": "K-256 r is 2^256 - 1",
+    "algorithm": "ES256K",
+    "publicKeyDid": "did:key:zQ3shqwJEJyMBsBXCWyCBpUBMqxcon9oHB7mCvx4sSpMdLJwc",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "//////////////////////////////////////////8n/FEznOndsz/qgiYb89zwxYCbB71f7yQK5Lr7NasfoA",
+    "validSignature": false
+  },
+  {
+    "name": "K-256 s is zero",
+    "algorithm": "ES256K",
+    "publicKeyDid": "did:key:zQ3shqwJEJyMBsBXCWyCBpUBMqxcon9oHB7mCvx4sSpMdLJwc",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "5WpdIuEUUfVUYaozsi8G0B3cWO09cgZbIIwg1t2YKdUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "validSignature": false
+  },
+  {
+    "name": "K-256 s is the order",
+    "algorithm": "ES256K",
+    "publicKeyDid": "did:key:zQ3shqwJEJyMBsBXCWyCBpUBMqxcon9oHB7mCvx4sSpMdLJwc",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "5WpdIuEUUfVUYaozsi8G0B3cWO09cgZbIIwg1t2YKdX////////////////////+uq7c5q9IoDu/0l6M0DZBQQ",
+    "validSignature": false
+  },
+  {
+    "name": "K-256 s is 2^256 - 1",
+    "algorithm": "ES256K",
+    "publicKeyDid": "did:key:zQ3shqwJEJyMBsBXCWyCBpUBMqxcon9oHB7mCvx4sSpMdLJwc",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "5WpdIuEUUfVUYaozsi8G0B3cWO09cgZbIIwg1t2YKdX//////////////////////////////////////////w",
+    "validSignature": false
+  },
+  {
+    "name": "K-256 63 bytes",
+    "algorithm": "ES256K",
+    "publicKeyDid": "did:key:zQ3shqwJEJyMBsBXCWyCBpUBMqxcon9oHB7mCvx4sSpMdLJwc",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "5WpdIuEUUfVUYaozsi8G0B3cWO09cgZbIIwg1t2YKdUn/FEznOndsz/qgiYb89zwxYCbB71f7yQK5Lr7Nasf",
+    "validSignature": false
+  },
+  {
+    "name": "K-256 65 bytes",
+    "algorithm": "ES256K",
+    "publicKeyDid": "did:key:zQ3shqwJEJyMBsBXCWyCBpUBMqxcon9oHB7mCvx4sSpMdLJwc",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "5WpdIuEUUfVUYaozsi8G0B3cWO09cgZbIIwg1t2YKdUn/FEznOndsz/qgiYb89zwxYCbB71f7yQK5Lr7NasfoAA",
+    "validSignature": false
+  },
+  {
+    "name": "K-256 empty",
+    "algorithm": "ES256K",
+    "publicKeyDid": "did:key:zQ3shqwJEJyMBsBXCWyCBpUBMqxcon9oHB7mCvx4sSpMdLJwc",
+    "messageBase64": "oWVoZWxsb2V3b3JsZA",
+    "signatureBase64": "",
+    "validSignature": false
+  }
+]

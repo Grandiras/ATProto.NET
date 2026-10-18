@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Published with NativeAOT in CI (build.sh aot), which fails on any trim or AOT warning.
+       From phase 5 it signs in against a fake server, queries, writes a record and decodes a
+       firehose frame (design/04-testing.md, "AOT smoke test"). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PublishAot>true</PublishAot>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ATProtoNet\ATProtoNet.csproj" />
+  </ItemGroup>
+
+</Project>

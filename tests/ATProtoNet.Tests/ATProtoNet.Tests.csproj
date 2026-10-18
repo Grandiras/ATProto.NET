@@ -1,52 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
-    <!-- Renders and drives the Blazor components (MIT). -->
-    <PackageReference Include="bunit" Version="2.11.3" />
-    <PackageReference Include="coverlet.collector" Version="10.1.0" />
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.12" />
-    <!-- Every EF Core store test runs over this, not the in-memory provider: the space stores
-         lean on relational behaviour the in-memory provider does not model (composite keys, and
-         a key violation being how a replayed token is detected), and it also removes a whole
-         class of drift bug — the in-memory provider's own package had to be kept pinned to
-         exactly the same version as EFCore.Relational in src, or the two loaded different EF
-         Core Abstractions assemblies and every EF-backed test blew up with a MissingMethodException. -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
-    <!-- Pinned ahead of what the Sqlite provider asks for: its 2.1.11 native bundle carries
-         GHSA-2m69-gcr7-jv3q, which NuGet reports as a restore warning on every build. -->
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
-    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
-    <PackageReference Include="NSubstitute" Version="6.2.0" />
-    <PackageReference Include="xunit.v3.mtp-off" Version="4.0.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0" />
-  </ItemGroup>
+  <!-- Unit tests of the ATProtoNet package, one folder per namespace area; TestKit/ tests the
+       shared fakes themselves. -->
 
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3.mtp-off" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ATProtoNet\ATProtoNet.csproj" />
-    <ProjectReference Include="..\..\src\ATProtoNet.Aspire.Hosting\ATProtoNet.Aspire.Hosting.csproj" />
-    <ProjectReference Include="..\..\src\ATProtoNet.Server\ATProtoNet.Server.csproj" />
-    <ProjectReference Include="..\..\src\ATProtoNet.Server.EntityFrameworkCore\ATProtoNet.Server.EntityFrameworkCore.csproj" />
-    <ProjectReference Include="..\..\src\ATProtoNet.Blazor\ATProtoNet.Blazor.csproj" />
-    <ProjectReference Include="..\..\tools\ATProtoNet.LexiconGenerator\ATProtoNet.LexiconGenerator.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Binary conformance fixtures (e.g. Jetstream's own golden segment block). -->
-    <None Include="Streaming/TestData/*.bin" CopyToOutputDirectory="PreserveNewest" />
-    <!-- Live firehose frames (see Streaming/TestData/README.md). -->
-    <None Include="Streaming/TestData/*.json" CopyToOutputDirectory="PreserveNewest" />
-    <!-- atproto-interop-tests fixtures, vendored unchanged (see Crypto/TestData/README.md). -->
-    <None Include="Crypto/TestData/*.json" CopyToOutputDirectory="PreserveNewest" />
-    <!-- Reference-implementation repository vectors (see Repo/TestData/README.md). -->
-    <None Include="Repo/TestData/*.json" CopyToOutputDirectory="PreserveNewest" />
-    <!-- Reference-implementation Lexicon resolution vectors (see Lexicon/TestData/README.md). -->
-    <None Include="Lexicon/TestData/*.json" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="..\ATProtoNet.TestKit\ATProtoNet.TestKit.csproj" />
   </ItemGroup>
 
 </Project>

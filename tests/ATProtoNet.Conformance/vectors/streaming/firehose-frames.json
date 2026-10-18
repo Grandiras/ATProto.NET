@@ -1,0 +1,280 @@
+{
+  "generator": {
+    "@atproto/lex-cbor": "0.1.7"
+  },
+  "cases": [
+    {
+      "name": "commit",
+      "spec": "STR-35",
+      "frame": "omF0ZyNjb21taXRib3ABq2NvcHOAY3Jldm0zanpmY2lqcGoyejJhY3NlcRgqZHJlcG9vZGlkOnBsYzp0ZXN0MTIzZHRpbWV4GDIwMjQtMDEtMTVUMTI6MDA6MDAuMDAwWmVibG9ic4Blc2luY2X2ZmJsb2Nrc0BmY29tbWl02CpYJQABcRIglQXKy3xxDtFxJfzGyzZp6N3KbIzYr2ox9rPNZGBMMJhmcmViYXNl9GZ0b29CaWf0",
+      "expect": {
+        "kind": "event",
+        "type": "#commit",
+        "seq": 42,
+        "repo": "did:plc:test123",
+        "commit": "bafyreievaxfmw7drb3ixcjp4y3ftm2pi3xfgzdgyv5vdd5vtzvsgatbqta",
+        "rev": "3jzfcijpj2z2a",
+        "since": null,
+        "time": "2024-01-15T12:00:00.000Z",
+        "ops": []
+      }
+    },
+    {
+      "name": "commit with operations",
+      "spec": "STR-35",
+      "frame": "omF0ZyNjb21taXRib3ABq2NvcHOCo2NjaWTYKlglAAFxEiBUJGJrkyov+dGR8JgkR6l5/d2LS+JR6SQ3DLZpAN8BjmRwYXRoeBlhcHAuYnNreS5mZWVkLnBvc3QvYWJjMTIzZmFjdGlvbmZjcmVhdGWjY2NpZPZkcGF0aHgZYXBwLmJza3kuZmVlZC5saWtlL2RlZjQ1NmZhY3Rpb25mZGVsZXRlY3Jldm0zanpmY2lqcGoyejJhY3NlcRgqZHJlcG9vZGlkOnBsYzp0ZXN0MTIzZHRpbWV4GDIwMjQtMDEtMTVUMTI6MDA6MDAuMDAwWmVibG9ic4Blc2luY2X2ZmJsb2Nrc0BmY29tbWl02CpYJQABcRIglQXKy3xxDtFxJfzGyzZp6N3KbIzYr2ox9rPNZGBMMJhmcmViYXNl9GZ0b29CaWf0",
+      "expect": {
+        "kind": "event",
+        "type": "#commit",
+        "seq": 42,
+        "ops": [
+          {
+            "action": "create",
+            "path": "app.bsky.feed.post/abc123",
+            "cid": "bafyreicuerrgxezkf745depqtasepklz7xoyws7ckhusinymwzuqbxybry"
+          },
+          {
+            "action": "delete",
+            "path": "app.bsky.feed.like/def456",
+            "cid": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "commit with Sync 1.1 fields",
+      "spec": "STR-13",
+      "frame": "omF0ZyNjb21taXRib3ABrGNvcHOAY3Jldm0zanpmY2lqcGoyejJhY3NlcRgqZHJlcG9vZGlkOnBsYzp0ZXN0MTIzZHRpbWV4GDIwMjQtMDEtMTVUMTI6MDA6MDAuMDAwWmVibG9ic4HYKlglAAFxEiBUJGJrkyov+dGR8JgkR6l5/d2LS+JR6SQ3DLZpAN8BjmVzaW5jZW0zanpmY2lqcGoyejIyZmJsb2Nrc0BmY29tbWl02CpYJQABcRIglQXKy3xxDtFxJfzGyzZp6N3KbIzYr2ox9rPNZGBMMJhmcmViYXNl9GZ0b29CaWf0aHByZXZEYXRh2CpYJQABcRIg68t0uzkCx+/PZinmJC2SB2PqY4gdqE4rToF+JoWL15I=",
+      "expect": {
+        "kind": "event",
+        "type": "#commit",
+        "seq": 42,
+        "since": "3jzfcijpj2z22",
+        "prevData": "bafyreihlzn2lwoicy7x46zrj4ysc3eqhmpvghca5vbhcwtubpytilc6xsi"
+      }
+    },
+    {
+      "name": "commit without the deprecated fields",
+      "spec": "STR-13",
+      "frame": "omF0ZyNjb21taXRib3ABqGNvcHOAY3Jldm0zanpmY2lqcGoyejJhY3NlcRgqZHJlcG9vZGlkOnBsYzp0ZXN0MTIzZHRpbWV4GDIwMjQtMDEtMTVUMTI6MDA6MDAuMDAwWmVzaW5jZfZmYmxvY2tzQGZjb21taXTYKlglAAFxEiCVBcrLfHEO0XEl/MbLNmno3cpsjNivajH2s81kYEwwmA==",
+      "expect": {
+        "kind": "event",
+        "type": "#commit",
+        "seq": 42
+      }
+    },
+    {
+      "name": "commit with an unknown field",
+      "spec": "STR-13",
+      "frame": "omF0ZyNjb21taXRib3ABrGNvcHOAY3Jldm0zanpmY2lqcGoyejJhY3NlcRgqZHJlcG9vZGlkOnBsYzp0ZXN0MTIzZHRpbWV4GDIwMjQtMDEtMTVUMTI6MDA6MDAuMDAwWmVibG9ic4Blc2luY2X2ZmJsb2Nrc0BmY29tbWl02CpYJQABcRIglQXKy3xxDtFxJfzGyzZp6N3KbIzYr2ox9rPNZGBMMJhmcmViYXNl9GZ0b29CaWf0a2Z1dHVyZUZpZWxkoWZuZXN0ZWT1",
+      "expect": {
+        "kind": "event",
+        "type": "#commit",
+        "seq": 42
+      }
+    },
+    {
+      "name": "commit whose repo is not a DID",
+      "spec": "STR-11",
+      "frame": "omF0ZyNjb21taXRib3ABq2NvcHOAY3Jldm0zanpmY2lqcGoyejJhY3NlcRgqZHJlcG9pbm90LWEtZGlkZHRpbWV4GDIwMjQtMDEtMTVUMTI6MDA6MDAuMDAwWmVibG9ic4Blc2luY2X2ZmJsb2Nrc0BmY29tbWl02CpYJQABcRIglQXKy3xxDtFxJfzGyzZp6N3KbIzYr2ox9rPNZGBMMJhmcmViYXNl9GZ0b29CaWf0",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed",
+        "seq": 42
+      }
+    },
+    {
+      "name": "commit whose commit is not a CID link",
+      "spec": "STR-11",
+      "frame": "omF0ZyNjb21taXRib3ABq2NvcHOAY3Jldm0zanpmY2lqcGoyejJhY3NlcRgqZHJlcG9vZGlkOnBsYzp0ZXN0MTIzZHRpbWV4GDIwMjQtMDEtMTVUMTI6MDA6MDAuMDAwWmVibG9ic4Blc2luY2X2ZmJsb2Nrc0BmY29tbWl0bmJhZnlyZWlub3RhY2lkZnJlYmFzZfRmdG9vQmln9A==",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed",
+        "seq": 42
+      }
+    },
+    {
+      "name": "commit whose rev is not a TID",
+      "spec": "STR-11",
+      "frame": "omF0ZyNjb21taXRib3ABq2NvcHOAY3Jldmlub3QtYS10aWRjc2VxGCpkcmVwb29kaWQ6cGxjOnRlc3QxMjNkdGltZXgYMjAyNC0wMS0xNVQxMjowMDowMC4wMDBaZWJsb2JzgGVzaW5jZfZmYmxvY2tzQGZjb21taXTYKlglAAFxEiCVBcrLfHEO0XEl/MbLNmno3cpsjNivajH2s81kYEwwmGZyZWJhc2X0ZnRvb0JpZ/Q=",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed",
+        "seq": 42
+      }
+    },
+    {
+      "name": "commit with an unknown operation action",
+      "spec": "STR-13",
+      "frame": "omF0ZyNjb21taXRib3ABq2NvcHOBo2NjaWTYKlglAAFxEiBUJGJrkyov+dGR8JgkR6l5/d2LS+JR6SQ3DLZpAN8BjmRwYXRoeBlhcHAuYnNreS5mZWVkLnBvc3QvYWJjMTIzZmFjdGlvbmVtZXJnZWNyZXZtM2p6ZmNpanBqMnoyYWNzZXEYKmRyZXBvb2RpZDpwbGM6dGVzdDEyM2R0aW1leBgyMDI0LTAxLTE1VDEyOjAwOjAwLjAwMFplYmxvYnOAZXNpbmNl9mZibG9ja3NAZmNvbW1pdNgqWCUAAXESIJUFyst8cQ7RcSX8xss2aejdymyM2K9qMfazzWRgTDCYZnJlYmFzZfRmdG9vQmln9A==",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed",
+        "seq": 42
+      }
+    },
+    {
+      "name": "identity",
+      "spec": "STR-35",
+      "frame": "omF0aSNpZGVudGl0eWJvcAGkY2RpZHNkaWQ6cGxjOmlkZW50aXR5MTIzY3NlcRhkZHRpbWV4GDIwMjQtMDEtMTVUMTI6MDA6MDAuMDAwWmZoYW5kbGVwdGVzdC5ic2t5LnNvY2lhbA==",
+      "expect": {
+        "kind": "event",
+        "type": "#identity",
+        "seq": 100,
+        "did": "did:plc:identity123",
+        "handle": "test.bsky.social"
+      }
+    },
+    {
+      "name": "account",
+      "spec": "STR-35",
+      "frame": "omF0aCNhY2NvdW50Ym9wAaRjZGlkcmRpZDpwbGM6YWNjb3VudDEyM2NzZXEYyGR0aW1leBgyMDI0LTAxLTE1VDEyOjAwOjAwLjAwMFpmYWN0aXZl9Q==",
+      "expect": {
+        "kind": "event",
+        "type": "#account",
+        "seq": 200,
+        "did": "did:plc:account123",
+        "active": true
+      }
+    },
+    {
+      "name": "inactive account",
+      "spec": "STR-35",
+      "frame": "omF0aCNhY2NvdW50Ym9wAaVjZGlkcmRpZDpwbGM6YWNjb3VudDEyM2NzZXEYyWR0aW1leBgyMDI0LTAxLTE1VDEyOjAwOjAwLjAwMFpmYWN0aXZl9GZzdGF0dXNpdGFrZW5kb3du",
+      "expect": {
+        "kind": "event",
+        "type": "#account",
+        "seq": 201,
+        "active": false,
+        "status": "takendown"
+      }
+    },
+    {
+      "name": "sync",
+      "spec": "STR-35",
+      "frame": "omF0ZSNzeW5jYm9wAaVjZGlkb2RpZDpwbGM6c3luYzQ1NmNyZXZtM2p6ZmNpanBqMnoyYmNzZXEZASxkdGltZXgYMjAyNC0wMS0xNVQxMjowMDowMC4wMDBaZmJsb2Nrc0MBAgM=",
+      "expect": {
+        "kind": "event",
+        "type": "#sync",
+        "seq": 300,
+        "did": "did:plc:sync456",
+        "rev": "3jzfcijpj2z2b"
+      }
+    },
+    {
+      "name": "info",
+      "spec": "STR-35",
+      "frame": "omF0ZSNpbmZvYm9wAaJkbmFtZW5PdXRkYXRlZEN1cnNvcmdtZXNzYWdleClDdXJzb3IgaXMgb2xkZXIgdGhhbiB0aGUgcmV0ZW50aW9uIHdpbmRvdw==",
+      "expect": {
+        "kind": "info",
+        "name": "OutdatedCursor",
+        "message": "Cursor is older than the retention window"
+      }
+    },
+    {
+      "name": "error frame",
+      "spec": "STR-10",
+      "frame": "oWJvcCCiZWVycm9ybEZ1dHVyZUN1cnNvcmdtZXNzYWdld0N1cnNvciBpcyBpbiB0aGUgZnV0dXJl",
+      "expect": {
+        "kind": "error",
+        "error": "FutureCursor",
+        "message": "Cursor is in the future"
+      }
+    },
+    {
+      "name": "error frame without an error name",
+      "spec": "STR-10",
+      "frame": "oWJvcCChZ21lc3NhZ2VvU29tZXRoaW5nIGJyb2tl",
+      "expect": {
+        "kind": "error",
+        "error": "Unknown"
+      }
+    },
+    {
+      "name": "handle event, removed upstream",
+      "spec": "STR-11",
+      "frame": "omF0ZyNoYW5kbGVib3ABpGNkaWRxZGlkOnBsYzpoYW5kbGUxMjNjc2VxGQH0ZHRpbWV4GDIwMjQtMDEtMTVUMTI6MDA6MDAuMDAwWmZoYW5kbGV1bmV3aGFuZGxlLmJza3kuc29jaWFs",
+      "expect": {
+        "kind": "dropped",
+        "reason": "unknownType",
+        "seq": 500
+      }
+    },
+    {
+      "name": "tombstone event, removed upstream",
+      "spec": "STR-11",
+      "frame": "omF0aiN0b21ic3RvbmVib3ABo2NkaWRxZGlkOnBsYzpoYW5kbGUxMjNjc2VxGQH1ZHRpbWV4GDIwMjQtMDEtMTVUMTI6MDA6MDAuMDAwWg==",
+      "expect": {
+        "kind": "dropped",
+        "reason": "unknownType",
+        "seq": 501
+      }
+    },
+    {
+      "name": "unknown message type",
+      "spec": "STR-11",
+      "frame": "omF0ciN1bmtub3duRnV0dXJlVHlwZWJvcAGiY2Zvb2NiYXJjc2VxAQ==",
+      "expect": {
+        "kind": "dropped",
+        "reason": "unknownType",
+        "seq": 1
+      }
+    },
+    {
+      "name": "unknown op",
+      "spec": "STR-11",
+      "frame": "omF0ZyNjb21taXRib3ACq2NvcHOAY3Jldm0zanpmY2lqcGoyejJhY3NlcRgrZHJlcG9vZGlkOnBsYzp0ZXN0MTIzZHRpbWV4GDIwMjQtMDEtMTVUMTI6MDA6MDAuMDAwWmVibG9ic4Blc2luY2X2ZmJsb2Nrc0BmY29tbWl02CpYJQABcRIglQXKy3xxDtFxJfzGyzZp6N3KbIzYr2ox9rPNZGBMMJhmcmViYXNl9GZ0b29CaWf0",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed",
+        "seq": 43
+      }
+    },
+    {
+      "name": "empty type",
+      "spec": "STR-11",
+      "frame": "omF0YGJvcAGhY3NlcRgs",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed",
+        "seq": 44
+      }
+    },
+    {
+      "name": "empty frame",
+      "spec": "STR-11",
+      "frame": "",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "not CBOR",
+      "spec": "STR-11",
+      "frame": "//8=",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "deeply nested body",
+      "spec": "STR-11",
+      "frameGzip": "H4sIAAAAAAACA+3BsQ2AIBAAwDCLk2mweEzQ4i0sGUUndQ2Ku/vWjCXq3jPy2c6rvLXd/RgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAtMoP/bF7obiGAQA=",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "malformed CID link",
+      "spec": "STR-11",
+      "frame": "omF0ZyNjb21taXRib3ABoWZjb21taXTYKkIBcQ==",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    }
+  ]
+}

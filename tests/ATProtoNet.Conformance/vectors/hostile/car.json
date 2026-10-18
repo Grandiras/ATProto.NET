@@ -1,0 +1,130 @@
+[
+  {
+    "name": "CIDv0 block",
+    "note": "DAT-12: a bare multihash implies dag-pb",
+    "car": [
+      "11",
+      "a265726f6f7473806776657273696f6e01",
+      "27",
+      "12206619306c9aab7b440b54071a5fba32a4a09fc85127215805ce43bda26154e439",
+      "6369647630"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "header value nested to the limit",
+    "note": "DAT-31: 64 levels, the header map included",
+    "car": [
+      "57",
+      "a3656a756e6b21",
+      {
+        "repeat": "81",
+        "count": 63
+      },
+      "0065726f6f7473806776657273696f6e01"
+    ],
+    "roots": [],
+    "blocks": []
+  },
+  {
+    "name": "header value nested past the limit",
+    "note": "DAT-31: rejected by the SDK limit, not a library default",
+    "car": [
+      "58",
+      "a3656a756e6b21",
+      {
+        "repeat": "81",
+        "count": 64
+      },
+      "0065726f6f7473806776657273696f6e01"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "header value nested 100k levels",
+    "note": "DAT-31, DAT-32",
+    "car": [
+      "b88d06",
+      "a3656a756e6b21",
+      {
+        "repeat": "81",
+        "count": 100000
+      },
+      "0065726f6f7473806776657273696f6e01"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "truncated deeply nested header",
+    "note": "DAT-55",
+    "car": [
+      "a78d06",
+      "a1656a756e6b21",
+      {
+        "repeat": "81",
+        "count": 100000
+      }
+    ],
+    "rejected": true
+  },
+  {
+    "name": "header length 2^31",
+    "note": "DAT-33: a declared length over 2 GiB is not trusted or cast",
+    "car": [
+      "8080808008",
+      "a265726f6f7473806776657273696f6e01"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "block length 2^31",
+    "note": "DAT-33, DAT-57",
+    "car": [
+      "11",
+      "a265726f6f7473806776657273696f6e01",
+      "8080808008",
+      "015512202d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "header length 2^32",
+    "note": "DAT-33: a declared length over 2 GiB is not trusted or cast",
+    "car": [
+      "8080808010",
+      "a265726f6f7473806776657273696f6e01"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "block length 2^32",
+    "note": "DAT-33, DAT-57",
+    "car": [
+      "11",
+      "a265726f6f7473806776657273696f6e01",
+      "8080808010",
+      "015512202d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "header length 2^63 - 1",
+    "note": "DAT-33: a declared length over 2 GiB is not trusted or cast",
+    "car": [
+      "ffffffffffffffff7f",
+      "a265726f6f7473806776657273696f6e01"
+    ],
+    "rejected": true
+  },
+  {
+    "name": "block length 2^63 - 1",
+    "note": "DAT-33, DAT-57",
+    "car": [
+      "11",
+      "a265726f6f7473806776657273696f6e01",
+      "ffffffffffffffff7f",
+      "015512202d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+    ],
+    "rejected": true
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "name": "empty raw",
+    "codec": "raw",
+    "data": "",
+    "cid": "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku"
+  },
+  {
+    "name": "empty MST node",
+    "codec": "dag-cbor",
+    "data": "a2616580616cf6",
+    "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"
+  },
+  {
+    "name": "hello raw",
+    "codec": "raw",
+    "data": "48656c6c6f",
+    "cid": "bafkreiayl6g3gitr7ys7kyng7sjywlrgimdoymco3jiyab6rozecmoazne"
+  },
+  {
+    "name": "hello dag-cbor",
+    "codec": "dag-cbor",
+    "data": "48656c6c6f",
+    "cid": "bafyreiayl6g3gitr7ys7kyng7sjywlrgimdoymco3jiyab6rozecmoazne"
+  },
+  {
+    "name": "map a=1",
+    "codec": "dag-cbor",
+    "data": "a1616101",
+    "cid": "bafyreihltcnuuyqp2jm24aqydpnlj7b6w3ogwrplomrjtg5rifv44mmjey"
+  },
+  {
+    "name": "map a=2",
+    "codec": "dag-cbor",
+    "data": "a1616102",
+    "cid": "bafyreia5ec2ka6hvct2tuvnbn7jaw7zm7mgqylg5ppx2hrixxztr5viozq"
+  }
+]

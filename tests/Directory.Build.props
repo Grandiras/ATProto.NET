@@ -4,13 +4,10 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
-    <!-- xUnit1051 asks every cancellable call to thread TestContext.Current.CancellationToken.
-         It is new in xunit.v3 and fires at ~260 existing call sites; threading the token
-         through is worthwhile but is its own change, not part of the framework upgrade. -->
-    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 
-  <ItemGroup>
+  <!-- IsTestProject comes from Microsoft.NET.Test.Sdk; properties are evaluated before items. -->
+  <ItemGroup Condition="'$(IsTestProject)' == 'true'">
     <Using Include="Xunit" />
   </ItemGroup>
 

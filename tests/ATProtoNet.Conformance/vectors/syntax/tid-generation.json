@@ -1,0 +1,65 @@
+[
+  {
+    "name": "spec example",
+    "note": "SYN-34: 2023-06-30T15:03:01.887007Z, clock id 6",
+    "clockId": 6,
+    "clockMicros": [
+      1688137381887007
+    ],
+    "tids": [
+      "3jzfcijpj2z2a"
+    ]
+  },
+  {
+    "name": "clock steps backwards",
+    "note": "SYN-31",
+    "clockId": 0,
+    "clockMicros": [
+      1790251200000000,
+      1790251195000000
+    ],
+    "tids": [
+      "3mwb7fhfg2222",
+      "3mwb7fhfg2322"
+    ]
+  },
+  {
+    "name": "frozen clock",
+    "note": "SYN-31",
+    "clockId": 513,
+    "clockMicros": [
+      1790251200000000,
+      1790251200000000,
+      1790251200000000
+    ],
+    "tids": [
+      "3mwb7fhfg22k3",
+      "3mwb7fhfg23k3",
+      "3mwb7fhfg24k3"
+    ]
+  },
+  {
+    "name": "largest clock id",
+    "note": "SYN-32",
+    "clockId": 1023,
+    "clockMicros": [
+      1790251200000123
+    ],
+    "tids": [
+      "3mwb7fhfg5vzz"
+    ]
+  },
+  {
+    "name": "clock before the epoch",
+    "note": "SYN-33: counts as the epoch",
+    "clockId": 1,
+    "clockMicros": [
+      -5000000,
+      -1
+    ],
+    "tids": [
+      "2222222222223",
+      "2222222222323"
+    ]
+  }
+]

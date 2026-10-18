@@ -1,0 +1,21 @@
+# Live-network integration tests and benchmarks, outside pull requests.
+name: Nightly
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:11.0.100-rc.2
+    steps:
+      - name: Checkout
+        run: git config --global --add safe.directory "$PWD" && git init -q && git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" && git fetch -q --depth=1 origin "$GITHUB_SHA" && git checkout -q "$GITHUB_SHA"
+      - name: Nightly
+        run: ./build.sh nightly
+        env:
+          ATPROTO_TEST_JETSTREAM: "true"
+          ATPROTO_JETSTREAM_API_KEY: ${{ secrets.ATPROTO_JETSTREAM_API_KEY }}

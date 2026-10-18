@@ -104,6 +104,56 @@ for planning only.
 **Gate.** CI green. The conformance suite is green against 0.8 (or each failure is filed as a
 0.8 bug with the vector marked `KnownLegacyFailure`). The benchmark baseline is committed.
 
+**Outcomes** (recorded by phase 0, #225):
+
+- **Branch.** `next` starts from `rewrite-design` at `78bda3c`, the accepted design, while #224
+  merges the same content into `main`. `main` merges into `next` as D-17 describes.
+- **Fresh tree.** `next` carries none of 0.8's source, tests, samples, tools or docs; `main` keeps
+  them as reference. A project exists once a phase needs it: phase 0 has `src/ATProtoNet` (empty,
+  with its API baseline) and the test infrastructure; the extension packages and tools come with
+  the phases that fill them.
+- **SDK.** `global.json` pins `11.0.100-rc.2` (`latestPatch`), CI runs in
+  `mcr.microsoft.com/dotnet/sdk:11.0.100-rc.2` (`-aot` for the AOT job). RC2 compiles C# 15,
+  unions included, by default for `net11.0`, so no `LangVersion` is set. Both pins move to GA in
+  November.
+- **Conformance layout.** Both SDKs are named `ATProtoNet` and cannot load into one process, so
+  `tests/ATProtoNet.Conformance` is a library (vectors, `IProtocolAdapter`, abstract suites
+  `…Conformance<TAdapter>`) and each adapter is its own test project deriving one class per
+  suite. `Adapter.Legacy` references the published 0.8.0 packages from nuget.org rather than
+  0.8 source, so the build-health defects on `main` do not block it (immediate next step 2 is
+  not needed for the bridge). It uses 0.8's public API, and `UnsafeAccessor` where 0.8 kept an
+  operation internal.
+- **Benchmarks.** For the same reason, `tests/ATProtoNet.Benchmarks/Legacy` runs the scenarios
+  over the 0.8.0 packages; a later `Next` project implements the same `<Class>.<Method>` names
+  and is compared against `baseline/0.8.0/` on the same machine (5% noise floor). BenchmarkDotNet
+  0.15.8 does not know the `net11.0` moniker, so the job runs in process. 0.8 has no public MST
+  diff: `MstBenchmarks.UpdateAndRecomputeRoot` stands in until `Next` adds `MstBenchmarks.Diff`.
+  Jetstream is measured on v1 frames only.
+- **Known failures.** `IProtocolAdapter.KnownFailures` maps a vector ID (`{file}#{case}`) or an
+  ID prefix ending in `*` to the issue filed for the bug, or to the feature the implementation
+  lacks (0.8 has no Lexicon `language` or `uri` type). The suite skips those vectors.
+- **TestKit.** One project: `FakeXrpcServer` (routes by NSID, path or host and path; unscripted
+  routes throw), `FakeIdentityNetwork` (PLC, `did:web`, handle well-known files over the fake
+  server, DNS TXT as a lookup), `FakeTimeProvider` (the Microsoft package), `TestKeys`, `TestIds`
+  and the integration gate (`Requirement`, `[RequiresFact]`/`[RequiresTheory]` adding the trait
+  `Requirement=<name>`). The store contract base classes arrive with their store interfaces
+  (phases 4–9): phase 0 has no interface to adapt 0.8's contract tests to.
+- **Architecture tests** read the built assemblies with Mono.Cecil. Rules: references point
+  down the layers; no cycles between namespace areas (within a layer, acyclicity is the only
+  rule); Lexicon families only along the Lexicon reference graph; layer 0 references no
+  networking, file system, timers or clock reads. Every namespace of the package must be
+  classified in `Layers.cs`. The shape rules check `InternalsVisibleTo`, public mutable statics,
+  static caches, file length (400 lines, generated code exempt), API baselines and the build
+  properties; the test convention bans sleeps, `Stopwatch` and wall-clock reads outside
+  integration tests and benchmarks.
+- **Lexicons.** `scripts/vendor-lexicons.py` stands in for `install`/`update` until phase 3, and
+  CI's `lexicons` job checks `lexicons.json` against the files. The Spaces Lexicons come from the
+  Spaces pin ([specs/spaces.md](specs/spaces.md), SPC-1).
+- **CI.** `build.sh` holds every job; `integration-pds`, `integration-spaces`, `aspire` and
+  `nightly` are no-ops until their projects exist. Forgejo triggers `schedule` only on the
+  default branch, so on `next` the nightly workflow runs by manual dispatch until `next` replaces
+  `main`.
+
 ### Phase 1 — Primitives (`ATProtoNet`, `ATProtoNet.Data`, `ATProtoNet.Crypto`)
 
 Specs: [syntax](specs/syntax.md), [data-model](specs/data-model.md), [crypto](specs/crypto.md),

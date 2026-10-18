@@ -1,0 +1,680 @@
+[
+  {
+    "kind": "Did",
+    "input": "did:plc:z72i7hdynmk6r22z27h6tvur",
+    "valid": true,
+    "note": "line-break base value"
+  },
+  {
+    "kind": "Did",
+    "input": "did:plc:z72i7hdynmk6r22z27h6tvur\n",
+    "valid": false,
+    "note": "SYN-2 trailing LF"
+  },
+  {
+    "kind": "Did",
+    "input": "did:plc:z72i7hdynmk6r22z27h6tvur\r\n",
+    "valid": false,
+    "note": "SYN-2 trailing CRLF"
+  },
+  {
+    "kind": "Did",
+    "input": "did:plc:z72i7hdynmk6r22z27h6tvur\r",
+    "valid": false,
+    "note": "SYN-2 trailing CR"
+  },
+  {
+    "kind": "Did",
+    "input": "\ndid:plc:z72i7hdynmk6r22z27h6tvur",
+    "valid": false,
+    "note": "SYN-2 leading LF"
+  },
+  {
+    "kind": "Did",
+    "input": "did:plc:z72i7hdy\nnmk6r22z27h6tvur",
+    "valid": false,
+    "note": "SYN-2 inner LF"
+  },
+  {
+    "kind": "Did",
+    "input": "did:web:example.com",
+    "valid": true,
+    "note": "line-break base value"
+  },
+  {
+    "kind": "Did",
+    "input": "did:web:example.com\n",
+    "valid": false,
+    "note": "SYN-2 trailing LF"
+  },
+  {
+    "kind": "Did",
+    "input": "did:web:example.com\r\n",
+    "valid": false,
+    "note": "SYN-2 trailing CRLF"
+  },
+  {
+    "kind": "Did",
+    "input": "did:web:example.com\r",
+    "valid": false,
+    "note": "SYN-2 trailing CR"
+  },
+  {
+    "kind": "Did",
+    "input": "\ndid:web:example.com",
+    "valid": false,
+    "note": "SYN-2 leading LF"
+  },
+  {
+    "kind": "Did",
+    "input": "did:web:e\nxample.com",
+    "valid": false,
+    "note": "SYN-2 inner LF"
+  },
+  {
+    "kind": "Handle",
+    "input": "alice.bsky.social",
+    "valid": true,
+    "note": "line-break base value"
+  },
+  {
+    "kind": "Handle",
+    "input": "alice.bsky.social\n",
+    "valid": false,
+    "note": "SYN-2 trailing LF"
+  },
+  {
+    "kind": "Handle",
+    "input": "alice.bsky.social\r\n",
+    "valid": false,
+    "note": "SYN-2 trailing CRLF"
+  },
+  {
+    "kind": "Handle",
+    "input": "alice.bsky.social\r",
+    "valid": false,
+    "note": "SYN-2 trailing CR"
+  },
+  {
+    "kind": "Handle",
+    "input": "\nalice.bsky.social",
+    "valid": false,
+    "note": "SYN-2 leading LF"
+  },
+  {
+    "kind": "Handle",
+    "input": "alice.bs\nky.social",
+    "valid": false,
+    "note": "SYN-2 inner LF"
+  },
+  {
+    "kind": "Nsid",
+    "input": "app.bsky.feed.post",
+    "valid": true,
+    "note": "line-break base value"
+  },
+  {
+    "kind": "Nsid",
+    "input": "app.bsky.feed.post\n",
+    "valid": false,
+    "note": "SYN-2 trailing LF"
+  },
+  {
+    "kind": "Nsid",
+    "input": "app.bsky.feed.post\r\n",
+    "valid": false,
+    "note": "SYN-2 trailing CRLF"
+  },
+  {
+    "kind": "Nsid",
+    "input": "app.bsky.feed.post\r",
+    "valid": false,
+    "note": "SYN-2 trailing CR"
+  },
+  {
+    "kind": "Nsid",
+    "input": "\napp.bsky.feed.post",
+    "valid": false,
+    "note": "SYN-2 leading LF"
+  },
+  {
+    "kind": "Nsid",
+    "input": "app.bsky.\nfeed.post",
+    "valid": false,
+    "note": "SYN-2 inner LF"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "self",
+    "valid": true,
+    "note": "line-break base value"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "self\n",
+    "valid": false,
+    "note": "SYN-2 trailing LF"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "self\r\n",
+    "valid": false,
+    "note": "SYN-2 trailing CRLF"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "self\r",
+    "valid": false,
+    "note": "SYN-2 trailing CR"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "\nself",
+    "valid": false,
+    "note": "SYN-2 leading LF"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "se\nlf",
+    "valid": false,
+    "note": "SYN-2 inner LF"
+  },
+  {
+    "kind": "Tid",
+    "input": "3jzfcijpj2z2a",
+    "valid": true,
+    "note": "line-break base value"
+  },
+  {
+    "kind": "Tid",
+    "input": "3jzfcijpj2z2a\n",
+    "valid": false,
+    "note": "SYN-2 trailing LF"
+  },
+  {
+    "kind": "Tid",
+    "input": "3jzfcijpj2z2a\r\n",
+    "valid": false,
+    "note": "SYN-2 trailing CRLF"
+  },
+  {
+    "kind": "Tid",
+    "input": "3jzfcijpj2z2a\r",
+    "valid": false,
+    "note": "SYN-2 trailing CR"
+  },
+  {
+    "kind": "Tid",
+    "input": "\n3jzfcijpj2z2a",
+    "valid": false,
+    "note": "SYN-2 leading LF"
+  },
+  {
+    "kind": "Tid",
+    "input": "3jzfci\njpj2z2a",
+    "valid": false,
+    "note": "SYN-2 inner LF"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "alice.bsky.social",
+    "valid": true,
+    "note": "line-break base value"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "alice.bsky.social\n",
+    "valid": false,
+    "note": "SYN-2 trailing LF"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "alice.bsky.social\r\n",
+    "valid": false,
+    "note": "SYN-2 trailing CRLF"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "alice.bsky.social\r",
+    "valid": false,
+    "note": "SYN-2 trailing CR"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "\nalice.bsky.social",
+    "valid": false,
+    "note": "SYN-2 leading LF"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "alice.bs\nky.social",
+    "valid": false,
+    "note": "SYN-2 inner LF"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "did:plc:z72i7hdynmk6r22z27h6tvur",
+    "valid": true,
+    "note": "line-break base value"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "did:plc:z72i7hdynmk6r22z27h6tvur\n",
+    "valid": false,
+    "note": "SYN-2 trailing LF"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "did:plc:z72i7hdynmk6r22z27h6tvur\r\n",
+    "valid": false,
+    "note": "SYN-2 trailing CRLF"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "did:plc:z72i7hdynmk6r22z27h6tvur\r",
+    "valid": false,
+    "note": "SYN-2 trailing CR"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "\ndid:plc:z72i7hdynmk6r22z27h6tvur",
+    "valid": false,
+    "note": "SYN-2 leading LF"
+  },
+  {
+    "kind": "AtIdentifier",
+    "input": "did:plc:z72i7hdy\nnmk6r22z27h6tvur",
+    "valid": false,
+    "note": "SYN-2 inner LF"
+  },
+  {
+    "kind": "AtUri",
+    "input": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3jzfcijpj2z2a",
+    "valid": true,
+    "note": "line-break base value"
+  },
+  {
+    "kind": "AtUri",
+    "input": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3jzfcijpj2z2a\n",
+    "valid": false,
+    "note": "SYN-2 trailing LF"
+  },
+  {
+    "kind": "AtUri",
+    "input": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3jzfcijpj2z2a\r\n",
+    "valid": false,
+    "note": "SYN-2 trailing CRLF"
+  },
+  {
+    "kind": "AtUri",
+    "input": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3jzfcijpj2z2a\r",
+    "valid": false,
+    "note": "SYN-2 trailing CR"
+  },
+  {
+    "kind": "AtUri",
+    "input": "\nat://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3jzfcijpj2z2a",
+    "valid": false,
+    "note": "SYN-2 leading LF"
+  },
+  {
+    "kind": "AtUri",
+    "input": "at://did:plc:z72i7hdynmk6r22z27h6tv\nur/app.bsky.feed.post/3jzfcijpj2z2a",
+    "valid": false,
+    "note": "SYN-2 inner LF"
+  },
+  {
+    "kind": "Cid",
+    "input": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
+    "valid": true,
+    "note": "line-break base value"
+  },
+  {
+    "kind": "Cid",
+    "input": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm\n",
+    "valid": false,
+    "note": "SYN-2 trailing LF"
+  },
+  {
+    "kind": "Cid",
+    "input": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm\r\n",
+    "valid": false,
+    "note": "SYN-2 trailing CRLF"
+  },
+  {
+    "kind": "Cid",
+    "input": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm\r",
+    "valid": false,
+    "note": "SYN-2 trailing CR"
+  },
+  {
+    "kind": "Cid",
+    "input": "\nbafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
+    "valid": false,
+    "note": "SYN-2 leading LF"
+  },
+  {
+    "kind": "Cid",
+    "input": "bafyreie5737gdxlw5i64vzichcal\nba3z2v5n6icifvx5xytvske7mr3hpm",
+    "valid": false,
+    "note": "SYN-2 inner LF"
+  },
+  {
+    "kind": "Datetime",
+    "input": "1985-04-12T23:20:50.123Z",
+    "valid": true,
+    "note": "line-break base value"
+  },
+  {
+    "kind": "Datetime",
+    "input": "1985-04-12T23:20:50.123Z\n",
+    "valid": false,
+    "note": "SYN-2 trailing LF"
+  },
+  {
+    "kind": "Datetime",
+    "input": "1985-04-12T23:20:50.123Z\r\n",
+    "valid": false,
+    "note": "SYN-2 trailing CRLF"
+  },
+  {
+    "kind": "Datetime",
+    "input": "1985-04-12T23:20:50.123Z\r",
+    "valid": false,
+    "note": "SYN-2 trailing CR"
+  },
+  {
+    "kind": "Datetime",
+    "input": "\n1985-04-12T23:20:50.123Z",
+    "valid": false,
+    "note": "SYN-2 leading LF"
+  },
+  {
+    "kind": "Datetime",
+    "input": "1985-04-12T2\n3:20:50.123Z",
+    "valid": false,
+    "note": "SYN-2 inner LF"
+  },
+  {
+    "kind": "Did",
+    "input": "did:method:val%",
+    "valid": false,
+    "note": "SYN-12 ends in %"
+  },
+  {
+    "kind": "Did",
+    "input": "did:web:example.com%3A8080",
+    "valid": true,
+    "note": "SYN-12 percent escape inside"
+  },
+  {
+    "kind": "Did",
+    "input": "did:a:b",
+    "valid": true,
+    "note": "SYN-11 minimum length 7"
+  },
+  {
+    "kind": "Did",
+    "input": "did:plc:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true,
+    "note": "SYN-11 2,048 characters"
+  },
+  {
+    "kind": "Did",
+    "input": "did:plc:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false,
+    "note": "SYN-11 2,049 characters"
+  },
+  {
+    "kind": "Did",
+    "input": "did:plc:abc:",
+    "valid": false,
+    "note": "SYN-11 ends in :"
+  },
+  {
+    "kind": "Did",
+    "input": "did:PLC:abc",
+    "valid": false,
+    "note": "SYN-11 upper-case method"
+  },
+  {
+    "kind": "Handle",
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "valid": true,
+    "normalized": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "note": "SYN-15 253 characters"
+  },
+  {
+    "kind": "Handle",
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "valid": false,
+    "note": "SYN-15 254 characters"
+  },
+  {
+    "kind": "Handle",
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com",
+    "valid": true,
+    "normalized": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com",
+    "note": "SYN-15 63-character label"
+  },
+  {
+    "kind": "Handle",
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com",
+    "valid": false,
+    "note": "SYN-15 64-character label"
+  },
+  {
+    "kind": "Handle",
+    "input": "Alice.Bsky.Social",
+    "valid": true,
+    "normalized": "alice.bsky.social",
+    "note": "SYN-16 lower-cased"
+  },
+  {
+    "kind": "Handle",
+    "input": "@alice.bsky.social",
+    "valid": true,
+    "normalized": "alice.bsky.social",
+    "note": "SYN-16 one leading @ stripped"
+  },
+  {
+    "kind": "Handle",
+    "input": "@@alice.bsky.social",
+    "valid": false,
+    "note": "SYN-16 exactly one @ stripped"
+  },
+  {
+    "kind": "Handle",
+    "input": "xn--ls8h.test",
+    "valid": true,
+    "normalized": "xn--ls8h.test",
+    "note": "SYN-18 punycode, reserved TLD"
+  },
+  {
+    "kind": "Handle",
+    "input": "laptop.local",
+    "valid": true,
+    "normalized": "laptop.local",
+    "note": "SYN-18 special-use TLD is syntactically valid"
+  },
+  {
+    "kind": "Nsid",
+    "input": "com.example.ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+    "valid": true,
+    "note": "SYN-22 63-character name"
+  },
+  {
+    "kind": "Nsid",
+    "input": "com.example.oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+    "valid": false,
+    "note": "SYN-22 64-character name"
+  },
+  {
+    "kind": "Nsid",
+    "input": "com.example.1abc",
+    "valid": false,
+    "note": "SYN-22 name starts with a digit"
+  },
+  {
+    "kind": "Nsid",
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "valid": true,
+    "note": "SYN-21 317 characters"
+  },
+  {
+    "kind": "Nsid",
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "valid": false,
+    "note": "SYN-21 318 characters"
+  },
+  {
+    "kind": "Nsid",
+    "input": "com.example",
+    "valid": false,
+    "note": "SYN-21 two segments"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "@handle",
+    "valid": false,
+    "note": "SYN-25 outside the allowed set"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "any+space",
+    "valid": false,
+    "note": "SYN-25 outside the allowed set"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "number(3)",
+    "valid": false,
+    "note": "SYN-25 outside the allowed set"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "dHJ1ZQ==",
+    "valid": false,
+    "note": "SYN-25 outside the allowed set"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "a$b",
+    "valid": false,
+    "note": "SYN-25 outside the allowed set"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "a/b",
+    "valid": false,
+    "note": "SYN-25 outside the allowed set"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "a b",
+    "valid": false,
+    "note": "SYN-25 outside the allowed set"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "café",
+    "valid": false,
+    "note": "SYN-25 outside the allowed set"
+  },
+  {
+    "kind": "RecordKey",
+    "input": ".",
+    "valid": false,
+    "note": "SYN-25 outside the allowed set"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "..",
+    "valid": false,
+    "note": "SYN-25 outside the allowed set"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "",
+    "valid": false,
+    "note": "SYN-25 outside the allowed set"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "~1.2-3_",
+    "valid": true,
+    "note": "SYN-25 allowed"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "pre:fix",
+    "valid": true,
+    "note": "SYN-25 allowed"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "...",
+    "valid": true,
+    "note": "SYN-25 allowed"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "self",
+    "valid": true,
+    "note": "SYN-25 allowed"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true,
+    "note": "SYN-25 allowed"
+  },
+  {
+    "kind": "RecordKey",
+    "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false,
+    "note": "SYN-25 513 characters"
+  },
+  {
+    "kind": "Tid",
+    "input": "jzzzzzzzzzzzz",
+    "valid": true,
+    "note": "SYN-27 largest TID, high bit clear"
+  },
+  {
+    "kind": "Tid",
+    "input": "kjzfcijpj2z2a",
+    "valid": false,
+    "note": "SYN-27 first character sets the high bit"
+  },
+  {
+    "kind": "Tid",
+    "input": "2222222222222",
+    "valid": true,
+    "note": "SYN-29 TID zero"
+  },
+  {
+    "kind": "Tid",
+    "input": "3jzfcijpj2z2",
+    "valid": false,
+    "note": "SYN-27 12 characters"
+  },
+  {
+    "kind": "Tid",
+    "input": "3jzfcijpj2z2aa",
+    "valid": false,
+    "note": "SYN-27 14 characters"
+  },
+  {
+    "kind": "Tid",
+    "input": "3JZFCIJPJ2Z2A",
+    "valid": false,
+    "note": "SYN-27 upper case"
+  },
+  {
+    "kind": "Tid",
+    "input": "3jzfcijpj2z1a",
+    "valid": false,
+    "note": "SYN-27 digit outside the alphabet"
+  }
+]

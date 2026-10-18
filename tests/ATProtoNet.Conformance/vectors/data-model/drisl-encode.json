@@ -1,0 +1,289 @@
+[
+  {
+    "name": "map",
+    "note": "DagCborDecoderTests.Decode_Map_ReturnsObject",
+    "input": {
+      "key": "value"
+    },
+    "output": "a1636b65796576616c7565"
+  },
+  {
+    "name": "link",
+    "note": "tag 42 over 0x00 and a DRISL CID (DAT-42)",
+    "input": {
+      "$link": "bafyreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "output": "d82a582500017112200000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+    "name": "raw link",
+    "note": "a raw-codec CID",
+    "input": {
+      "$link": "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku"
+    },
+    "output": "d82a58250001551220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "bytes",
+    "note": "unpadded standard base64 (DAT-46)",
+    "input": {
+      "$bytes": "SGVsbG8"
+    },
+    "output": "4548656c6c6f"
+  },
+  {
+    "name": "bytes rfc4648 empty",
+    "note": "RFC 4648 vector, standard alphabet, unpadded (DAT-46)",
+    "input": {
+      "$bytes": ""
+    },
+    "output": "40"
+  },
+  {
+    "name": "bytes rfc4648 66",
+    "note": "RFC 4648 vector, standard alphabet, unpadded (DAT-46)",
+    "input": {
+      "$bytes": "Zg"
+    },
+    "output": "4166"
+  },
+  {
+    "name": "bytes rfc4648 666f",
+    "note": "RFC 4648 vector, standard alphabet, unpadded (DAT-46)",
+    "input": {
+      "$bytes": "Zm8"
+    },
+    "output": "42666f"
+  },
+  {
+    "name": "bytes rfc4648 666f6f",
+    "note": "RFC 4648 vector, standard alphabet, unpadded (DAT-46)",
+    "input": {
+      "$bytes": "Zm9v"
+    },
+    "output": "43666f6f"
+  },
+  {
+    "name": "bytes rfc4648 fbff",
+    "note": "RFC 4648 vector, standard alphabet, unpadded (DAT-46)",
+    "input": {
+      "$bytes": "+/8"
+    },
+    "output": "42fbff"
+  },
+  {
+    "name": "bytes 1000",
+    "note": "a long byte string",
+    "input": {
+      "$bytes": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5w"
+    },
+    "output": "5903e8000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7"
+  },
+  {
+    "name": "string",
+    "note": "a top-level text string",
+    "input": "hello",
+    "output": "6568656c6c6f"
+  },
+  {
+    "name": "integer",
+    "note": "a small integer",
+    "input": 42,
+    "output": "182a"
+  },
+  {
+    "name": "negative integer",
+    "note": "a negative integer",
+    "input": -1,
+    "output": "20"
+  },
+  {
+    "name": "true",
+    "note": "boolean",
+    "input": true,
+    "output": "f5"
+  },
+  {
+    "name": "false",
+    "note": "boolean",
+    "input": false,
+    "output": "f4"
+  },
+  {
+    "name": "null",
+    "note": "null",
+    "inputText": "null",
+    "output": "f6"
+  },
+  {
+    "name": "array",
+    "note": "an array",
+    "input": [
+      1,
+      2,
+      3
+    ],
+    "output": "83010203"
+  },
+  {
+    "name": "empty map",
+    "note": "an empty map",
+    "input": {},
+    "output": "a0"
+  },
+  {
+    "name": "nested maps sorted",
+    "note": "every map sorted (DAT-40)",
+    "input": {
+      "outer": {
+        "z": 3,
+        "a": 1
+      },
+      "inner": [
+        true,
+        null
+      ]
+    },
+    "output": "a265696e6e657282f5f6656f75746572a2616101617a03"
+  },
+  {
+    "name": "type preserved",
+    "note": "DagCborEncoderTests.Encode_TypeDiscriminator_Preserved",
+    "input": {
+      "$type": "app.bsky.feed.post",
+      "text": "hello"
+    },
+    "output": "a264746578746568656c6c6f652474797065726170702e62736b792e666565642e706f7374"
+  },
+  {
+    "name": "length-first key order",
+    "note": "shorter keys first (DAT-40)",
+    "input": {
+      "ab": 1,
+      "b": 2
+    },
+    "output": "a261620262616201"
+  },
+  {
+    "name": "supplementary versus private-use key",
+    "note": "equal-length keys by UTF-8 bytes, not UTF-16 (DAT-40)",
+    "input": {
+      "𐀀": 2,
+      "a": 1
+    },
+    "output": "a264ee8080610164f090808002"
+  },
+  {
+    "name": "roundtrip record",
+    "note": "DagCborRoundtripTests",
+    "input": {
+      "text": "hello",
+      "count": 42,
+      "active": true,
+      "value": null,
+      "items": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          4
+        ]
+      ],
+      "empty": [],
+      "neg": -12345
+    },
+    "output": "a7636e656739303864746578746568656c6c6f65636f756e74182a65656d70747980656974656d73828201028203046576616c7565f666616374697665f5"
+  },
+  {
+    "name": "real network record",
+    "note": "the CID a live PDS published for it (DAT-44)",
+    "input": {
+      "$type": "app.bsky.feed.post",
+      "createdAt": "2024-10-17T07:06:51.491Z",
+      "langs": [
+        "en"
+      ],
+      "text": "👋  Bluesky is an open social network that gives creators independence from platforms, developers the freedom to build, and users a choice in their experience. We're so excited to have you here! \n\nWe share Bluesky updates & news from this account. A quick orientation thread: 🧵✨"
+    },
+    "cid": "bafyreicnt42y6vo6pfpvyro234ac4o6ijug6adwwrh7awflgrqlt4zibxq",
+    "output": "a4647465787479011df09f918b2020426c7565736b7920697320616e206f70656e20736f6369616c206e6574776f726b20746861742067697665732063726561746f727320696e646570656e64656e63652066726f6d20706c6174666f726d732c20646576656c6f70657273207468652066726565646f6d20746f206275696c642c20616e6420757365727320612063686f69636520696e20746865697220657870657269656e63652e20576527726520736f206578636974656420746f206861766520796f75206865726521200a0a576520736861726520426c7565736b7920757064617465732026206e6577732066726f6d2074686973206163636f756e742e204120717569636b206f7269656e746174696f6e207468726561643a20f09fa7b5e29ca8652474797065726170702e62736b792e666565642e706f7374656c616e67738162656e696372656174656441747818323032342d31302d31375430373a30363a35312e3439315a"
+  },
+  {
+    "name": "int64 max",
+    "note": "DAT-2",
+    "inputText": "9223372036854775807",
+    "output": "1b7fffffffffffffff"
+  },
+  {
+    "name": "int64 min",
+    "note": "DAT-2",
+    "inputText": "-9223372036854775808",
+    "output": "3b7fffffffffffffff"
+  },
+  {
+    "name": "padded bytes",
+    "note": "$bytes is read with or without padding (DAT-46)",
+    "input": {
+      "$bytes": "SGVsbG8="
+    },
+    "output": "4548656c6c6f"
+  },
+  {
+    "name": "float",
+    "note": "DAT-1",
+    "inputText": "3.14",
+    "rejected": true
+  },
+  {
+    "name": "float in a map",
+    "note": "DAT-1",
+    "inputText": "{\"a\":123.456}",
+    "rejected": true
+  },
+  {
+    "name": "exponent",
+    "note": "DAT-2",
+    "inputText": "1e3",
+    "rejected": true
+  },
+  {
+    "name": "beyond int64",
+    "note": "DAT-2",
+    "inputText": "18446744073709551615",
+    "rejected": true
+  },
+  {
+    "name": "below int64",
+    "note": "DAT-2",
+    "inputText": "-9223372036854775809",
+    "rejected": true
+  },
+  {
+    "name": "duplicate key",
+    "note": "DAT-41",
+    "inputText": "{\"a\":1,\"b\":2,\"a\":3}",
+    "rejected": true
+  },
+  {
+    "name": "link not a blessed CID",
+    "note": "a dag-pb CID (DAT-10)",
+    "input": {
+      "$link": "bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku"
+    },
+    "rejected": true
+  },
+  {
+    "name": "nesting 64",
+    "note": "DAT-48: 64 JSON levels",
+    "inputText": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+    "output": "8181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818101"
+  },
+  {
+    "name": "nesting 65",
+    "note": "DAT-48: 65 JSON levels",
+    "inputText": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+    "rejected": true
+  }
+]

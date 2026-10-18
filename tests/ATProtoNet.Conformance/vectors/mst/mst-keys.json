@@ -1,0 +1,162 @@
+[
+  {
+    "name": "rejected 0",
+    "key": "",
+    "valid": false
+  },
+  {
+    "name": "rejected 1",
+    "key": "asdf",
+    "valid": false
+  },
+  {
+    "name": "rejected 2",
+    "key": "nested/collection/asdf",
+    "valid": false
+  },
+  {
+    "name": "rejected 3",
+    "key": "coll/",
+    "valid": false
+  },
+  {
+    "name": "rejected 4",
+    "key": "/rkey",
+    "valid": false
+  },
+  {
+    "name": "rejected 5",
+    "key": "coll/jalapeñoA",
+    "valid": false
+  },
+  {
+    "name": "rejected 6",
+    "key": "coll/coöperative",
+    "valid": false
+  },
+  {
+    "name": "rejected 7",
+    "key": "coll/abc💩",
+    "valid": false
+  },
+  {
+    "name": "rejected 8",
+    "key": "coll/key$",
+    "valid": false
+  },
+  {
+    "name": "rejected 9",
+    "key": "coll/key%",
+    "valid": false
+  },
+  {
+    "name": "rejected 10",
+    "key": "coll/key(",
+    "valid": false
+  },
+  {
+    "name": "rejected 11",
+    "key": "coll/key)",
+    "valid": false
+  },
+  {
+    "name": "rejected 12",
+    "key": "coll/key+",
+    "valid": false
+  },
+  {
+    "name": "rejected 13",
+    "key": "coll/key=",
+    "valid": false
+  },
+  {
+    "name": "rejected 14",
+    "key": "coll/@handle",
+    "valid": false
+  },
+  {
+    "name": "rejected 15",
+    "key": "coll/any space",
+    "valid": false
+  },
+  {
+    "name": "rejected 16",
+    "key": "coll/#extra",
+    "valid": false
+  },
+  {
+    "name": "rejected 17",
+    "key": "coll/any+space",
+    "valid": false
+  },
+  {
+    "name": "rejected 18",
+    "key": "coll/number[3]",
+    "valid": false
+  },
+  {
+    "name": "rejected 19",
+    "key": "coll/number(3)",
+    "valid": false
+  },
+  {
+    "name": "rejected 20",
+    "key": "coll/dHJ1ZQ==",
+    "valid": false
+  },
+  {
+    "name": "rejected 21",
+    "key": "coll/\"quote\"",
+    "valid": false
+  },
+  {
+    "name": "rejected 22",
+    "key": "coll/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false
+  },
+  {
+    "name": "allowed 0",
+    "key": "coll/3jui7kd54zh2y",
+    "valid": true
+  },
+  {
+    "name": "allowed 1",
+    "key": "coll/self",
+    "valid": true
+  },
+  {
+    "name": "allowed 2",
+    "key": "coll/example.com",
+    "valid": true
+  },
+  {
+    "name": "allowed 3",
+    "key": "com.example/rkey",
+    "valid": true
+  },
+  {
+    "name": "allowed 4",
+    "key": "coll/~1.2-3_",
+    "valid": true
+  },
+  {
+    "name": "allowed 5",
+    "key": "coll/dHJ1ZQ",
+    "valid": true
+  },
+  {
+    "name": "allowed 6",
+    "key": "coll/pre:fix",
+    "valid": true
+  },
+  {
+    "name": "allowed 7",
+    "key": "coll/_",
+    "valid": true
+  },
+  {
+    "name": "allowed 8",
+    "key": "coll/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true
+  }
+]

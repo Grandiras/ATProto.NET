@@ -1,0 +1,233 @@
+{
+  "source": "ATProto.NET 0.8.0 tests/ATProtoNet.Tests/Lexicon/EndpointRequestTests.cs at 6aee361",
+  "cases": [
+    {
+      "case": "com.atproto.repo.getRecord (by AT URI)",
+      "nsid": "com.atproto.repo.getRecord",
+      "params": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/com.example.note/n1"},
+      "request": {"method": "GET", "query": [["repo", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], ["collection", "com.example.note"], ["rkey", "n1"]]},
+      "response": {"body": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/com.example.note/n1", "value": {}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "com.atproto.repo.deleteRecord (by AT URI)",
+      "nsid": "com.atproto.repo.deleteRecord",
+      "params": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/com.example.note/n1"},
+      "request": {"method": "POST", "query": [], "body": {"repo": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "collection": "com.example.note", "rkey": "n1"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "com.atproto.repo.listRecords",
+      "nsid": "com.atproto.repo.listRecords",
+      "params": {"repo": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "collection": "com.example.note", "limit": 5, "cursor": "c", "reverse": true},
+      "request": {"method": "GET", "query": [["repo", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], ["collection", "com.example.note"], ["limit", "5"], ["cursor", "c"], ["reverse", "true"]]},
+      "response": {"body": {"records": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "com.atproto.identity.resolveDid",
+      "nsid": "com.atproto.identity.resolveDid",
+      "params": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"},
+      "request": {"method": "GET", "query": [["did", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"]]},
+      "response": {"body": {"didDoc": {"@context": ["https://www.w3.org/ns/did/v1"], "id": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "alsoKnownAs": ["at://atproto.com"], "verificationMethod": [], "service": [{"id": "#atproto_pds", "type": "AtprotoPersonalDataServer", "serviceEndpoint": "https://pds.example.com"}]}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "com.atproto.identity.refreshIdentity",
+      "nsid": "com.atproto.identity.refreshIdentity",
+      "params": {"identifier": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"},
+      "request": {"method": "POST", "query": [], "body": {"identifier": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}, "contentType": "application/json"},
+      "response": {"body": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "atproto.com", "didDoc": {"@context": ["https://www.w3.org/ns/did/v1"], "id": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "alsoKnownAs": ["at://atproto.com"], "verificationMethod": [], "service": [{"id": "#atproto_pds", "type": "AtprotoPersonalDataServer", "serviceEndpoint": "https://pds.example.com"}]}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "com.atproto.admin.searchAccounts",
+      "nsid": "com.atproto.admin.searchAccounts",
+      "params": {"email": "a@example.com", "limit": 10, "cursor": "c1"},
+      "request": {"method": "GET", "query": [["email", "a@example.com"], ["limit", "10"], ["cursor", "c1"]]},
+      "response": {"body": {"cursor": "c2", "accounts": [{"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "alice.test", "email": "a@example.com", "indexedAt": "2026-01-01T00:00:00.000Z"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "com.atproto.admin.updateAccountSigningKey",
+      "nsid": "com.atproto.admin.updateAccountSigningKey",
+      "params": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "signingKey": "did:key:zQ3shTbmthbWnaziXpJifLJvXvGwVyW3zeWetTatAXUtA1b2S"},
+      "request": {"method": "POST", "query": [], "body": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "signingKey": "did:key:zQ3shTbmthbWnaziXpJifLJvXvGwVyW3zeWetTatAXUtA1b2S"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "com.atproto.temp.checkSignupQueue",
+      "nsid": "com.atproto.temp.checkSignupQueue",
+      "params": {},
+      "request": {"method": "GET", "query": []},
+      "response": {"body": {"activated": false, "placeInQueue": 12, "estimatedTimeMs": 3600000}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "com.atproto.temp.dereferenceScope",
+      "nsid": "com.atproto.temp.dereferenceScope",
+      "params": {"scope": "ref:abc123"},
+      "request": {"method": "GET", "query": [["scope", "ref:abc123"]]},
+      "response": {"body": {"scope": "atproto repo:app.bsky.feed.post?action=create"}},
+      "expect": {"output": {"scope": "atproto repo:app.bsky.feed.post?action=create"}}
+    },
+    {
+      "case": "com.atproto.temp.requestPhoneVerification",
+      "nsid": "com.atproto.temp.requestPhoneVerification",
+      "params": {"phoneNumber": "+15555550123"},
+      "request": {"method": "POST", "query": [], "body": {"phoneNumber": "+15555550123"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "com.atproto.temp.revokeAccountCredentials",
+      "nsid": "com.atproto.temp.revokeAccountCredentials",
+      "params": {"account": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"},
+      "request": {"method": "POST", "query": [], "body": {"account": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "site.standard.publication (create)",
+      "nsid": "com.atproto.repo.createRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.publication", "record": {"$type": "site.standard.publication", "url": "https://myblog.example.com", "name": "My Blog"}},
+      "request": {"method": "POST", "query": [], "body": {"repo": "did:plc:test", "collection": "site.standard.publication", "record": {"$type": "site.standard.publication", "url": "https://myblog.example.com", "name": "My Blog"}}, "contentType": "application/json"},
+      "response": {"body": {"uri": "at://did:plc:test/site.standard.publication/abc", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.publication (get)",
+      "nsid": "com.atproto.repo.getRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.publication", "rkey": "abc"},
+      "request": {"method": "GET", "query": [["repo", "did:plc:test"], ["collection", "site.standard.publication"], ["rkey", "abc"]]},
+      "response": {"body": {"uri": "at://did:plc:test/site.standard.publication/abc", "value": {"$type": "site.standard.publication", "url": "https://myblog.example.com", "name": "My Blog"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.publication (list)",
+      "nsid": "com.atproto.repo.listRecords",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.publication", "limit": 10},
+      "request": {"method": "GET", "query": [["repo", "did:plc:test"], ["collection", "site.standard.publication"], ["limit", "10"]]},
+      "response": {"body": {"records": [{"uri": "at://did:plc:test/site.standard.publication/abc", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "value": {"$type": "site.standard.publication", "url": "https://myblog.example.com", "name": "My Blog"}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.publication (delete)",
+      "nsid": "com.atproto.repo.deleteRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.publication", "rkey": "abc"},
+      "request": {"method": "POST", "query": [], "body": {"repo": "did:plc:test", "collection": "site.standard.publication", "rkey": "abc"}, "contentType": "application/json"},
+      "response": {"body": {"commit": {"cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "rev": "3jzfcijpj2z2a"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.publication (put)",
+      "nsid": "com.atproto.repo.putRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.publication", "rkey": "abc", "record": {"$type": "site.standard.publication", "url": "https://myblog.example.com", "name": "My Blog"}},
+      "request": {"method": "POST", "query": [], "body": {"repo": "did:plc:test", "collection": "site.standard.publication", "rkey": "abc", "record": {"$type": "site.standard.publication", "url": "https://myblog.example.com", "name": "My Blog"}}, "contentType": "application/json"},
+      "response": {"body": {"uri": "at://did:plc:test/site.standard.publication/abc", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.document (create)",
+      "nsid": "com.atproto.repo.createRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.document", "record": {"$type": "site.standard.document", "site": "https://myblog.example.com", "title": "My First Post", "publishedAt": "2024-01-20T14:30:00.000Z"}},
+      "request": {"method": "POST", "query": [], "body": {"repo": "did:plc:test", "collection": "site.standard.document", "record": {"$type": "site.standard.document", "site": "https://myblog.example.com", "title": "My First Post", "publishedAt": "2024-01-20T14:30:00.000Z"}}, "contentType": "application/json"},
+      "response": {"body": {"uri": "at://did:plc:test/site.standard.publication/abc", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.document (get)",
+      "nsid": "com.atproto.repo.getRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.document", "rkey": "doc1"},
+      "request": {"method": "GET", "query": [["repo", "did:plc:test"], ["collection", "site.standard.document"], ["rkey", "doc1"]]},
+      "response": {"body": {"uri": "at://did:plc:test/site.standard.document/doc1", "value": {"$type": "site.standard.document", "site": "https://myblog.example.com", "title": "My First Post", "publishedAt": "2024-01-20T14:30:00.000Z"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.document (list)",
+      "nsid": "com.atproto.repo.listRecords",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.document", "limit": 10},
+      "request": {"method": "GET", "query": [["repo", "did:plc:test"], ["collection", "site.standard.document"], ["limit", "10"]]},
+      "response": {"body": {"records": [{"uri": "at://did:plc:test/site.standard.document/doc1", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "value": {"$type": "site.standard.document", "site": "https://myblog.example.com", "title": "My First Post", "publishedAt": "2024-01-20T14:30:00.000Z"}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.document (delete)",
+      "nsid": "com.atproto.repo.deleteRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.document", "rkey": "doc1"},
+      "request": {"method": "POST", "query": [], "body": {"repo": "did:plc:test", "collection": "site.standard.document", "rkey": "doc1"}, "contentType": "application/json"},
+      "response": {"body": {"commit": {"cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "rev": "3jzfcijpj2z2a"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.document (put)",
+      "nsid": "com.atproto.repo.putRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.document", "rkey": "doc1", "record": {"$type": "site.standard.document", "site": "https://myblog.example.com", "title": "My First Post", "publishedAt": "2024-01-20T14:30:00.000Z"}},
+      "request": {"method": "POST", "query": [], "body": {"repo": "did:plc:test", "collection": "site.standard.document", "rkey": "doc1", "record": {"$type": "site.standard.document", "site": "https://myblog.example.com", "title": "My First Post", "publishedAt": "2024-01-20T14:30:00.000Z"}}, "contentType": "application/json"},
+      "response": {"body": {"uri": "at://did:plc:test/site.standard.publication/abc", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.graph.subscription (create)",
+      "nsid": "com.atproto.repo.createRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.graph.subscription", "record": {"$type": "site.standard.graph.subscription", "publication": "at://did:plc:author/site.standard.publication/abc"}},
+      "request": {"method": "POST", "query": [], "body": {"repo": "did:plc:test", "collection": "site.standard.graph.subscription", "record": {"$type": "site.standard.graph.subscription", "publication": "at://did:plc:author/site.standard.publication/abc"}}, "contentType": "application/json"},
+      "response": {"body": {"uri": "at://did:plc:test/site.standard.publication/abc", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.graph.subscription (get)",
+      "nsid": "com.atproto.repo.getRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.graph.subscription", "rkey": "s1"},
+      "request": {"method": "GET", "query": [["repo", "did:plc:test"], ["collection", "site.standard.graph.subscription"], ["rkey", "s1"]]},
+      "response": {"body": {"uri": "at://did:plc:test/site.standard.graph.subscription/s1", "value": {"$type": "site.standard.graph.subscription", "publication": "at://did:plc:author/site.standard.publication/abc"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.graph.subscription (list)",
+      "nsid": "com.atproto.repo.listRecords",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.graph.subscription", "limit": 10},
+      "request": {"method": "GET", "query": [["repo", "did:plc:test"], ["collection", "site.standard.graph.subscription"], ["limit", "10"]]},
+      "response": {"body": {"records": [{"uri": "at://did:plc:test/site.standard.graph.subscription/s1", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "value": {"$type": "site.standard.graph.subscription", "publication": "at://did:plc:author/site.standard.publication/abc"}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.graph.subscription (delete)",
+      "nsid": "com.atproto.repo.deleteRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.graph.subscription", "rkey": "s1"},
+      "request": {"method": "POST", "query": [], "body": {"repo": "did:plc:test", "collection": "site.standard.graph.subscription", "rkey": "s1"}, "contentType": "application/json"},
+      "response": {"body": {"commit": {"cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "rev": "3jzfcijpj2z2a"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.graph.recommend (create)",
+      "nsid": "com.atproto.repo.createRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.graph.recommend", "record": {"$type": "site.standard.graph.recommend", "document": "at://did:plc:author/site.standard.document/doc1", "createdAt": "2026-09-25T10:00:00.000Z"}},
+      "request": {"method": "POST", "query": [], "body": {"repo": "did:plc:test", "collection": "site.standard.graph.recommend", "record": {"$type": "site.standard.graph.recommend", "document": "at://did:plc:author/site.standard.document/doc1", "createdAt": "2026-09-25T10:00:00.000Z"}}, "contentType": "application/json"},
+      "response": {"body": {"uri": "at://did:plc:test/site.standard.publication/abc", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.graph.recommend (get)",
+      "nsid": "com.atproto.repo.getRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.graph.recommend", "rkey": "r1"},
+      "request": {"method": "GET", "query": [["repo", "did:plc:test"], ["collection", "site.standard.graph.recommend"], ["rkey", "r1"]]},
+      "response": {"body": {"uri": "at://did:plc:test/site.standard.graph.recommend/r1", "value": {"$type": "site.standard.graph.recommend", "document": "at://did:plc:author/site.standard.document/doc1", "createdAt": "2026-09-25T10:00:00.000Z"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.graph.recommend (list)",
+      "nsid": "com.atproto.repo.listRecords",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.graph.recommend", "limit": 10},
+      "request": {"method": "GET", "query": [["repo", "did:plc:test"], ["collection", "site.standard.graph.recommend"], ["limit", "10"]]},
+      "response": {"body": {"records": [{"uri": "at://did:plc:test/site.standard.graph.recommend/r1", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "value": {"$type": "site.standard.graph.recommend", "document": "at://did:plc:author/site.standard.document/doc1", "createdAt": "2026-09-25T10:00:00.000Z"}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "site.standard.graph.recommend (delete)",
+      "nsid": "com.atproto.repo.deleteRecord",
+      "params": {"repo": "did:plc:test", "collection": "site.standard.graph.recommend", "rkey": "r1"},
+      "request": {"method": "POST", "query": [], "body": {"repo": "did:plc:test", "collection": "site.standard.graph.recommend", "rkey": "r1"}, "contentType": "application/json"},
+      "response": {"body": {"commit": {"cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "rev": "3jzfcijpj2z2a"}}},
+      "expect": {"outputIsResponse": true}
+    }
+  ]
+}

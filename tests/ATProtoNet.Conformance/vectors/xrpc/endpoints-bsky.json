@@ -1,0 +1,253 @@
+{
+  "source": "ATProto.NET 0.8.0 tests/ATProtoNet.Tests/Lexicon/EndpointRequestTests.cs at 6aee361",
+  "cases": [
+    {
+      "case": "app.bsky.feed.getAuthorFeed",
+      "nsid": "app.bsky.feed.getAuthorFeed",
+      "params": {"actor": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "filter": "posts_no_replies", "includePins": false, "limit": 5, "cursor": "c"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], ["filter", "posts_no_replies"], ["includePins", "false"], ["limit", "5"], ["cursor", "c"]]},
+      "response": {"body": {"feed": [{"post": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "author": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "alice.test", "displayName": "Alice", "avatar": "https://cdn.bsky.app/img/avatar/plain/did:plc:ewvi7nxzyoun6zhxrhs64oiz/bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm@jpeg", "associated": {"chat": {"allowIncoming": "following"}, "activitySubscription": {"allowSubscriptions": "followers"}}, "viewer": {"muted": false, "blockedBy": false}, "labels": [], "createdAt": "2023-04-12T04:53:57.057Z"}, "record": {"$type": "app.bsky.feed.post", "createdAt": "2026-09-20T12:00:00.000Z", "langs": ["en"], "text": "hello world"}, "bookmarkCount": 3, "replyCount": 1, "repostCount": 0, "likeCount": 7, "quoteCount": 0, "indexedAt": "2026-09-20T12:00:01.123Z", "viewer": {"bookmarked": true, "threadMuted": false, "embeddingDisabled": false}, "labels": [], "$type": "app.bsky.feed.defs#postView"}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.feed.getPosts",
+      "nsid": "app.bsky.feed.getPosts",
+      "params": {"uris": ["at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "at://did:plc:yk4dd2qkboz2yv6tpubpc6co/app.bsky.feed.post/3lwinfmsd2k2b"]},
+      "request": {"method": "GET", "query": [["uris", "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a"], ["uris", "at://did:plc:yk4dd2qkboz2yv6tpubpc6co/app.bsky.feed.post/3lwinfmsd2k2b"]]},
+      "response": {"body": {"posts": [{"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "author": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "alice.test", "displayName": "Alice", "avatar": "https://cdn.bsky.app/img/avatar/plain/did:plc:ewvi7nxzyoun6zhxrhs64oiz/bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm@jpeg", "associated": {"chat": {"allowIncoming": "following"}, "activitySubscription": {"allowSubscriptions": "followers"}}, "viewer": {"muted": false, "blockedBy": false}, "labels": [], "createdAt": "2023-04-12T04:53:57.057Z"}, "record": {"$type": "app.bsky.feed.post", "createdAt": "2026-09-20T12:00:00.000Z", "langs": ["en"], "text": "hello world"}, "bookmarkCount": 3, "replyCount": 1, "repostCount": 0, "likeCount": 7, "quoteCount": 0, "indexedAt": "2026-09-20T12:00:01.123Z", "viewer": {"bookmarked": true, "threadMuted": false, "embeddingDisabled": false}, "labels": [], "$type": "app.bsky.feed.defs#postView"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.feed.searchPosts",
+      "nsid": "app.bsky.feed.searchPosts",
+      "params": {"q": "hello", "since": "2024-01-01", "mentions": "bob.test", "author": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"},
+      "request": {"method": "GET", "query": [["q", "hello"], ["since", "2024-01-01"], ["mentions", "bob.test"], ["author", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"]]},
+      "response": {"body": {"posts": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.feed.searchPostsV2 (filters only, no query)",
+      "nsid": "app.bsky.feed.searchPostsV2",
+      "params": {"hashtags": ["atproto"]},
+      "request": {"method": "GET", "query": [["hashtags", "atproto"]]},
+      "response": {"body": {"posts": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.feed.sendInteractions",
+      "nsid": "app.bsky.feed.sendInteractions",
+      "params": {"feed": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.generator/discover", "interactions": [{"item": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "event": "app.bsky.feed.defs#requestLess", "feedContext": "ctx-1", "reqId": "req-1"}, {"item": "at://did:plc:yk4dd2qkboz2yv6tpubpc6co/app.bsky.feed.post/3lwinfmsd2k2b", "event": "app.bsky.feed.defs#interactionSeen"}]},
+      "request": {"method": "POST", "query": [], "body": {"feed": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.generator/discover", "interactions": [{"item": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "event": "app.bsky.feed.defs#requestLess", "feedContext": "ctx-1", "reqId": "req-1"}, {"item": "at://did:plc:yk4dd2qkboz2yv6tpubpc6co/app.bsky.feed.post/3lwinfmsd2k2b", "event": "app.bsky.feed.defs#interactionSeen"}]}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "app.bsky.graph.muteActor",
+      "nsid": "app.bsky.graph.muteActor",
+      "params": {"actor": "bob.test"},
+      "request": {"method": "POST", "query": [], "body": {"actor": "bob.test"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "app.bsky.graph.getListsWithMembership",
+      "nsid": "app.bsky.graph.getListsWithMembership",
+      "params": {"actor": "bob.test", "purposes": ["curatelist", "modlist"], "limit": 20, "cursor": "c"},
+      "request": {"method": "GET", "query": [["actor", "bob.test"], ["purposes", "curatelist"], ["purposes", "modlist"], ["limit", "20"], ["cursor", "c"]]},
+      "response": {"body": {"cursor": "n", "listsWithMembership": [{"list": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.list/3lwinfmsd2k2c", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "name": "Friends", "purpose": "app.bsky.graph.defs#curatelist", "listItemCount": 2, "indexedAt": "2026-09-01T00:00:00.000Z", "labels": [], "viewer": {"muted": false}, "creator": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "alice.test", "displayName": "Bob", "description": "hi", "indexedAt": "2024-01-01T00:00:00.000Z", "viewer": {"muted": false, "blockedBy": false, "following": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.follow/3lwinfmsd2k2f"}, "labels": [], "createdAt": "2023-05-01T10:00:00.000Z"}}, "listItem": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.listitem/3lwinfmsd2k2d", "subject": {"did": "did:plc:yk4dd2qkboz2yv6tpubpc6co", "handle": "bob.test", "displayName": "Bob", "description": "hi", "indexedAt": "2024-01-01T00:00:00.000Z", "viewer": {"muted": false, "blockedBy": false, "following": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.follow/3lwinfmsd2k2f"}, "labels": [], "createdAt": "2023-05-01T10:00:00.000Z"}}}, {"list": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.list/3lwinfmsd2k2c", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "name": "Friends", "purpose": "app.bsky.graph.defs#curatelist", "listItemCount": 2, "indexedAt": "2026-09-01T00:00:00.000Z", "labels": [], "viewer": {"muted": false}, "creator": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "alice.test", "displayName": "Bob", "description": "hi", "indexedAt": "2024-01-01T00:00:00.000Z", "viewer": {"muted": false, "blockedBy": false, "following": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.follow/3lwinfmsd2k2f"}, "labels": [], "createdAt": "2023-05-01T10:00:00.000Z"}}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.graph.getStarterPacksWithMembership",
+      "nsid": "app.bsky.graph.getStarterPacksWithMembership",
+      "params": {"actor": "did:plc:yk4dd2qkboz2yv6tpubpc6co", "limit": 10},
+      "request": {"method": "GET", "query": [["actor", "did:plc:yk4dd2qkboz2yv6tpubpc6co"], ["limit", "10"]]},
+      "response": {"body": {"starterPacksWithMembership": [{"starterPack": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.starterpack/3lwinfmsd2k2e", "cid": "bafyreihbiojjvlzlrn664jgdgql7cexcd62h5ltxuhjulvutjbmbt253h4", "record": {"$type": "app.bsky.graph.starterpack", "createdAt": "2026-09-01T00:00:00.000Z", "list": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.list/3lwinfmsd2k2c", "name": "Pack"}, "creator": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "alice.test", "displayName": "Alice", "avatar": "https://cdn.bsky.app/img/avatar/plain/did:plc:ewvi7nxzyoun6zhxrhs64oiz/bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm@jpeg", "associated": {"chat": {"allowIncoming": "following"}, "activitySubscription": {"allowSubscriptions": "followers"}}, "viewer": {"muted": false, "blockedBy": false}, "labels": [], "createdAt": "2023-04-12T04:53:57.057Z"}, "list": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.list/3lwinfmsd2k2c", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "name": "Pack", "purpose": "app.bsky.graph.defs#referencelist", "listItemCount": 2}, "joinedWeekCount": 0, "joinedAllTimeCount": 4, "labels": [], "indexedAt": "2026-09-01T00:00:00.000Z"}, "listItem": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.listitem/3lwinfmsd2k2d", "subject": {"did": "did:plc:yk4dd2qkboz2yv6tpubpc6co", "handle": "bob.test", "displayName": "Bob", "description": "hi", "indexedAt": "2024-01-01T00:00:00.000Z", "viewer": {"muted": false, "blockedBy": false, "following": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.follow/3lwinfmsd2k2f"}, "labels": [], "createdAt": "2023-05-01T10:00:00.000Z"}}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.graph.searchStarterPacksV2",
+      "nsid": "app.bsky.graph.searchStarterPacksV2",
+      "params": {"q": "science", "limit": 25},
+      "request": {"method": "GET", "query": [["q", "science"], ["limit", "25"]]},
+      "response": {"body": {"cursor": "25", "hitsTotal": 40, "starterPacks": [{"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.starterpack/3lwinfmsd2k2e", "cid": "bafyreihbiojjvlzlrn664jgdgql7cexcd62h5ltxuhjulvutjbmbt253h4", "record": {"$type": "app.bsky.graph.starterpack", "createdAt": "2026-09-01T00:00:00.000Z", "list": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.list/3lwinfmsd2k2c", "name": "Pack"}, "creator": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "alice.test", "displayName": "Alice", "avatar": "https://cdn.bsky.app/img/avatar/plain/did:plc:ewvi7nxzyoun6zhxrhs64oiz/bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm@jpeg", "associated": {"chat": {"allowIncoming": "following"}, "activitySubscription": {"allowSubscriptions": "followers"}}, "viewer": {"muted": false, "blockedBy": false}, "labels": [], "createdAt": "2023-04-12T04:53:57.057Z"}, "list": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.list/3lwinfmsd2k2c", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "name": "Pack", "purpose": "app.bsky.graph.defs#referencelist", "listItemCount": 2}, "joinedWeekCount": 0, "joinedAllTimeCount": 4, "labels": [], "indexedAt": "2026-09-01T00:00:00.000Z"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.labeler.getServices",
+      "nsid": "app.bsky.labeler.getServices",
+      "params": {"dids": ["did:plc:labeler1", "did:plc:labeler2"], "detailed": true},
+      "request": {"method": "GET", "query": [["dids", "did:plc:labeler1"], ["dids", "did:plc:labeler2"], ["detailed", "true"]]},
+      "response": {"body": {"views": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.labeler.getServices (no detailed)",
+      "nsid": "app.bsky.labeler.getServices",
+      "params": {"dids": ["did:plc:labeler1"]},
+      "request": {"method": "GET", "query": [["dids", "did:plc:labeler1"]]},
+      "response": {"body": {"views": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.bookmark.createBookmark",
+      "nsid": "app.bsky.bookmark.createBookmark",
+      "params": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"},
+      "request": {"method": "POST", "query": [], "body": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "app.bsky.bookmark.deleteBookmark",
+      "nsid": "app.bsky.bookmark.deleteBookmark",
+      "params": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a"},
+      "request": {"method": "POST", "query": [], "body": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "app.bsky.notification.listNotifications",
+      "nsid": "app.bsky.notification.listNotifications",
+      "params": {"reasons": ["like", "like-via-repost"], "limit": 10},
+      "request": {"method": "GET", "query": [["reasons", "like"], ["reasons", "like-via-repost"], ["limit", "10"]]},
+      "response": {"body": {"notifications": [{"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.like/3k2lb", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "author": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "alice.test", "displayName": "Alice", "avatar": "https://cdn.bsky.app/img/avatar/plain/did:plc:ewvi7nxzyoun6zhxrhs64oiz/bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm@jpeg", "associated": {"chat": {"allowIncoming": "following"}, "activitySubscription": {"allowSubscriptions": "followers"}}, "viewer": {"muted": false, "blockedBy": false}, "labels": [], "createdAt": "2023-04-12T04:53:57.057Z"}, "reason": "like", "reasonSubject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "record": {}, "isRead": false, "indexedAt": "2024-05-01T12:00:00.000Z"}], "seenAt": "2024-05-01T12:00:00+02:00"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.notification.updateSeen",
+      "nsid": "app.bsky.notification.updateSeen",
+      "params": {"seenAt": "2024-05-01T12:00:00Z"},
+      "request": {"method": "POST", "query": [], "body": {"seenAt": "2024-05-01T12:00:00Z"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "app.bsky.notification.unregisterPush",
+      "nsid": "app.bsky.notification.unregisterPush",
+      "params": {"serviceDid": "did:web:api.bsky.app", "token": "device-token", "platform": "ios", "appId": "xyz.blueskyweb.app"},
+      "request": {"method": "POST", "query": [], "body": {"serviceDid": "did:web:api.bsky.app", "token": "device-token", "platform": "ios", "appId": "xyz.blueskyweb.app"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "app.bsky.notification.getPreferences",
+      "nsid": "app.bsky.notification.getPreferences",
+      "params": {},
+      "request": {"method": "GET", "query": []},
+      "response": {"body": {"preferences": {"chat": {"include": "all", "push": true}, "follow": {"include": "all", "list": true, "push": true}, "like": {"include": "follows", "list": true, "push": false}, "likeViaRepost": {"include": "all", "list": true, "push": true}, "mention": {"include": "all", "list": true, "push": true}, "quote": {"include": "all", "list": true, "push": true}, "reply": {"include": "all", "list": true, "push": true}, "repost": {"include": "all", "list": true, "push": true}, "repostViaRepost": {"include": "all", "list": false, "push": false}, "starterpackJoined": {"list": true, "push": true}, "subscribedPost": {"list": true, "push": true}, "unverified": {"list": true, "push": true}, "verified": {"list": true, "push": false}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.notification.putPreferencesV2",
+      "nsid": "app.bsky.notification.putPreferencesV2",
+      "params": {"like": {"include": "follows", "list": true, "push": false}, "verified": {"list": true, "push": false}},
+      "request": {"method": "POST", "query": [], "body": {"like": {"include": "follows", "list": true, "push": false}, "verified": {"list": true, "push": false}}, "contentType": "application/json"},
+      "response": {"body": {"preferences": {"chat": {"include": "all", "push": true}, "follow": {"include": "all", "list": true, "push": true}, "like": {"include": "follows", "list": true, "push": false}, "likeViaRepost": {"include": "all", "list": true, "push": true}, "mention": {"include": "all", "list": true, "push": true}, "quote": {"include": "all", "list": true, "push": true}, "reply": {"include": "all", "list": true, "push": true}, "repost": {"include": "all", "list": true, "push": true}, "repostViaRepost": {"include": "all", "list": false, "push": false}, "starterpackJoined": {"list": true, "push": true}, "subscribedPost": {"list": true, "push": true}, "unverified": {"list": true, "push": true}, "verified": {"list": true, "push": false}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.notification.listActivitySubscriptions",
+      "nsid": "app.bsky.notification.listActivitySubscriptions",
+      "params": {"limit": 5},
+      "request": {"method": "GET", "query": [["limit", "5"]]},
+      "response": {"body": {"cursor": "n", "subscriptions": [{"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "mod.test"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.notification.putActivitySubscription",
+      "nsid": "app.bsky.notification.putActivitySubscription",
+      "params": {"subject": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "activitySubscription": {"post": true, "reply": false}},
+      "request": {"method": "POST", "query": [], "body": {"subject": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "activitySubscription": {"post": true, "reply": false}}, "contentType": "application/json"},
+      "response": {"body": {"subject": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "activitySubscription": {"post": true, "reply": false}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.notification.putActivitySubscription (removed: none comes back)",
+      "nsid": "app.bsky.notification.putActivitySubscription",
+      "params": {"subject": "did:plc:yk4dd2qkboz2yv6tpubpc6co", "activitySubscription": {"post": false, "reply": false}},
+      "request": {"method": "POST", "query": [], "body": {"subject": "did:plc:yk4dd2qkboz2yv6tpubpc6co", "activitySubscription": {"post": false, "reply": false}}, "contentType": "application/json"},
+      "response": {"body": {"subject": "did:plc:yk4dd2qkboz2yv6tpubpc6co"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.unspecced.getPostThreadV2 (defaults)",
+      "nsid": "app.bsky.unspecced.getPostThreadV2",
+      "params": {"anchor": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a"},
+      "request": {"method": "GET", "query": [["anchor", "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a"]]},
+      "response": {"body": {"thread": [], "hasOtherReplies": false}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.unspecced.getPostThreadOtherV2",
+      "nsid": "app.bsky.unspecced.getPostThreadOtherV2",
+      "params": {"anchor": "at://did:plc:yk4dd2qkboz2yv6tpubpc6co/app.bsky.feed.post/3lwinfmsd2k2b"},
+      "request": {"method": "GET", "query": [["anchor", "at://did:plc:yk4dd2qkboz2yv6tpubpc6co/app.bsky.feed.post/3lwinfmsd2k2b"]]},
+      "response": {"body": {"thread": [{"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "depth": 1, "value": {"$type": "app.bsky.unspecced.defs#threadItemPost", "post": {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "author": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "alice.test", "displayName": "Alice", "avatar": "https://cdn.bsky.app/img/avatar/plain/did:plc:ewvi7nxzyoun6zhxrhs64oiz/bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm@jpeg", "associated": {"chat": {"allowIncoming": "following"}, "activitySubscription": {"allowSubscriptions": "followers"}}, "viewer": {"muted": false, "blockedBy": false}, "labels": [], "createdAt": "2023-04-12T04:53:57.057Z"}, "record": {"$type": "app.bsky.feed.post", "createdAt": "2026-09-20T12:00:00.000Z", "langs": ["en"], "text": "hello world"}, "bookmarkCount": 3, "replyCount": 1, "repostCount": 0, "likeCount": 7, "quoteCount": 0, "indexedAt": "2026-09-20T12:00:01.123Z", "viewer": {"bookmarked": true, "threadMuted": false, "embeddingDisabled": false}, "labels": [], "$type": "app.bsky.feed.defs#postView"}, "moreParents": false, "moreReplies": 2, "opThread": false, "hiddenByThreadgate": true, "mutedByViewer": false}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.embed.getEmbedExternalView",
+      "nsid": "app.bsky.embed.getEmbedExternalView",
+      "params": {"url": "https://alice.example.com/post", "uris": ["at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/site.standard.document/3lwinfmsd2k2i", "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/site.standard.publication/3lwinfmsd2k2j"]},
+      "request": {"method": "GET", "query": [["url", "https://alice.example.com/post"], ["uris", "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/site.standard.document/3lwinfmsd2k2i"], ["uris", "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/site.standard.publication/3lwinfmsd2k2j"]]},
+      "response": {"body": {"view": {"$type": "app.bsky.embed.external#view", "external": {"uri": "https://alice.example.com/post", "title": "A post", "description": "About things", "createdAt": "2026-09-01T00:00:00.000Z", "readingTime": 4, "source": {"uri": "https://alice.example.com", "title": "Alice's blog", "theme": {"accentRGB": {"r": 10, "g": 20, "b": 30}}}, "associatedRefs": [{"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/site.standard.document/3lwinfmsd2k2i", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}], "associatedProfiles": [{"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "alice.test", "displayName": "Alice", "avatar": "https://cdn.bsky.app/img/avatar/plain/did:plc:ewvi7nxzyoun6zhxrhs64oiz/bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm@jpeg", "associated": {"chat": {"allowIncoming": "following"}, "activitySubscription": {"allowSubscriptions": "followers"}}, "viewer": {"muted": false, "blockedBy": false}, "labels": [], "createdAt": "2023-04-12T04:53:57.057Z"}]}}, "associatedRefs": [{"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/site.standard.document/3lwinfmsd2k2i", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"}, {"uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/site.standard.publication/3lwinfmsd2k2j", "cid": "bafyreihbiojjvlzlrn664jgdgql7cexcd62h5ltxuhjulvutjbmbt253h4"}], "associatedRecords": [{"$type": "site.standard.document", "title": "A post"}, {"$type": "site.standard.publication", "name": "Alice's blog"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.embed.getEmbedExternalView (nothing resolved)",
+      "nsid": "app.bsky.embed.getEmbedExternalView",
+      "params": {"url": "https://example.com", "uris": ["at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a"]},
+      "request": {"method": "GET", "query": [["url", "https://example.com"], ["uris", "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a"]]},
+      "response": {"body": {}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.draft.getDrafts",
+      "nsid": "app.bsky.draft.getDrafts",
+      "params": {"limit": 1},
+      "request": {"method": "GET", "query": [["limit", "1"]]},
+      "response": {"body": {"cursor": "n", "drafts": [{"id": "3lwinfmsd2k2h", "createdAt": "2026-09-20T10:00:00.000Z", "updatedAt": "2026-09-21T10:00:00.000Z", "draft": {"posts": [{"text": "a video", "embedVideos": [{"localRef": {"path": "file:///v.mp4"}, "alt": "clip", "captions": [{"lang": "en", "content": "WEBVTT"}]}], "embedExternals": [{"uri": "https://example.com"}], "labels": {"$type": "com.atproto.label.defs#selfLabels", "values": [{"val": "graphic-media"}]}, "embedGallery": {"items": [{"$type": "app.bsky.draft.defs#draftEmbedImage", "localRef": {"path": "file:///g.jpg"}}]}}]}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.draft.updateDraft",
+      "nsid": "app.bsky.draft.updateDraft",
+      "params": {"draft": {"id": "3lwinfmsd2k2h", "draft": {"posts": [{"text": "edited"}]}}},
+      "request": {"method": "POST", "query": [], "body": {"draft": {"id": "3lwinfmsd2k2h", "draft": {"posts": [{"text": "edited"}]}}}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "app.bsky.draft.deleteDraft",
+      "nsid": "app.bsky.draft.deleteDraft",
+      "params": {"id": "3lwinfmsd2k2h"},
+      "request": {"method": "POST", "query": [], "body": {"id": "3lwinfmsd2k2h"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "app.bsky.ageassurance.begin",
+      "nsid": "app.bsky.ageassurance.begin",
+      "params": {"email": "alice@example.com", "language": "en", "countryCode": "GB"},
+      "request": {"method": "POST", "query": [], "body": {"email": "alice@example.com", "language": "en", "countryCode": "GB"}, "contentType": "application/json"},
+      "response": {"body": {"lastInitiatedAt": "2026-09-25T10:00:00.000Z", "status": "pending", "access": "unknown"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.ageassurance.getState",
+      "nsid": "app.bsky.ageassurance.getState",
+      "params": {"countryCode": "US", "regionCode": "TX"},
+      "request": {"method": "GET", "query": [["countryCode", "US"], ["regionCode", "TX"]]},
+      "response": {"body": {"state": {"status": "assured", "access": "full"}, "metadata": {"accountCreatedAt": "2023-04-12T04:53:57.057Z"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.video.startUpload",
+      "nsid": "app.bsky.video.startUpload",
+      "params": {"sizeBytes": 20000000, "mimeType": "video/mp4", "name": "clip.mp4", "durationMs": 61000, "width": 1920, "height": 1080},
+      "request": {"method": "POST", "query": [], "body": {"sizeBytes": 20000000, "mimeType": "video/mp4", "name": "clip.mp4", "durationMs": 61000, "width": 1920, "height": 1080}, "contentType": "application/json"},
+      "response": {"body": {"jobId": "job-1", "partSizeBytes": 8388608, "partCount": 3, "expiresAt": "2026-09-25T13:00:00.000Z"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "app.bsky.video.getUploadStatus",
+      "nsid": "app.bsky.video.getUploadStatus",
+      "params": {"jobId": "job-1"},
+      "request": {"method": "GET", "query": [["jobId", "job-1"]]},
+      "response": {"body": {"jobId": "job-1", "partSizeBytes": 5242880, "partCount": 3, "receivedParts": [1, 3], "expiresAt": "2026-09-25T13:00:00.000Z", "state": "failed", "failureReason": "parts missing at expiry"}},
+      "expect": {"outputIsResponse": true}
+    }
+  ]
+}

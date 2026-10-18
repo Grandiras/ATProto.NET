@@ -1,15 +1,17 @@
 <Project>
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- .gitmodules access fails in some environments; the build needs no SCM queries. -->
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
   </PropertyGroup>
 
   <PropertyGroup>
-    <!-- Shared package metadata for all packable projects. Description and PackageTags
-         are set per project. -->
-    <Version>0.8.0</Version>
+    <!-- Shared package metadata. Description and PackageTags are set per project. -->
+    <Version>0.9.0-dev</Version>
     <Authors>Grandiras</Authors>
     <Company>Grandiras</Company>
     <Copyright>Copyright (c) 2025-present ATProto.NET Contributors</Copyright>
@@ -18,8 +20,6 @@
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-
-    <!-- SourceLink / deterministic builds -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
@@ -27,7 +27,6 @@
     <Deterministic>true</Deterministic>
   </PropertyGroup>
 
-  <!-- Include README in all packages -->
   <ItemGroup Condition="'$(IsPackable)' != 'false'">
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="/" />
   </ItemGroup>

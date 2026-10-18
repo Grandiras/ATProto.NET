@@ -1,0 +1,1604 @@
+{
+  "cases": [
+    {
+      "name": "valid metadata",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": true,
+        "issuer": "https://auth.example.com"
+      }
+    },
+    {
+      "name": "issuer https://auth.example.com:8443",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com:8443",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "issuer_mismatch"
+      }
+    },
+    {
+      "name": "issuer https://auth.example.com/tenant",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com/tenant",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "issuer_mismatch"
+      }
+    },
+    {
+      "name": "issuer https://auth.example.com/",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com/",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "issuer_mismatch"
+      }
+    },
+    {
+      "name": "issuer https://AUTH.example.com",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://AUTH.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "issuer_mismatch"
+      }
+    },
+    {
+      "name": "issuer http://auth.example.com",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "http://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "issuer_mismatch"
+      }
+    },
+    {
+      "name": "issuer https://evil.example.com",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://evil.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "issuer_mismatch"
+      }
+    },
+    {
+      "name": "issuer with a port and path the resource names",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com:8443/tenant"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com:8443/tenant",
+        "authorization_endpoint": "https://auth.example.com:8443/tenant/oauth/authorize",
+        "token_endpoint": "https://auth.example.com:8443/tenant/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com:8443/tenant/oauth/par",
+        "revocation_endpoint": "https://auth.example.com:8443/tenant/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": true,
+        "issuer": "https://auth.example.com:8443/tenant"
+      }
+    },
+    {
+      "name": "token_endpoint http://auth.example.com/oauth/token",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "http://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "token_endpoint https://auth.example.com/oauth/token?tenant=1",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token?tenant=1",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "token_endpoint https://auth.example.com/oauth/token#frag",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token#frag",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "token_endpoint /oauth/token",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "token_endpoint https://user:pass@auth.example.com/oauth/token",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://user:pass@auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "authorization_endpoint javascript:alert(1)",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "javascript:alert(1)",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "pushed_authorization_request_endpoint ftp://auth.example.com/oauth/par",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "ftp://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "revocation_endpoint https://auth.example.com/oauth/revoke?x=1",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke?x=1",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "missing authorization_endpoint",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "missing token_endpoint",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "missing pushed_authorization_request_endpoint",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "no revocation endpoint",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": true,
+        "issuer": "https://auth.example.com"
+      }
+    },
+    {
+      "name": "plain HTTP under the development opt-out",
+      "spec": "AUT-35",
+      "pds": "http://localhost:2583",
+      "allowPrivateNetworks": true,
+      "resourceMetadata": {
+        "resource": "http://localhost:2583",
+        "authorization_servers": [
+          "http://localhost:2583"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "http://localhost:2583",
+        "authorization_endpoint": "http://localhost:2583/oauth/authorize",
+        "token_endpoint": "http://localhost:2583/oauth/token",
+        "pushed_authorization_request_endpoint": "http://localhost:2583/oauth/par",
+        "revocation_endpoint": "http://localhost:2583/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": true,
+        "issuer": "http://localhost:2583"
+      }
+    },
+    {
+      "name": "missing require_pushed_authorization_requests",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "require_pushed_authorization_requests false",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": false,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "missing authorization_response_iss_parameter_supported",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "authorization_response_iss_parameter_supported false",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": false,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "missing client_id_metadata_document_supported",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "client_id_metadata_document_supported false",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": false,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_metadata"
+      }
+    },
+    {
+      "name": "resource https://other-pds.example.com",
+      "spec": "AUT-34",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://other-pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_resource_metadata"
+      }
+    },
+    {
+      "name": "resource https://pds.example.com:8443",
+      "spec": "AUT-34",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com:8443",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_resource_metadata"
+      }
+    },
+    {
+      "name": "resource https://pds.example.com/?x=1",
+      "spec": "AUT-34",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com/?x=1",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_resource_metadata"
+      }
+    },
+    {
+      "name": "resource metadata without a resource",
+      "spec": "AUT-34",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_resource_metadata"
+      }
+    },
+    {
+      "name": "resource with a trailing slash",
+      "spec": "AUT-34",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com/",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": true,
+        "issuer": "https://auth.example.com"
+      }
+    },
+    {
+      "name": "authorization server https://auth.example.com/",
+      "spec": "AUT-34",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com/"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_resource_metadata"
+      }
+    },
+    {
+      "name": "authorization server auth.example.com",
+      "spec": "AUT-34",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_resource_metadata"
+      }
+    },
+    {
+      "name": "authorization server https://auth.example.com?x=1",
+      "spec": "AUT-34",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com?x=1"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_resource_metadata"
+      }
+    },
+    {
+      "name": "two authorization servers",
+      "spec": "AUT-34",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com",
+          "https://other-auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_resource_metadata"
+      }
+    },
+    {
+      "name": "scopes without atproto",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "unsupported_scope"
+      }
+    },
+    {
+      "name": "DPoP algorithms without ES256",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "RS256",
+          "ES384"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "unsupported_dpop_alg"
+      }
+    },
+    {
+      "name": "protected resources that leave out the PDS",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "protected_resources": [
+          "https://other-pds.example.com"
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "error": "invalid_resource_metadata"
+      }
+    },
+    {
+      "name": "protected resources that list the PDS",
+      "spec": "AUT-35",
+      "pds": "https://pds.example.com",
+      "allowPrivateNetworks": false,
+      "resourceMetadata": {
+        "resource": "https://pds.example.com",
+        "authorization_servers": [
+          "https://auth.example.com"
+        ]
+      },
+      "serverMetadata": {
+        "issuer": "https://auth.example.com",
+        "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+        "token_endpoint": "https://auth.example.com/oauth/token",
+        "pushed_authorization_request_endpoint": "https://auth.example.com/oauth/par",
+        "revocation_endpoint": "https://auth.example.com/oauth/revoke",
+        "require_pushed_authorization_requests": true,
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "scopes_supported": [
+          "atproto",
+          "transition:generic"
+        ],
+        "dpop_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "token_endpoint_auth_methods_supported": [
+          "none",
+          "private_key_jwt"
+        ],
+        "token_endpoint_auth_signing_alg_values_supported": [
+          "ES256"
+        ],
+        "protected_resources": [
+          "https://other-pds.example.com",
+          "https://pds.example.com"
+        ]
+      },
+      "expect": {
+        "ok": true,
+        "issuer": "https://auth.example.com"
+      }
+    }
+  ]
+}

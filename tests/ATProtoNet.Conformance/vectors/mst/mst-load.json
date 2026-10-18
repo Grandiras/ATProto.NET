@@ -1,0 +1,283 @@
+[
+  {
+    "name": "empty tree",
+    "note": "REP-6",
+    "root": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm",
+    "blocks": {
+      "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm": "a2616580616cf6"
+    },
+    "entries": []
+  },
+  {
+    "name": "one entry",
+    "note": "REP-5",
+    "root": "bafyreigjpmtezznnzojmhq5qtvjbykv5rigkfuhpfmev4ox5lz22pg4pju",
+    "blocks": {
+      "bafyreigjpmtezznnzojmhq5qtvjbykv5rigkfuhpfmev4ox5lz22pg4pju": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f61306170006174f66176d82a582500017112207e672eb1e6e39443c3746d6ba081645fc188dc334b7f9abe16197a9e6c05ba3e616cf6"
+    },
+    "entries": [
+      [
+        "com.example.record/a0",
+        "bafyreid6m4xldzxdsrb4g5dnnoqiczc7ygenym2lp6nl4fqzpkpgybn2hy"
+      ]
+    ]
+  },
+  {
+    "name": "two layers",
+    "note": "REP-5, REP-13: a layer-1 key over a layer-0 subtree",
+    "root": "bafyreie6ee3bpu4i4svs37boroljnw6bwax54nveawsfrom2dk73jsyvq4",
+    "blocks": {
+      "bafyreie6ee3bpu4i4svs37boroljnw6bwax54nveawsfrom2dk73jsyvq4": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f6e336170006174f66176d82a58250001711220121ada3a38eb76337401fd338c7403321d9631277077569479d5e15526232c8c616cd82a58250001711220c97b264ce5adcb92c3c3b09d521c2abd8a0ca2d0ef2b095e3afd5e75a79b8f4d",
+      "bafyreigjpmtezznnzojmhq5qtvjbykv5rigkfuhpfmev4ox5lz22pg4pju": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f61306170006174f66176d82a582500017112207e672eb1e6e39443c3746d6ba081645fc188dc334b7f9abe16197a9e6c05ba3e616cf6"
+    },
+    "entries": [
+      [
+        "com.example.record/a0",
+        "bafyreid6m4xldzxdsrb4g5dnnoqiczc7ygenym2lp6nl4fqzpkpgybn2hy"
+      ],
+      [
+        "com.example.record/n3",
+        "bafyreiasdlnduohloyzxiap5goghiazsdwldcj3qo5lji6ov4fksmizmrq"
+      ]
+    ]
+  },
+  {
+    "name": "prefix equal to the previous key",
+    "note": "REP-11: valid",
+    "root": "bafyreidicnrraq54ljgd3xnprnccqrzhjct2ihpaqthszi6h4iwuq53vom",
+    "blocks": {
+      "bafyreidicnrraq54ljgd3xnprnccqrzhjct2ihpaqthszi6h4iwuq53vom": "a2616582a4616b57636f6d2e6578616d706c652e7265636f72642f616263306170006174f66176d82a582500017112208d53c0cc0bdbee36e8b92f4820f766f8fe43148ffcf67f0ed6f322993c143c10a4616b4264306170176174f66176d82a582500017112209055248d8618a261ab5a3edb1f2407e0aa132b3c5138ec25d57300bd1802abfc616cf6"
+    },
+    "entries": [
+      [
+        "com.example.record/abc0",
+        "bafyreienkpamyc635y3orojpjaqpozxy7zbrjd746z7q5vxtekmtyfb4ca"
+      ],
+      [
+        "com.example.record/abc0d0",
+        "bafyreieqkusi3bqyujq2wwr63mpsib7avijswpcrhdwclvltac6rqavl7q"
+      ]
+    ]
+  },
+  {
+    "name": "prefix longer than the previous key",
+    "note": "REP-11",
+    "root": "bafyreifaqviz3wddqr666px6xhzmsfksqfabvpgjxbe5yyits7fyjemtmu",
+    "blocks": {
+      "bafyreifaqviz3wddqr666px6xhzmsfksqfabvpgjxbe5yyits7fyjemtmu": "a2616582a4616b57636f6d2e6578616d706c652e7265636f72642f616263306170006174f66176d82a582500017112208d53c0cc0bdbee36e8b92f4820f766f8fe43148ffcf67f0ed6f322993c143c10a4616b4164617018186174f66176d82a582500017112209055248d8618a261ab5a3edb1f2407e0aa132b3c5138ec25d57300bd1802abfc616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "invalid key: non-ASCII byte",
+    "note": "REP-12",
+    "root": "bafyreifq5fpwkhl2mmnee2il5unc7evrdmf46fe7mmux7fcrplipxpaf2a",
+    "blocks": {
+      "bafyreifq5fpwkhl2mmnee2il5unc7evrdmf46fe7mmux7fcrplipxpaf2a": "a2616581a4616b57636f6d2e6578616d706c652e7265636f72642f636166e96170006174f66176d82a5825000171122094ff9a1a578c2f5c9f8b1a13f13b672aacd1677467182f4409bacdaaab41c58b616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "invalid key: no rkey",
+    "note": "REP-12",
+    "root": "bafyreieyb5disx553gc4ffqv2ar53axqksnur6lwtmjijxtj5bdfj4tttq",
+    "blocks": {
+      "bafyreieyb5disx553gc4ffqv2ar53axqksnur6lwtmjijxtj5bdfj4tttq": "a2616581a4616b52636f6d2e6578616d706c652e7265636f72646170006174f66176d82a5825000171122084d27bfcf3d243e8d569371ca793476bfb80f2a78877cdc363aff0dce284ca36616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "invalid key: a space",
+    "note": "REP-12",
+    "root": "bafyreiadpoyhjfz5vohf53sw4etitjz44dirfcolfbblwuqcrph4w4irvy",
+    "blocks": {
+      "bafyreiadpoyhjfz5vohf53sw4etitjz44dirfcolfbblwuqcrph4w4irvy": "a2616581a4616b56636f6d2e6578616d706c652e7265636f72642f6120626170006174f66176d82a5825000171122042e29598411cde56ef0c1a5426f192e7bcb500b1fb32b707b022ea7032db8812616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "invalid key: invalid UTF-8",
+    "note": "REP-12",
+    "root": "bafyreighrapbnviitelp5rp7jp7akznpg7vojhkt6ajmslfjtxfj54l3la",
+    "blocks": {
+      "bafyreighrapbnviitelp5rp7jp7akznpg7vojhkt6ajmslfjtxfj54l3la": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642fc3286170006174f66176d82a5825000171122005ac6afa7002bdb0625ed29fa4fe531f3e3ebe5182aa81a9e35534f1c78d8271616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "keys out of order",
+    "note": "REP-12",
+    "root": "bafyreiatnzgijozcde6oc2xu35efo2p3fhxri33lttc6q5vibp7n7chlce",
+    "blocks": {
+      "bafyreiatnzgijozcde6oc2xu35efo2p3fhxri33lttc6q5vibp7n7chlce": "a2616582a4616b55636f6d2e6578616d706c652e7265636f72642f62306170006174f66176d82a582500017112204ea2edb012307ce5a78e9ccbdea1d14615a36feec75f3cc790bc2c9d31a9b758a4616b55636f6d2e6578616d706c652e7265636f72642f61306170006174f66176d82a582500017112207e672eb1e6e39443c3746d6ba081645fc188dc334b7f9abe16197a9e6c05ba3e616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "subtree key outside its range",
+    "note": "REP-12: the left subtree holds a key after the first entry",
+    "root": "bafyreibfwqlwead5g2mjchwovvi4ejsbxqigibovl3dnogvvhwvmjpubfu",
+    "blocks": {
+      "bafyreibfwqlwead5g2mjchwovvi4ejsbxqigibovl3dnogvvhwvmjpubfu": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f6d316170006174f66176d82a58250001711220f4f636cc06fd5aebd8a98318ed07f4da6cf177df0f310791380d61a360a17fc1616cd82a58250001711220cbb5e1275d20c3b6ad219740007752aea7ae87bb13d270db3e16d7b2ff044115",
+      "bafyreiglwxqsoxjayo3k2imxiaahouvou6xipoyt2jynwpqw26zp6bcbcu": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f7a306170006174f66176d82a58250001711220e838d04e2b968e5b1de8b432af765767255bf9489a5d2d3585a9ed0f670a9eda616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "subtree linked twice",
+    "note": "REP-14",
+    "root": "bafyreibaaa7b2my6y3vfzt6vctbqgvazlrdtixpeld3dvnucwff3gbg44y",
+    "blocks": {
+      "bafyreibaaa7b2my6y3vfzt6vctbqgvazlrdtixpeld3dvnucwff3gbg44y": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f6e336170006174d82a58250001711220c97b264ce5adcb92c3c3b09d521c2abd8a0ca2d0ef2b095e3afd5e75a79b8f4d6176d82a58250001711220121ada3a38eb76337401fd338c7403321d9631277077569479d5e15526232c8c616cd82a58250001711220c97b264ce5adcb92c3c3b09d521c2abd8a0ca2d0ef2b095e3afd5e75a79b8f4d",
+      "bafyreigjpmtezznnzojmhq5qtvjbykv5rigkfuhpfmev4ox5lz22pg4pju": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f61306170006174f66176d82a582500017112207e672eb1e6e39443c3746d6ba081645fc188dc334b7f9abe16197a9e6c05ba3e616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "empty inner node",
+    "note": "REP-14",
+    "root": "bafyreidm66qcreosppd7zxzddx7qhcaue6sdoexjlwvjqy3wa5vztb66ia",
+    "blocks": {
+      "bafyreidm66qcreosppd7zxzddx7qhcaue6sdoexjlwvjqy3wa5vztb66ia": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f6e336170006174f66176d82a58250001711220121ada3a38eb76337401fd338c7403321d9631277077569479d5e15526232c8c616cd82a582500017112209dfefe61dd76ea3dcae5023880b08379d57adf20482d6fdbe2759289f647677b",
+      "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm": "a2616580616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "root with only a link",
+    "note": "REP-14",
+    "root": "bafyreidys3inthyuo3rpa7digtyeo5hwmlyhli3pl7bnwcsdbuoegkm5vi",
+    "blocks": {
+      "bafyreidys3inthyuo3rpa7digtyeo5hwmlyhli3pl7bnwcsdbuoegkm5vi": "a2616580616cd82a58250001711220c97b264ce5adcb92c3c3b09d521c2abd8a0ca2d0ef2b095e3afd5e75a79b8f4d",
+      "bafyreigjpmtezznnzojmhq5qtvjbykv5rigkfuhpfmev4ox5lz22pg4pju": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f61306170006174f66176d82a582500017112207e672eb1e6e39443c3746d6ba081645fc188dc334b7f9abe16197a9e6c05ba3e616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "node mixing layers",
+    "note": "REP-13",
+    "root": "bafyreib4fwkzshim44wryuqdzou35y7ik3abue5l3kh3q777ad5wdrlyt4",
+    "blocks": {
+      "bafyreib4fwkzshim44wryuqdzou35y7ik3abue5l3kh3q777ad5wdrlyt4": "a2616582a4616b55636f6d2e6578616d706c652e7265636f72642f61306170006174f66176d82a582500017112207e672eb1e6e39443c3746d6ba081645fc188dc334b7f9abe16197a9e6c05ba3ea4616b426e336170136174f66176d82a58250001711220121ada3a38eb76337401fd338c7403321d9631277077569479d5e15526232c8c616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "child on its parent layer",
+    "note": "REP-13: a layer-0 key under a layer-0 key",
+    "root": "bafyreibyf7g64cnsi2sqvqmmtvtm4g35x6aap4rf2ipdspwt5gk4rbiea4",
+    "blocks": {
+      "bafyreibyf7g64cnsi2sqvqmmtvtm4g35x6aap4rf2ipdspwt5gk4rbiea4": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f6d316170006174f66176d82a58250001711220f4f636cc06fd5aebd8a98318ed07f4da6cf177df0f310791380d61a360a17fc1616cd82a58250001711220c97b264ce5adcb92c3c3b09d521c2abd8a0ca2d0ef2b095e3afd5e75a79b8f4d",
+      "bafyreigjpmtezznnzojmhq5qtvjbykv5rigkfuhpfmev4ox5lz22pg4pju": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f61306170006174f66176d82a582500017112207e672eb1e6e39443c3746d6ba081645fc188dc334b7f9abe16197a9e6c05ba3e616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "missing block",
+    "note": "REP-16",
+    "root": "bafyreie6ee3bpu4i4svs37boroljnw6bwax54nveawsfrom2dk73jsyvq4",
+    "blocks": {
+      "bafyreie6ee3bpu4i4svs37boroljnw6bwax54nveawsfrom2dk73jsyvq4": "a2616581a4616b55636f6d2e6578616d706c652e7265636f72642f6e336170006174f66176d82a58250001711220121ada3a38eb76337401fd338c7403321d9631277077569479d5e15526232c8c616cd82a58250001711220c97b264ce5adcb92c3c3b09d521c2abd8a0ca2d0ef2b095e3afd5e75a79b8f4d"
+    },
+    "rejected": true
+  },
+  {
+    "name": "malformed node: empty",
+    "note": "REP-10",
+    "root": "bafyreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+    "blocks": {
+      "bafyreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku": ""
+    },
+    "rejected": true
+  },
+  {
+    "name": "malformed node: break",
+    "note": "REP-10",
+    "root": "bafyreificafonkqzidilmy53ghgumykc5o632umhcmnzfwjydcmhqmxlre",
+    "blocks": {
+      "bafyreificafonkqzidilmy53ghgumykc5o632umhcmnzfwjydcmhqmxlre": "ff"
+    },
+    "rejected": true
+  },
+  {
+    "name": "malformed node: an array",
+    "note": "REP-10",
+    "root": "bafyreidwx2fvfdiaox32v2mnn6sxu3j4qoxeqcuenhtgrv5qv6litfnmoe",
+    "blocks": {
+      "bafyreidwx2fvfdiaox32v2mnn6sxu3j4qoxeqcuenhtgrv5qv6litfnmoe": "80"
+    },
+    "rejected": true
+  },
+  {
+    "name": "malformed node: e not an array",
+    "note": "REP-10",
+    "root": "bafyreiaqa52tk5pry3pibjmqa2zwwosxnld4lr72xc6cdvnzv5esltaxh4",
+    "blocks": {
+      "bafyreiaqa52tk5pry3pibjmqa2zwwosxnld4lr72xc6cdvnzv5esltaxh4": "a1616501"
+    },
+    "rejected": true
+  },
+  {
+    "name": "malformed node: l not a link",
+    "note": "REP-10",
+    "root": "bafyreic5oxv4gthdovmule6ia3nfikjbw4bgnsb2gpq7rl6u42jko6pboa",
+    "blocks": {
+      "bafyreic5oxv4gthdovmule6ia3nfikjbw4bgnsb2gpq7rl6u42jko6pboa": "a2616580616c01"
+    },
+    "rejected": true
+  },
+  {
+    "name": "malformed node: entry with neither k nor v",
+    "note": "REP-10",
+    "root": "bafyreig5m4jl3qp6dornob5qj2bsgs4njykhlliqefdqct46ohftuousgq",
+    "blocks": {
+      "bafyreig5m4jl3qp6dornob5qj2bsgs4njykhlliqefdqct46ohftuousgq": "a2616581a0616cf6"
+    },
+    "rejected": true
+  },
+  {
+    "name": "malformed node: entry without v",
+    "note": "REP-10",
+    "root": "bafyreigdowbcspgqeaoarfp2tvf5wyeyojsdj5hm5baib5hgoqbe7nsvwa",
+    "blocks": {
+      "bafyreigdowbcspgqeaoarfp2tvf5wyeyojsdj5hm5baib5hgoqbe7nsvwa": "a1616581a1616b4161"
+    },
+    "rejected": true
+  },
+  {
+    "name": "malformed node: v not a link",
+    "note": "REP-10",
+    "root": "bafyreid3wxdl535eelzwd5yjom34i7fqoqyitu3wvmbhbry6mo7ohx5zba",
+    "blocks": {
+      "bafyreid3wxdl535eelzwd5yjom34i7fqoqyitu3wvmbhbry6mo7ohx5zba": "a1616581a2616b416161760a"
+    },
+    "rejected": true
+  },
+  {
+    "name": "malformed node: truncated",
+    "note": "REP-10",
+    "root": "bafyreiadmb7na6iz52xvtomafzcs25mr6vycjmniww5n4njhw73yb4bhze",
+    "blocks": {
+      "bafyreiadmb7na6iz52xvtomafzcs25mr6vycjmniww5n4njhw73yb4bhze": "a161658161"
+    },
+    "rejected": true
+  },
+  {
+    "name": "malformed node: indefinite-length map",
+    "note": "REP-10",
+    "root": "bafyreiezwbhdhx446lhbls7pxzh2mchwod2pptznlsez4fu4ops2nrgol4",
+    "blocks": {
+      "bafyreiezwbhdhx446lhbls7pxzh2mchwod2pptznlsez4fu4ops2nrgol4": "bf6165806161f6ff"
+    },
+    "rejected": true
+  },
+  {
+    "name": "malformed node: a float",
+    "note": "REP-10",
+    "root": "bafyreierguyhbw44jtllri3whk7yl4w5jc2bnstxp7qvysmhltmvw67tda",
+    "blocks": {
+      "bafyreierguyhbw44jtllri3whk7yl4w5jc2bnstxp7qvysmhltmvw67tda": "fb400921fb54442d18"
+    },
+    "rejected": true
+  }
+]

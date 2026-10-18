@@ -1,0 +1,207 @@
+{
+  "note": "Trees of the deterministic generator (keys from a 64-bit LCG, values the CIDs of {\"i\": index}; see MANIFEST.md) as @atproto/repo 0.10.14 builds them. blockDigest is SHA-256 over the sorted block CIDs joined by newlines.",
+  "trees": [
+    {
+      "name": "seed 1 count 1",
+      "seed": 1,
+      "count": 1,
+      "firstKey": "app.bsky.feed.post/w52uz3lpjvpsa",
+      "root": "bafyreihdm2xrznzcjbnrggjrad6lape2ykltcj5oz6s3q4rlw557lwjzfu",
+      "blockCount": 1,
+      "blockDigest": "204eeab3fc950b4896949b60093267370cf1f4e0f57236d787d96bc9e45b0ddf"
+    },
+    {
+      "name": "seed 2 count 2",
+      "seed": 2,
+      "count": 2,
+      "firstKey": "app.bsky.feed.post/dxz6dcav5fedg",
+      "root": "bafyreibps7x4h2t7yub3djo5womkud5uqbxlfizh22w3vu75ykv3jpvd7i",
+      "blockCount": 2,
+      "blockDigest": "c715132672b362476c73cc7c37af4966511540de5be601faac3d4e1789252c45"
+    },
+    {
+      "name": "seed 3 count 3",
+      "seed": 3,
+      "count": 3,
+      "firstKey": "app.bsky.feed.post/qqzjmiv2suyt3",
+      "root": "bafyreiconk2rglg53ww724d5gfqy5wh5cx7sz3qkfabx4b3iz6oycqnbuq",
+      "blockCount": 3,
+      "blockDigest": "325625aabe1d07e8e787e4485ec00377b4fb354d6bf4d52f33b1725976db0a25"
+    },
+    {
+      "name": "seed 4 count 10",
+      "seed": 4,
+      "count": 10,
+      "firstKey": "app.bsky.feed.post/5kzuvokageneb",
+      "root": "bafyreigiitb2qpmdfs7qj6pr7iuttzm5b2rn7asq7yx3ktrqqb365houhy",
+      "blockCount": 3,
+      "blockDigest": "ff214f5094f626407d9d6196a533d3b911f5ad5ac5e00f74d5209a0e408e1da5"
+    },
+    {
+      "name": "seed 5 count 50",
+      "seed": 5,
+      "count": 50,
+      "firstKey": "app.bsky.feed.post/kdz77v7g2ubvg",
+      "root": "bafyreifu6trvtqrvnkfa244narjaddympypuxwnydbjjqkj5zqru2dqhhe",
+      "blockCount": 17,
+      "blockDigest": "b1ee22b3cf6f93c7b7c774e27c92a5171c2dc0c90933f38ec95faa52a795ab2e"
+    },
+    {
+      "name": "seed 6 count 100",
+      "seed": 6,
+      "count": 100,
+      "firstKey": "app.bsky.feed.post/x4zki3vlodwf4",
+      "root": "bafyreiasvty3l2ibqadzu7aoitvbd7mnswj4lpw6lekmxglqz6csdd5rq4",
+      "blockCount": 28,
+      "blockDigest": "9f6070906691bbe19c749c7ac9b460f0efcf441b05e9f7115df2934f88fe0794"
+    },
+    {
+      "name": "seed 7 count 257",
+      "seed": 7,
+      "count": 257,
+      "firstKey": "app.bsky.feed.post/ewyvrbkrctkwb",
+      "root": "bafyreigda7an7yqdtjue3ur77qfque6bpboubrjpakomldnma5qahmv2ri",
+      "blockCount": 69,
+      "blockDigest": "5bfa8e53894c89b5bc4d5f5e67df37e93c2dae1d78314c7dac0fa685c6fa5c72"
+    },
+    {
+      "name": "seed 8 count 1000",
+      "seed": 8,
+      "count": 1000,
+      "firstKey": "app.bsky.feed.post/rpya3i7xwc7hh",
+      "root": "bafyreib2yr6vw4h2u7n6jfw3fsoikwdp7ntgwfombrzgh4ops72nhgs7wm",
+      "blockCount": 236,
+      "blockDigest": "1a6915f640eeecaa0226cf23055715c62bc8237b93b91118a6cde0cdcbefb2d2"
+    },
+    {
+      "name": "seed 9 count 5000",
+      "seed": 9,
+      "count": 5000,
+      "firstKey": "app.bsky.feed.post/6jyleou4lstx4",
+      "root": "bafyreiacips47nn7z6mjgep7fnio2llvsdkfjdl4lc5ky4nb7ngch4gtka",
+      "blockCount": 1356,
+      "blockDigest": "6e9fb1a9591b51e5a7fc2cc127a56dddc46f6169112e4414403dcb50022574e5"
+    },
+    {
+      "name": "seed 11 count 500 every third deleted",
+      "seed": 11,
+      "count": 500,
+      "deleteEvery": 3,
+      "root": "bafyreifkb6ayacuo2w7riqqhcafmftvstqmzret5eql3uftjktenwgjpki",
+      "blockCount": 93,
+      "blockDigest": "3d069cd538ac9947cb3c8ea7619cf9ab29bda0ffcde1404ea1c1483697f9465b"
+    },
+    {
+      "name": "covering proof app.bsky.feed.post/lprwy5qxewx4d",
+      "seed": 42,
+      "count": 1000,
+      "key": "app.bsky.feed.post/lprwy5qxewx4d",
+      "blocks": [
+        "bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4",
+        "bafyreid5soaawg2lja3k2irffrtkc4tqoa5z35hvksjvtk6qavj5ab6qry",
+        "bafyreid6erjndi5bsjevws6dtsmi76ag5mmcerfo6cfhb2vpv6wuygrvve",
+        "bafyreidhormwlyipxyuuzqc6mspskhovsiybzk76rtn5fnr264hhotls3u",
+        "bafyreidq6zfiwkylcx7ghqm7eiuzaqsufbhy3wmahjr2qp5tvtrruvjc7a",
+        "bafyreigxtswdsppzccgafh3gmpgrxf7wll6xi6c45umqzyb2bhjpdb57re"
+      ]
+    },
+    {
+      "name": "covering proof app.bsky.feed.like/gfxt65roszhn5",
+      "seed": 42,
+      "count": 1000,
+      "key": "app.bsky.feed.like/gfxt65roszhn5",
+      "blocks": [
+        "bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4",
+        "bafyreibhkc2dujycj3gwcxsoar2f7xc65mbzu2jov2ypdfuzdihn4ripdm",
+        "bafyreid6erjndi5bsjevws6dtsmi76ag5mmcerfo6cfhb2vpv6wuygrvve",
+        "bafyreidg3hzwoptbgdauraeg5znwxjk4pqd4fzgdc34rtvsou262logdla",
+        "bafyreidhormwlyipxyuuzqc6mspskhovsiybzk76rtn5fnr264hhotls3u",
+        "bafyreifospfpqcuyu4a5jghocazxiqgpa6z6xwuzg6qrqvjuqpej3xgswq"
+      ]
+    },
+    {
+      "name": "covering proof app.bsky.graph.follow/54dl4gzowy4si",
+      "seed": 42,
+      "count": 1000,
+      "key": "app.bsky.graph.follow/54dl4gzowy4si",
+      "blocks": [
+        "bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4",
+        "bafyreibqidsfaigyu672fl4k7fs5saibm5yjprwbfu4z5fuonp4vv5545q",
+        "bafyreid6erjndi5bsjevws6dtsmi76ag5mmcerfo6cfhb2vpv6wuygrvve",
+        "bafyreidhormwlyipxyuuzqc6mspskhovsiybzk76rtn5fnr264hhotls3u",
+        "bafyreieb2hfkas23uk57rmoe4ie6bllhkqig4ctcchebiwfdehwcx26nnq",
+        "bafyreigxtswdsppzccgafh3gmpgrxf7wll6xi6c45umqzyb2bhjpdb57re"
+      ]
+    },
+    {
+      "name": "covering proof app.bsky.feed.post/7jafnfb7olckg",
+      "seed": 42,
+      "count": 1000,
+      "key": "app.bsky.feed.post/7jafnfb7olckg",
+      "blocks": [
+        "bafyreibbzbgktynyemaziojna3ekz25gfdqt7wcarpop6z3dna3of4ovfu",
+        "bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4",
+        "bafyreiblprfhmvaayucklhnfjv5mqtqcpinn4rsf2u2zek4vnd42z34svi",
+        "bafyreid6erjndi5bsjevws6dtsmi76ag5mmcerfo6cfhb2vpv6wuygrvve",
+        "bafyreidhormwlyipxyuuzqc6mspskhovsiybzk76rtn5fnr264hhotls3u",
+        "bafyreihwv44qwy3fb43vdyzd5xvleni4psohh6fhisyydnbuyzopgfrwze"
+      ]
+    },
+    {
+      "name": "covering proof com.example.record/m5mhcxbgsqxc5",
+      "seed": 42,
+      "count": 1000,
+      "key": "com.example.record/m5mhcxbgsqxc5",
+      "blocks": [
+        "bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4",
+        "bafyreid6erjndi5bsjevws6dtsmi76ag5mmcerfo6cfhb2vpv6wuygrvve",
+        "bafyreidhormwlyipxyuuzqc6mspskhovsiybzk76rtn5fnr264hhotls3u",
+        "bafyreifzczraqwwltddhhqtzayez3ggj42veierr3jklricgighnddvavq",
+        "bafyreiglc6u3kfkez2ohkknkfw3npswnr5mpmpmjygjosjbdpwfxigx6ci",
+        "bafyreihplmzyr4a5kx2jtuqg7bcfpdhbpu5mbkqdiilmyu3v5btwxl4zpy"
+      ]
+    },
+    {
+      "name": "covering proof app.bsky.feed.like/2222222222222",
+      "seed": 42,
+      "count": 1000,
+      "key": "app.bsky.feed.like/2222222222222",
+      "blocks": [
+        "bafyreia63p4zgpog5zar2fgsainugvepfozgtwz6fky5rg5dxmfb4go5p4",
+        "bafyreiapmqhxlive6glurf3hxltg56wykn732mzx7nejrhnd27vgj2wnji",
+        "bafyreiaua6eo3e2m53tyxdsudjajujwhv7mgwyhca6gsc26xwt5kt3wuu4",
+        "bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4",
+        "bafyreigmzkz73l34yr2abkaev7snxfibzhi2tny7356y7u6o5y7ginkwca",
+        "bafyreihfhxoksnqb35ozxdhwjjwbqusacmzmqarqqltrpupnzj65onxdti"
+      ]
+    },
+    {
+      "name": "covering proof com.example.record/zzzzzzzzzzzzz",
+      "seed": 42,
+      "count": 1000,
+      "key": "com.example.record/zzzzzzzzzzzzz",
+      "blocks": [
+        "bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4",
+        "bafyreid6erjndi5bsjevws6dtsmi76ag5mmcerfo6cfhb2vpv6wuygrvve",
+        "bafyreidhormwlyipxyuuzqc6mspskhovsiybzk76rtn5fnr264hhotls3u",
+        "bafyreifu7qchpvzivmlyp34ejqk37piy3ksf4fr3ag32sthnxhqmsfosju",
+        "bafyreigzblvxtqjlt6zwcd3p5tf4od2tg4rduw37djpbkpovlfzj7jcfai",
+        "bafyreihv4okbfesbusn4kwo24ya33anzzxxk4rnek7446cttazbgegab4m"
+      ]
+    },
+    {
+      "name": "covering proof app.bsky.feed.post/aaaaaaaaaaaaa",
+      "seed": 42,
+      "count": 1000,
+      "key": "app.bsky.feed.post/aaaaaaaaaaaaa",
+      "blocks": [
+        "bafyreibbzbgktynyemaziojna3ekz25gfdqt7wcarpop6z3dna3of4ovfu",
+        "bafyreibfvbgr6icdhm4nd7xcqyjqgkmbro2za6tvtm7krghw5wm5lecwq4",
+        "bafyreicztkzrp6yo4zfm53a5aaltk24vn5wbrepbxcgqp6qwmcqkwranyq",
+        "bafyreid6erjndi5bsjevws6dtsmi76ag5mmcerfo6cfhb2vpv6wuygrvve",
+        "bafyreidhormwlyipxyuuzqc6mspskhovsiybzk76rtn5fnr264hhotls3u",
+        "bafyreiens3jc6j45nkcqhbxq3jjyzkffjv7pnb4qolb6bmtnpyrt26fulu"
+      ]
+    }
+  ]
+}

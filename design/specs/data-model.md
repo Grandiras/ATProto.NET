@@ -170,9 +170,12 @@ public static class StarWriter
   `DagCborDecoder`/`DagCborEncoder` · tests `DagCborDecoderTests.Decode_FloatValue_ThrowsFormatException`,
   `DagCborEncoderTests.Encode_Float_Throws`
 - **DAT-2** (MUST) Integers are signed 64-bit. A CBOR integer outside `Int64`, or a JSON number
-  with a fraction or exponent, is rejected. The error message names the actual problem (0.8
-  reported out-of-range integers as "floating point", `DagCborEncoder.cs:195`).
-  *Source:* specs/data-model · primitives audit, problem 8
+  with a non-zero fraction, is rejected. A JSON number whose value is an integer (`123.0`) is that
+  integer. The error message names the actual problem (0.8 reported out-of-range integers as
+  "floating point", `DagCborEncoder.cs:195`).
+  *Source:* specs/data-model · primitives audit, problem 8 · atproto-interop-tests
+  `data-model-valid.json` ("float, but integer-like"; phase 0 changed this from "rejected", since
+  upstream wins, #231)
 - **DAT-3** (MUST) Map keys are strings. A non-string key is rejected.
   *Source:* specs/data-model · 0.8 `DagCborJson.cs:76`
 - **DAT-4** (MUST) `DataModelValue` represents any data-model value without a schema. It
@@ -328,9 +331,11 @@ Strict mode enforces every DRISL rule. It is the default (`DrislReaderOptions.Mo
   Reading accepts it with or without padding.
   *Source:* specs/data-model · #115 · tests `DagCborDecoderTests.Decode_ByteString_WritesUnpaddedBase64`,
   `Label_Signature_SerializesAsUnpaddedBytesObject`
-- **DAT-47** (MUST) A JSON object is a link (or bytes) object only when `$link` (or `$bytes`) is
-  its sole property. Otherwise it is an ordinary map.
-  *Source:* 0.8 `DagCborEncoder` behaviour (primitives audit §3)
+- **DAT-47** (MUST) A JSON object with a `$link` (or `$bytes`) property is a link (or bytes)
+  object. It is invalid unless that property is its only one and holds a string (a CID, or
+  base64); it never becomes an ordinary map.
+  *Source:* atproto-interop-tests `data-model-invalid.json` (phase 0 reversed 0.8's
+  `DagCborEncoder` behaviour, which encoded such objects as maps, since upstream wins, #231)
 - **DAT-48** (MUST) JSON-side depth for data-model values is limited to the same 64 levels as
   DAT-30, so any value one encoding accepts, the other also accepts.
   *Source:* 0.8 `DagCborDecoder.cs:37` (`MaxDepth = DagCborJson.MaxDepth`)
@@ -529,6 +534,7 @@ scenarios), `CarReaderTests`, `CarWriterTests`, `CommitBlockTests` (the splice s
 | Blob `ref` must be a raw-codec link; legacy blobs are read. | Data-model spec. |
 | One `SignedObject` splice implementation. | Five copies in 0.8. |
 | Space repositories are STAR, read by a streaming, bounded reader in `ATProtoNet.Data.Star`. | Upstream ships STAR for space repos; 0.8 used a two-root CAR read whole (`SpaceRepoCar`). |
+| A malformed `$link`/`$bytes` object is invalid, not an ordinary map; `123.0` is the integer 123 (DAT-2, DAT-47). | The atproto-interop-tests data-model suites say so (found by the phase 0 conformance suite, #231). |
 
 ## Open points
 

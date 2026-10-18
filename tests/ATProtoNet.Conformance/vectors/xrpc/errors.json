@@ -1,0 +1,125 @@
+{
+  "source": "ATProto.NET 0.8.0 tests at 6aee361 (status mapping of src/ATProtoNet/Http/XrpcErrors.cs, XRC-33)",
+  "cases": [
+    {
+      "case": "400 with an error envelope",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 400, "contentType": "application/json", "body": {"error": "InvalidRequest", "message": "Bad input"}},
+      "expect": {"error": {"name": "InvalidRequest", "status": 400, "message": "Bad input"}}
+    },
+    {
+      "case": "400 with a Lexicon-declared error name",
+      "nsid": "com.atproto.repo.getRecord",
+      "params": {"repo": "did:plc:z72i7hdynmk6r22z27h6tvur", "collection": "app.bsky.feed.post", "rkey": "3k2la"},
+      "request": {"method": "GET", "query": [["repo", "did:plc:z72i7hdynmk6r22z27h6tvur"], ["collection", "app.bsky.feed.post"], ["rkey", "3k2la"]]},
+      "response": {"status": 400, "contentType": "application/json", "body": {"error": "RecordNotFound", "message": "Could not locate record"}},
+      "expect": {"error": {"name": "RecordNotFound", "status": 400, "message": "Could not locate record"}}
+    },
+    {
+      "case": "401 with an error envelope",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 401, "contentType": "application/json", "body": {"error": "AuthenticationRequired", "message": "Authentication Required"}},
+      "expect": {"error": {"name": "AuthenticationRequired", "status": 401, "message": "Authentication Required"}}
+    },
+    {
+      "case": "400 ExpiredToken keeps its name",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 400, "contentType": "application/json", "body": {"error": "ExpiredToken", "message": "Token has expired"}},
+      "expect": {"error": {"name": "ExpiredToken", "status": 400, "message": "Token has expired"}}
+    },
+    {
+      "case": "401 without a body",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 401, "contentType": "application/json", "text": ""},
+      "expect": {"error": {"name": "AuthenticationRequired", "status": 401}}
+    },
+    {
+      "case": "403 without a body",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 403, "contentType": "application/json", "text": ""},
+      "expect": {"error": {"name": "Forbidden", "status": 403}}
+    },
+    {
+      "case": "404 without a body",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 404, "contentType": "application/json", "text": ""},
+      "expect": {"error": {"name": "XRPCNotSupported", "status": 404}}
+    },
+    {
+      "case": "413 without a body",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 413, "contentType": "application/json", "text": ""},
+      "expect": {"error": {"name": "PayloadTooLarge", "status": 413}}
+    },
+    {
+      "case": "500 with an HTML page",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 500, "contentType": "text/html", "text": "<html><body>Internal Server Error</body></html>"},
+      "expect": {"error": {"name": "InternalServerError", "status": 500}}
+    },
+    {
+      "case": "500 with a malformed envelope",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 500, "contentType": "application/json", "text": "{\"error\":"},
+      "expect": {"error": {"name": "InternalServerError", "status": 500}}
+    },
+    {
+      "case": "501 without a body",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 501, "contentType": "application/json", "text": ""},
+      "expect": {"error": {"name": "MethodNotImplemented", "status": 501}}
+    },
+    {
+      "case": "502 without a body",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 502, "contentType": "application/json", "text": ""},
+      "expect": {"error": {"name": "UpstreamFailure", "status": 502}}
+    },
+    {
+      "case": "503 without a body",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 503, "contentType": "application/json", "text": ""},
+      "expect": {"error": {"name": "NotEnoughResources", "status": 503}}
+    },
+    {
+      "case": "504 without a body",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 504, "contentType": "application/json", "text": ""},
+      "expect": {"error": {"name": "UpstreamTimeout", "status": 504}}
+    },
+    {
+      "case": "418 without a body",
+      "nsid": "app.bsky.actor.getProfile",
+      "params": {"actor": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["actor", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"status": 418, "contentType": "application/json", "text": ""},
+      "expect": {"error": {"name": "Unknown", "status": 418}}
+    }
+  ]
+}

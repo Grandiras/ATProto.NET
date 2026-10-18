@@ -1,0 +1,1790 @@
+{
+  "version": 1,
+  "sources": {
+    "atproto": {
+      "type": "git",
+      "repository": "bluesky-social/atproto",
+      "commit": "a7c8604d876a200a1e4fa4aec83d4189ac4f1c12",
+      "path": "lexicons",
+      "namespaces": [
+        "app/bsky",
+        "chat/bsky",
+        "com/atproto",
+        "tools/ozone"
+      ],
+      "licence": "MIT OR Apache-2.0",
+      "fetched": "2026-10-05"
+    },
+    "spaces": {
+      "type": "git",
+      "repository": "bluesky-social/atproto",
+      "branch": "permissioned-data",
+      "commit": "619c6e8556db7dd37bb7df1d92a5eae83da8d8b0",
+      "path": "lexicons",
+      "namespaces": [
+        "com/atproto/space",
+        "com/atproto/simplespace"
+      ],
+      "licence": "MIT OR Apache-2.0",
+      "note": "Spaces reference implementation, until the GA Lexicons reach main (SPC-1..3)",
+      "fetched": "2026-10-18"
+    },
+    "standard.site": {
+      "type": "network",
+      "did": "did:plc:re3ebnp5v7ffagz6rb6xfei4",
+      "prefix": "site.standard.",
+      "licence": "MIT",
+      "fetched": "2026-10-05"
+    }
+  },
+  "lexicons": {
+    "app.bsky.actor.contentVisibilityDeclaration": {
+      "source": "atproto",
+      "cid": "bafyreibnzkz5tl472x5myzmu6sayin5qm2kj2bspxf7g57yqevyuco2kwm"
+    },
+    "app.bsky.actor.defs": {
+      "source": "atproto",
+      "cid": "bafyreidv4wr3sla7dvnhdcxw6fkg4wst4njoifeysti7mmgflfhl36yxjq"
+    },
+    "app.bsky.actor.getPreferences": {
+      "source": "atproto",
+      "cid": "bafyreiftuoh6n5npkyelejxbzettltmgl46xm3qot5nkn7lm365ej2ahii"
+    },
+    "app.bsky.actor.getProfile": {
+      "source": "atproto",
+      "cid": "bafyreigrtosreva7e5m7bwbbfsmw77gkdnieizgxwpobw5iobuck3j54xa"
+    },
+    "app.bsky.actor.getProfiles": {
+      "source": "atproto",
+      "cid": "bafyreihphrndnt2cvnv3nk442f6kohdnpagk4xip74f2jn36uoal25vhta"
+    },
+    "app.bsky.actor.getSuggestions": {
+      "source": "atproto",
+      "cid": "bafyreig7dhef4df3n72bj6pvklzija26yk5szxdzlixm5x72bingowmf3m"
+    },
+    "app.bsky.actor.profile": {
+      "source": "atproto",
+      "cid": "bafyreia6umzg3a6d7mjbow4p57tviey45muohklhgsvjoamcctoiusr4pe"
+    },
+    "app.bsky.actor.putPreferences": {
+      "source": "atproto",
+      "cid": "bafyreietfhhwbwb3ltcffsonhw5p62z233frhe6edls67su5a3evqrykju"
+    },
+    "app.bsky.actor.searchActors": {
+      "source": "atproto",
+      "cid": "bafyreidfkzp3tcbxvqo3aty2prhnaiqoxxbjhrapaqmko2gtnymtgxyqdi"
+    },
+    "app.bsky.actor.searchActorsTypeahead": {
+      "source": "atproto",
+      "cid": "bafyreigydtxvpnrndvk7iws4uypd6adqzohcdafeuqajiqmmbcqq5vatmu"
+    },
+    "app.bsky.actor.status": {
+      "source": "atproto",
+      "cid": "bafyreifdg4b64wohpwkh5lydc6tckvol2rspnpni6dec6recy2rhvlnz4a"
+    },
+    "app.bsky.ageassurance.begin": {
+      "source": "atproto",
+      "cid": "bafyreieqogxqzohb5fdtw5jiqckscgipkbrtvluoodscm45ajw2ba26zpm"
+    },
+    "app.bsky.ageassurance.defs": {
+      "source": "atproto",
+      "cid": "bafyreig2g6pata4a2yjc7aiqoyybi3jzu76trduxlswte2gzhqdx252sie"
+    },
+    "app.bsky.ageassurance.getConfig": {
+      "source": "atproto",
+      "cid": "bafyreifpfw7n3y6vqhiyqaqiyrmxm3lypkamyfk7dk6jzho7ujjujou6xq"
+    },
+    "app.bsky.ageassurance.getState": {
+      "source": "atproto",
+      "cid": "bafyreialq63q3obxzsrzbwx25stjmtha3frlifzbgkvtthr535oal3467y"
+    },
+    "app.bsky.authCreatePosts": {
+      "source": "atproto",
+      "cid": "bafyreiazggqsq23uhmsarktpirabebhydpuhrxplxz2o3deb4aangsmfni"
+    },
+    "app.bsky.authDeleteContent": {
+      "source": "atproto",
+      "cid": "bafyreicjusvl5bcn7czq5wonsafs34swjjoxw5q2llvn3mpnxb7u5y3hhy"
+    },
+    "app.bsky.authFullApp": {
+      "source": "atproto",
+      "cid": "bafyreickcv53ykzgkx4b2gsxj27cge2ndfwnuzpy4ogsggcjqry7c2ym5e"
+    },
+    "app.bsky.authManageFeedDeclarations": {
+      "source": "atproto",
+      "cid": "bafyreid6nhglngq5qf4aiwt6q73zc6kx3p537o7d62snzx5rcgpfxvofmy"
+    },
+    "app.bsky.authManageLabelerService": {
+      "source": "atproto",
+      "cid": "bafyreibx7gbnishzposjg46tip75o36kzic4wl6r2hwvi5ob3kzegrzqve"
+    },
+    "app.bsky.authManageModeration": {
+      "source": "atproto",
+      "cid": "bafyreidxd327vchmpfjegjwlehlud5bbg3zvecibu6yilcbwt4krpghv3e"
+    },
+    "app.bsky.authManageNotifications": {
+      "source": "atproto",
+      "cid": "bafyreiagate5s2d6tzdgqdyjwhxxlxksbgwpeig6uzjfefwh2qc5luef7e"
+    },
+    "app.bsky.authManageProfile": {
+      "source": "atproto",
+      "cid": "bafyreicbgdtxretdphpg3sa6j76byzy3k3eb6h2pvebsp22dqfdm65b55q"
+    },
+    "app.bsky.authViewAll": {
+      "source": "atproto",
+      "cid": "bafyreidsqzfsa37vr63adbfvy3j7qxkds7co6u6ao4f3clioc3v2jtzoa4"
+    },
+    "app.bsky.bookmark.createBookmark": {
+      "source": "atproto",
+      "cid": "bafyreiegg2yu2jl5kfswirsylpn56ro2pj7lkfsufvrnv7xik7xdw27kfi"
+    },
+    "app.bsky.bookmark.defs": {
+      "source": "atproto",
+      "cid": "bafyreifi3xao6wlbsnrzt36xnrfcvl5pil7jw7owrgqpmppfzy52dpy7e4"
+    },
+    "app.bsky.bookmark.deleteBookmark": {
+      "source": "atproto",
+      "cid": "bafyreig6rcgoqayi4fwgx5k5va3cnfsjykvc3fes7rmcfpszdd745hvatu"
+    },
+    "app.bsky.bookmark.getBookmarks": {
+      "source": "atproto",
+      "cid": "bafyreicnazdriby4i3uu3nelt5ur4o3575ivjuw5pxlfj46tvfmglpny2e"
+    },
+    "app.bsky.contact.defs": {
+      "source": "atproto",
+      "cid": "bafyreidsqrf3mf6g3zphne4t2swm6hbgd3ojk2nzlmwj6ezsvq62o3abgu"
+    },
+    "app.bsky.contact.dismissMatch": {
+      "source": "atproto",
+      "cid": "bafyreihtnfxggnq2n6ijlvrmtmpspwz3pzceprcfzqpa6iwjftpoknkory"
+    },
+    "app.bsky.contact.getMatches": {
+      "source": "atproto",
+      "cid": "bafyreihk7c54sgsxyh3bhtwd3cf5kdzjh4lauwwpbogau3zm65acfc3b2u"
+    },
+    "app.bsky.contact.getSyncStatus": {
+      "source": "atproto",
+      "cid": "bafyreicozb7ibbr4h6xeh23jdjpfs6thxvodudypurdwqajwdnnj7lrioi"
+    },
+    "app.bsky.contact.importContacts": {
+      "source": "atproto",
+      "cid": "bafyreihzcos4jxddkpsk3isoxpgmw2x4rqbvp4b3f475cxwnfdzngnl7by"
+    },
+    "app.bsky.contact.removeData": {
+      "source": "atproto",
+      "cid": "bafyreidtbulghr5cv27rzcato5esrgigddaafde2kgkz6hnivaimclynla"
+    },
+    "app.bsky.contact.sendNotification": {
+      "source": "atproto",
+      "cid": "bafyreietl2pnpkuxeip5ftk7xvvrkuzdu4ndsn2nldt4wf2vbteyj5v6ju"
+    },
+    "app.bsky.contact.startPhoneVerification": {
+      "source": "atproto",
+      "cid": "bafyreif6jrd6gkonvwlvfkv2wyx5tnk4ayuv2xihcao7kyzdms42s34bhe"
+    },
+    "app.bsky.contact.verifyPhone": {
+      "source": "atproto",
+      "cid": "bafyreiapgsesqmksilfc6nxndzglbxquxtmk3gwiikie44rangg2drplti"
+    },
+    "app.bsky.draft.createDraft": {
+      "source": "atproto",
+      "cid": "bafyreid43zfsfg4wk4p3mf3gihwhpqh4d5rmpw7l5n3zks3kl53bsrsaba"
+    },
+    "app.bsky.draft.defs": {
+      "source": "atproto",
+      "cid": "bafyreiewy3wgajj4al6xifjc2e5gpg4yyj4laf2gl7pe3liekulfzxnlcu"
+    },
+    "app.bsky.draft.deleteDraft": {
+      "source": "atproto",
+      "cid": "bafyreicxw6nrrrikakfdaue3x45vfp4w62mncscdkpivpeom2orx2ae3su"
+    },
+    "app.bsky.draft.getDrafts": {
+      "source": "atproto",
+      "cid": "bafyreiewac2qwebwwtm4mtvk3aobtsyhbqug3hplhftjlbbn6bvuuxyumy"
+    },
+    "app.bsky.draft.updateDraft": {
+      "source": "atproto",
+      "cid": "bafyreicjy2aatoptybrtogj3nckokmkjpbmelvkej5bkfvxfcs5enu2fhu"
+    },
+    "app.bsky.embed.defs": {
+      "source": "atproto",
+      "cid": "bafyreia42uud4qil67wknywzbxfyxc3b7woewsii54cakq2ould3ldetei"
+    },
+    "app.bsky.embed.external": {
+      "source": "atproto",
+      "cid": "bafyreigwach36azu4xg3jvcmb6fe53umfln3wkuj5srqsvcjaypa6rw534"
+    },
+    "app.bsky.embed.gallery": {
+      "source": "atproto",
+      "cid": "bafyreia4tixag4sadkirfo63qfma6fz3ifbqanify4e6ce6swkl5lwjnfq"
+    },
+    "app.bsky.embed.getEmbedExternalView": {
+      "source": "atproto",
+      "cid": "bafyreicnv2umobvrfrlo6tqw7umcsxv77owcwit3vld7l46fphpy5uuzky"
+    },
+    "app.bsky.embed.images": {
+      "source": "atproto",
+      "cid": "bafyreifw77mkqkzlvm5csjwutkrnaivsjvlhg2qxdlwwabqpahlyyjrpwi"
+    },
+    "app.bsky.embed.record": {
+      "source": "atproto",
+      "cid": "bafyreia7yq4c6rqkz32fjf6gj5rcvxsirguducn545s3dvls7qutnn2ali"
+    },
+    "app.bsky.embed.recordWithMedia": {
+      "source": "atproto",
+      "cid": "bafyreidszvpeqf7copdmowm4ln4eyhahlqxktlvootjjjdmtkwy6s62jya"
+    },
+    "app.bsky.embed.video": {
+      "source": "atproto",
+      "cid": "bafyreihoxb7lvczityqcv2s5od3rllmkee7tn3m4qg6wn34kd6m45p6v24"
+    },
+    "app.bsky.feed.defs": {
+      "source": "atproto",
+      "cid": "bafyreigqymem5fqdg3u2aj7rfvmt2j4cmuqjjk4nsx6ft6dq6xcyv2gdkq"
+    },
+    "app.bsky.feed.describeFeedGenerator": {
+      "source": "atproto",
+      "cid": "bafyreigzxk3um5hbi7gbuh5bhmob75bxlfh5bonfsl7h5dmt7woxdhxq54"
+    },
+    "app.bsky.feed.generator": {
+      "source": "atproto",
+      "cid": "bafyreig2rppxkltsbe3523gavulrgprwjkyyb7mvmor22fdkoas6hrc2ju"
+    },
+    "app.bsky.feed.getActorFeeds": {
+      "source": "atproto",
+      "cid": "bafyreihqvune35emnr3vby6ldv2tzy57cfcgst2qy5icwpeay4mdvughfq"
+    },
+    "app.bsky.feed.getActorLikes": {
+      "source": "atproto",
+      "cid": "bafyreiaxgdm2fv6bjzh2hdixgc3teprs7z46ja273kzevjnsp3hi224xoy"
+    },
+    "app.bsky.feed.getAuthorFeed": {
+      "source": "atproto",
+      "cid": "bafyreiha5ca2lkguxvh22smjuehn2evxhyqk7isuiyqy6b23raljriv5a4"
+    },
+    "app.bsky.feed.getFeed": {
+      "source": "atproto",
+      "cid": "bafyreihnhxqdfxojwo4xnedj55kskjki3opd2oiz3pfa5nm2ijr5janlq4"
+    },
+    "app.bsky.feed.getFeedGenerator": {
+      "source": "atproto",
+      "cid": "bafyreibdzaan7vboli3ywi7wqzkibc2puukhfpg5rcdgizxlr7fbxx5gcy"
+    },
+    "app.bsky.feed.getFeedGenerators": {
+      "source": "atproto",
+      "cid": "bafyreiervdq422lralzyssoewrfstcmqxsqimtmdskkqeflllszjnq32em"
+    },
+    "app.bsky.feed.getFeedSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreidmn4nltqygzpd3vzobfkrkxcypbfirremfhzuluhlavwp5ht637m"
+    },
+    "app.bsky.feed.getLikes": {
+      "source": "atproto",
+      "cid": "bafyreib6ylalknwxizbtbwsdmja4rhjswwczut5ivjdavfgew27m7knqou"
+    },
+    "app.bsky.feed.getListFeed": {
+      "source": "atproto",
+      "cid": "bafyreiahsqknrua2kkmdyzmckadfqap5wuwx645nvwtceibr6dqstfzvaa"
+    },
+    "app.bsky.feed.getPostThread": {
+      "source": "atproto",
+      "cid": "bafyreif37upfzfu7t4rv3pqzz3swu2oc4nrxdxfr3xqjsrrmgyckneitta"
+    },
+    "app.bsky.feed.getPosts": {
+      "source": "atproto",
+      "cid": "bafyreihy4tanaizkynghab46n3qztsspvoaqtbrkzinvxi4igeylg5ghji"
+    },
+    "app.bsky.feed.getQuotes": {
+      "source": "atproto",
+      "cid": "bafyreifie24bg4lvi5d4byxzsty5nfinlxkughiykbe3gjloy4ydgtzx7e"
+    },
+    "app.bsky.feed.getRepostedBy": {
+      "source": "atproto",
+      "cid": "bafyreif4v4aucwv4xvwnub6w2npmioqpa6nn4t5dsbqophoyfnimhsuweq"
+    },
+    "app.bsky.feed.getSuggestedFeeds": {
+      "source": "atproto",
+      "cid": "bafyreif4v4aldmcoc2nkyanu6t3ks4jazqsiffq5gp54tuyn5o6rk2ff5e"
+    },
+    "app.bsky.feed.getTimeline": {
+      "source": "atproto",
+      "cid": "bafyreigjd75wf7x6xwuzknxckw5dmqr34zly4emyh3lmef2sujvyta3izm"
+    },
+    "app.bsky.feed.like": {
+      "source": "atproto",
+      "cid": "bafyreiasvjidnd3sazbx46rzgipfkpejq4mgfuzwv2xrdaesp64t4dl2ry"
+    },
+    "app.bsky.feed.post": {
+      "source": "atproto",
+      "cid": "bafyreia7rgxu7467phwpcgzaw62l5bzmxufkpikrc5zm4q3xhjmuhq4pti"
+    },
+    "app.bsky.feed.postgate": {
+      "source": "atproto",
+      "cid": "bafyreiai5efexyluyptv5tbl6kqbqlnneczqzexcqnxmitmulyjfaftgva"
+    },
+    "app.bsky.feed.repost": {
+      "source": "atproto",
+      "cid": "bafyreihks43jtwanviarzctwx2vvcyloivuxo2kdi7ex24gog5dfn4s5au"
+    },
+    "app.bsky.feed.searchPosts": {
+      "source": "atproto",
+      "cid": "bafyreif3xl6jj27tktxmxr3gtmf74wuxj6y6xnoycs7cclvifh4ncsi6mi"
+    },
+    "app.bsky.feed.searchPostsV2": {
+      "source": "atproto",
+      "cid": "bafyreiemtjvwfo6xuab6vkwbji46d7wms5xdzad6vygjymmcqr326quwqu"
+    },
+    "app.bsky.feed.sendInteractions": {
+      "source": "atproto",
+      "cid": "bafyreicaoiskxpn2lmbzxuvpzawbsqxoewko3drbsxms222obabj2dkque"
+    },
+    "app.bsky.feed.threadgate": {
+      "source": "atproto",
+      "cid": "bafyreiht77wd6duduz4yqp62m6dwma5dy7gdihps4g2nd73acfzqlglvdi"
+    },
+    "app.bsky.graph.block": {
+      "source": "atproto",
+      "cid": "bafyreifalnveckyi2375ek5b5uyg4ef23mktcdktmgiwwsb3rygdls7owm"
+    },
+    "app.bsky.graph.defs": {
+      "source": "atproto",
+      "cid": "bafyreief2f7zpllyicjugbn7faohmnzwujeiytfzj76uckxmrqmtdvechy"
+    },
+    "app.bsky.graph.follow": {
+      "source": "atproto",
+      "cid": "bafyreiav7u7jchqtsxr2yy3gsazfqqziw5tcrfniuprrmoariruj3cft5u"
+    },
+    "app.bsky.graph.getActorStarterPacks": {
+      "source": "atproto",
+      "cid": "bafyreihm57pc7dmeig4lxcv3x53z53y27obkkxnopimax7dbtqx4enqf7i"
+    },
+    "app.bsky.graph.getBlocks": {
+      "source": "atproto",
+      "cid": "bafyreic3yp4tuxthww5sidvv27gmg3ha3argl3moconhmcccwvooobggve"
+    },
+    "app.bsky.graph.getFollowers": {
+      "source": "atproto",
+      "cid": "bafyreib57lin5v6hnaqwukaxghkh4udjgrxxxvu3xsfihyrt44x6lnrsqi"
+    },
+    "app.bsky.graph.getFollows": {
+      "source": "atproto",
+      "cid": "bafyreihaagfv6kjf6ygvl54sxgw7dzx7jg5t4gmciu5m5dso2uqqj5eviu"
+    },
+    "app.bsky.graph.getKnownFollowers": {
+      "source": "atproto",
+      "cid": "bafyreia3bjqeaj5uk2zlkhk5pipefehy2mlrdp3hoqtgu3np3tvbg6xjuq"
+    },
+    "app.bsky.graph.getList": {
+      "source": "atproto",
+      "cid": "bafyreigplofixg524nkirazfh3loe36lvqqeg6jfqvrggzztspkefwm4re"
+    },
+    "app.bsky.graph.getListBlocks": {
+      "source": "atproto",
+      "cid": "bafyreiagod73i7ecuzpyxwlibrwimo7u4ew75nzc2b3ajdocc5sg6eszpy"
+    },
+    "app.bsky.graph.getListMutes": {
+      "source": "atproto",
+      "cid": "bafyreictd7aefsbizbn66bmhfbyvxbirbuz4uiqcp4o5tb3eiyun42wm4a"
+    },
+    "app.bsky.graph.getLists": {
+      "source": "atproto",
+      "cid": "bafyreiffrqdk7vdses2qzrmmfotwyvncuhvq7anaw64x7wmlz5cix5nihy"
+    },
+    "app.bsky.graph.getListsWithMembership": {
+      "source": "atproto",
+      "cid": "bafyreifgvypq6ahfxtkbdmudh7bb7vib6c7kvkit6ks3gjoagor747cxfy"
+    },
+    "app.bsky.graph.getMutes": {
+      "source": "atproto",
+      "cid": "bafyreibnvq62dmchuulpzvvl6w2x6z4mofnqdrfbsvc5ynoo6cazr7wove"
+    },
+    "app.bsky.graph.getRelationships": {
+      "source": "atproto",
+      "cid": "bafyreiabszfuqanet2tbyyx7plxmknfegygnfyaydhwyialt4cbo24k5dq"
+    },
+    "app.bsky.graph.getStarterPack": {
+      "source": "atproto",
+      "cid": "bafyreia77gh56vqe3ws26ntm7pffj43uhvl6l66vpb7uhxrhpih6rvne6m"
+    },
+    "app.bsky.graph.getStarterPacks": {
+      "source": "atproto",
+      "cid": "bafyreighxbnsgugwwjnu37nzoca7qtpipvf2l5ijz2z74ghdfrgppqfoaa"
+    },
+    "app.bsky.graph.getStarterPacksWithMembership": {
+      "source": "atproto",
+      "cid": "bafyreigpeb22avssmmfqiveh3hem6qnxrduyyhkxc3ixpfgehmhkskgssy"
+    },
+    "app.bsky.graph.getSuggestedFollowsByActor": {
+      "source": "atproto",
+      "cid": "bafyreih4zuul6xlijankc73dx7bax3gbeva2dlfnzabk335y7iaptxbmr4"
+    },
+    "app.bsky.graph.list": {
+      "source": "atproto",
+      "cid": "bafyreihqckm5nkbamel2pljhk5lbjfqfmczmb7a5eglpic7ontdx3r4sey"
+    },
+    "app.bsky.graph.listblock": {
+      "source": "atproto",
+      "cid": "bafyreieomtmr6mpvgnbbgwfkdqlyatwymvu4vdnhldpqetzczlj4eywxqq"
+    },
+    "app.bsky.graph.listitem": {
+      "source": "atproto",
+      "cid": "bafyreiegh2vyadmieea52lnt574lfcddprhpuz5moqhqiij56egfvyf62m"
+    },
+    "app.bsky.graph.muteActor": {
+      "source": "atproto",
+      "cid": "bafyreiebgeqbzitzytuvuu23nxgiyxjdh3iawcxonsiu6t2aubqd6ugt6m"
+    },
+    "app.bsky.graph.muteActorList": {
+      "source": "atproto",
+      "cid": "bafyreihadi2x64bpzncb2xfo5ww4mvajftf4qd3nxmsjud7assloxzfm44"
+    },
+    "app.bsky.graph.muteThread": {
+      "source": "atproto",
+      "cid": "bafyreib6ppci3qzye6wktkm4byxtb5mnl2vg22fm7oawcdvof2tfogx4dy"
+    },
+    "app.bsky.graph.referencelistoptout": {
+      "source": "atproto",
+      "cid": "bafyreifode2cfu7x7yamiorzg66u46l4zdr2yxmtuoikrup7j2dhwzxf3q"
+    },
+    "app.bsky.graph.searchStarterPacks": {
+      "source": "atproto",
+      "cid": "bafyreia446ip6mbnwpml6hlvxab7jtsud7zczde3u6zmnsa3op4bpxu7um"
+    },
+    "app.bsky.graph.searchStarterPacksV2": {
+      "source": "atproto",
+      "cid": "bafyreiftevu66nkth5uprlwhoxtxloz4aqym25hu3wj2bal2vcuupa6uky"
+    },
+    "app.bsky.graph.starterpack": {
+      "source": "atproto",
+      "cid": "bafyreiejgf46gibbkpmjtgt5yyiir3wyxgrtvnfxtcdeyxrdrdnsvwgjc4"
+    },
+    "app.bsky.graph.unmuteActor": {
+      "source": "atproto",
+      "cid": "bafyreihqc6o54652e56jmvzpaf7ix4liws4bmnd2bklc2qkuqjozfcvka4"
+    },
+    "app.bsky.graph.unmuteActorList": {
+      "source": "atproto",
+      "cid": "bafyreiamqj5gh6x36dzdk6ve7kfjvzotqjfcg2nplgch7woshqrubbe2ee"
+    },
+    "app.bsky.graph.unmuteThread": {
+      "source": "atproto",
+      "cid": "bafyreiahpkqj4v7b3ujk45ufdcvynu2dxjtunzi2oipu7kzdupybmysgzu"
+    },
+    "app.bsky.graph.verification": {
+      "source": "atproto",
+      "cid": "bafyreidn7abfzt5p4gcujys2w4seigbhcfnscos6fmh4hnce2gdormbwpa"
+    },
+    "app.bsky.labeler.defs": {
+      "source": "atproto",
+      "cid": "bafyreicxx5i36v5dbqk5vvfzhnta5gajrvc544mnepux4wksrkid7mw3q4"
+    },
+    "app.bsky.labeler.getServices": {
+      "source": "atproto",
+      "cid": "bafyreife7p4pjij5jvmngdlxfq4cjzqe2cx7himnkf7zgxsykcxg6klpl4"
+    },
+    "app.bsky.labeler.service": {
+      "source": "atproto",
+      "cid": "bafyreihr336i3ys6rc4ezhk2wwpeyufnp2ma2n6dxljd2ogksi4sjo6aqe"
+    },
+    "app.bsky.notification.declaration": {
+      "source": "atproto",
+      "cid": "bafyreibjnupqb7xke5eeeehpcm2gecacduwd4ebifcovgigzdpo42jq3kq"
+    },
+    "app.bsky.notification.defs": {
+      "source": "atproto",
+      "cid": "bafyreifzktxnol5rafjoznauk5j7ub2gsxxm7qjskg3vqmcgn6krrsz55u"
+    },
+    "app.bsky.notification.getGroupedNotifications": {
+      "source": "atproto",
+      "cid": "bafyreihyv25gx7iysovm7k7nohyb4i5yiutkvtbyk6hzwhm5cnu3apim3m"
+    },
+    "app.bsky.notification.getPreferences": {
+      "source": "atproto",
+      "cid": "bafyreibaz7cyl7ytpextx7bv6oaguadj5bdvpf4hksw6t737zkfw5y3rue"
+    },
+    "app.bsky.notification.getUnreadCount": {
+      "source": "atproto",
+      "cid": "bafyreiadg4lpymgribak7onetq3cthta7p2a5aceo6sqntiyekhe6dxfpi"
+    },
+    "app.bsky.notification.listActivitySubscriptions": {
+      "source": "atproto",
+      "cid": "bafyreien2hslzbpoypvz3shv6tphkmdtccejieg5lricwl6stdjomiu3zi"
+    },
+    "app.bsky.notification.listNotifications": {
+      "source": "atproto",
+      "cid": "bafyreidt7fkgzafxi65rvdbhnsclu6sanvx3ci4m3x4xm225akaneuydd4"
+    },
+    "app.bsky.notification.putActivitySubscription": {
+      "source": "atproto",
+      "cid": "bafyreifvbgf53yncsrjpzwa5xwnlax7vyesflkg6fmxb2367vfa6fv7kwu"
+    },
+    "app.bsky.notification.putPreferences": {
+      "source": "atproto",
+      "cid": "bafyreihbqjdbhra45czd5m5665btugrie7bwsiwzehutjdwygyy5dsq4fi"
+    },
+    "app.bsky.notification.putPreferencesV2": {
+      "source": "atproto",
+      "cid": "bafyreiefun5klfddbnd7gfodnlcbn7ing45qo6lbmsahau7qgw4zlgv42i"
+    },
+    "app.bsky.notification.registerPush": {
+      "source": "atproto",
+      "cid": "bafyreiayl6ngk3ckmaorocgbwxf2ruqgficcbkm2xvoja2crnyul66u3hy"
+    },
+    "app.bsky.notification.unregisterPush": {
+      "source": "atproto",
+      "cid": "bafyreiboilq7jye3s7isayixm6iqjbsxrfzizaj727obtdda6qzh56at6y"
+    },
+    "app.bsky.notification.updateSeen": {
+      "source": "atproto",
+      "cid": "bafyreigzds576ji7wzi6alzn4wegtfzk2iqagwtugbw3byb2v3xvqho4hi"
+    },
+    "app.bsky.richtext.facet": {
+      "source": "atproto",
+      "cid": "bafyreidg56eo7zynf6ihz4xb627vwoqf5idnevkmwp7sxc4tijg6xngbu4"
+    },
+    "app.bsky.unspecced.defs": {
+      "source": "atproto",
+      "cid": "bafyreihqbegytmgzg5xnelrur2d7tjorsxfp2clvpae7cqxxxb6kjoath4"
+    },
+    "app.bsky.unspecced.getAgeAssuranceState": {
+      "source": "atproto",
+      "cid": "bafyreihzuomnbawznb7fx2ang7mh3hrjdavsz2rwpxwo6ninmxvea7vlce"
+    },
+    "app.bsky.unspecced.getConfig": {
+      "source": "atproto",
+      "cid": "bafyreifyt6vb74dnzrsfo77iqucuwj3lmvo3s2doabonzjaoazcrwwasze"
+    },
+    "app.bsky.unspecced.getOnboardingSuggestedStarterPacks": {
+      "source": "atproto",
+      "cid": "bafyreicjltwq2vrodezykj2oebkef6ft4fawnrcc3zhdjnhe5v5olmbsrm"
+    },
+    "app.bsky.unspecced.getOnboardingSuggestedStarterPacksSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreidlmx5sgcpx2j53jl7bw6yahkbn4gyf6c7e7t6dmfson4mi32dsqy"
+    },
+    "app.bsky.unspecced.getOnboardingSuggestedUsersSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreieg77mxmkmml62dje6sq7empo2xeqnox5aa4hqavd3u7jhtfrlqyu"
+    },
+    "app.bsky.unspecced.getPopularFeedGenerators": {
+      "source": "atproto",
+      "cid": "bafyreidqdgjvsbljqcyxg2w2hl7cirtly2y3ogl7bqrad7t5c7k3wa3shy"
+    },
+    "app.bsky.unspecced.getPostThreadOtherV2": {
+      "source": "atproto",
+      "cid": "bafyreifk7opnxsv322dzcntinlokdl47lymd3plsglffr44suxsb7sd55i"
+    },
+    "app.bsky.unspecced.getPostThreadV2": {
+      "source": "atproto",
+      "cid": "bafyreif7pmev6ka5bpyrreqqci4ro2qpimsoiqlyxb6h7icyqslyw7a23q"
+    },
+    "app.bsky.unspecced.getSuggestedFeeds": {
+      "source": "atproto",
+      "cid": "bafyreiai5shcertngm3f7qon43iwintbn5z6mi2y6gkcjs7wust572fmda"
+    },
+    "app.bsky.unspecced.getSuggestedFeedsSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreiesxnnkt6h3gctl52tczesybsd47ccyxouolt6bap5uffedmq6osy"
+    },
+    "app.bsky.unspecced.getSuggestedOnboardingUsers": {
+      "source": "atproto",
+      "cid": "bafyreiag3bxuigxikhzbiwsfpp53cc47sitarh7dfajnbr2ccj5m5nml4q"
+    },
+    "app.bsky.unspecced.getSuggestedStarterPacks": {
+      "source": "atproto",
+      "cid": "bafyreibggxiw2yi4oooyd7a7bzd3lb2q7lyvp7btlxs3e67r3umfzrwbxq"
+    },
+    "app.bsky.unspecced.getSuggestedStarterPacksSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreihckdfssm4js25m4mevuxysevagjwdnf57vixqjjhsjh7j3jug26u"
+    },
+    "app.bsky.unspecced.getSuggestedUsers": {
+      "source": "atproto",
+      "cid": "bafyreid5ev3jielam77eyy7w7rwc7yswnt5icb64icadwwjh44hpsmifva"
+    },
+    "app.bsky.unspecced.getSuggestedUsersForDiscover": {
+      "source": "atproto",
+      "cid": "bafyreigofueg2t6cbenlkxwwac5qtuxuahznpgmq22m2xdcwsife7p4dny"
+    },
+    "app.bsky.unspecced.getSuggestedUsersForDiscoverSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreiepxlereahgl7kmuatfs26mg6cpenrhdk2zeoie22by7vgju65b7q"
+    },
+    "app.bsky.unspecced.getSuggestedUsersForExplore": {
+      "source": "atproto",
+      "cid": "bafyreicb4qjabgexnkmmsigmlihi5n7lw3z4rkqrankl7p5qxv4fx3rlaq"
+    },
+    "app.bsky.unspecced.getSuggestedUsersForExploreSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreig45xnmnyixsce6khtvo4c4t4komrzzerptlyjntcubwrz3wmrfdm"
+    },
+    "app.bsky.unspecced.getSuggestedUsersForSeeMore": {
+      "source": "atproto",
+      "cid": "bafyreicd4vzgampobkcike37udh7wxlb4rpvhkhojzfwi57esntdzq66wq"
+    },
+    "app.bsky.unspecced.getSuggestedUsersForSeeMoreSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreiczhw4wlplqorumbymf3ts6rmkntepnnbpx6crno4zsleeuft4fc4"
+    },
+    "app.bsky.unspecced.getSuggestedUsersSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreieamwegaeckvvthvdu6d2r2w6mceyjsvvu7s66b2cutley4rf6h6i"
+    },
+    "app.bsky.unspecced.getSuggestionsSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreiadqzkaixofjksipw3ip3pv3zp4zyrgrv4u3xsbp2cgwojiw22hxu"
+    },
+    "app.bsky.unspecced.getTaggedSuggestions": {
+      "source": "atproto",
+      "cid": "bafyreicxlq6xtcp2hxkvbabe6jk4kjjxqrtyinvazlqbkvvhbvcf7r5sm4"
+    },
+    "app.bsky.unspecced.getTrendingTopics": {
+      "source": "atproto",
+      "cid": "bafyreictfkyzev53yay5awluok5ilnmlorfm7emxwztat3dfuhk4y4yj4m"
+    },
+    "app.bsky.unspecced.getTrends": {
+      "source": "atproto",
+      "cid": "bafyreiaeybfguhuaraxa4blpk5l7c5ghldwwzxb72mddtbcof7uesk2lty"
+    },
+    "app.bsky.unspecced.getTrendsSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreif2jzdjbt6hbsk2ycnox5tk234lz76ep2frdumf67rtv7axa4mayq"
+    },
+    "app.bsky.unspecced.initAgeAssurance": {
+      "source": "atproto",
+      "cid": "bafyreib7q6q3cidso72gg76mfi3eu3pozoiufrl6dskpqjka6ot7mr7ekq"
+    },
+    "app.bsky.unspecced.searchActorsSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreiap7svawpsybjpghhd7cqcgc6bzuadzccdsi6melzj3eork74sgvm"
+    },
+    "app.bsky.unspecced.searchPostsSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreibwafxjbvuyvertqonwpgnjqriocdyqrmceekohzhzs6csuo4q6aq"
+    },
+    "app.bsky.unspecced.searchStarterPacksSkeleton": {
+      "source": "atproto",
+      "cid": "bafyreig6fbxhq7b4yd74ssol3fc5rd4hyduinj7cypujmdt7k3ov7nnzum"
+    },
+    "app.bsky.video.abortUpload": {
+      "source": "atproto",
+      "cid": "bafyreianqbhx4gmewepgdqvadbtng63kfcgwgbug5zeughizl7pgon23iy"
+    },
+    "app.bsky.video.defs": {
+      "source": "atproto",
+      "cid": "bafyreicorzkcw5zp4zjsiepyakpfn3vvtpwsbqwzsy43d2y6i3t5rp3meu"
+    },
+    "app.bsky.video.finishUpload": {
+      "source": "atproto",
+      "cid": "bafyreibbp6mqx75wbxsq5uk3jtdaeucjkjwlr7qz4l32tkous2fhja55ji"
+    },
+    "app.bsky.video.getJobStatus": {
+      "source": "atproto",
+      "cid": "bafyreia5xkrbastzzbpodjm242orufiswrz5aasjqrqtuvb6lmmfwixmqy"
+    },
+    "app.bsky.video.getUploadLimits": {
+      "source": "atproto",
+      "cid": "bafyreidlw3fozroigsbrz73jtqdoc7dkdpxi4oie3df7nb3vnycy2kkz2y"
+    },
+    "app.bsky.video.getUploadStatus": {
+      "source": "atproto",
+      "cid": "bafyreibyxkewpxexnygrryr23f4whsuaqv3mxoq3qylklrv4tqleuq7ml4"
+    },
+    "app.bsky.video.startUpload": {
+      "source": "atproto",
+      "cid": "bafyreidyzxtlrv2r22tget42awzccufwacyo5knnb4w3gsi5ujmjlpjosm"
+    },
+    "app.bsky.video.uploadPart": {
+      "source": "atproto",
+      "cid": "bafyreigjfaujbqwxmpazrrm6q2ehh7rpdra7sykqizokwwd7c3hd26skbi"
+    },
+    "app.bsky.video.uploadVideo": {
+      "source": "atproto",
+      "cid": "bafyreibvsdivxr54ooykqhsy3i6n6f7223hbfnnnzs4h6xrzr5kvvztuvy"
+    },
+    "chat.bsky.actor.declaration": {
+      "source": "atproto",
+      "cid": "bafyreih4ivey4vqreb2ebujlt7iranqyizxkv5kpm3ksdlgkinkgcu53pu"
+    },
+    "chat.bsky.actor.defs": {
+      "source": "atproto",
+      "cid": "bafyreigiv5fo5iufd3ahma6tgtozm35xibvx276nhjsjwuvsvxh3zj7u7q"
+    },
+    "chat.bsky.actor.deleteAccount": {
+      "source": "atproto",
+      "cid": "bafyreierykzslwmkkugpyio3yiaxguttd5his5i4ow7re7wzcbxfogerrq"
+    },
+    "chat.bsky.actor.exportAccountData": {
+      "source": "atproto",
+      "cid": "bafyreigwllvtmdetzfvgrzwhtzjilnj3gfxaj45yd32oe436etzp7yghai"
+    },
+    "chat.bsky.actor.getStatus": {
+      "source": "atproto",
+      "cid": "bafyreib7f6wo5xsnfz37ywggtvqbcuxigf325q6pezshyhzyp2n5pdlzhu"
+    },
+    "chat.bsky.authFullChatClient": {
+      "source": "atproto",
+      "cid": "bafyreigbefp73hn747u3syciogu2snm6wez4iqahxar3w6ps5oybf2m36y"
+    },
+    "chat.bsky.convo.acceptConvo": {
+      "source": "atproto",
+      "cid": "bafyreih2ob7rsibl3h3so356rcdo2fop3dosxkna75w2u45qflbtw2r7qm"
+    },
+    "chat.bsky.convo.addReaction": {
+      "source": "atproto",
+      "cid": "bafyreia2odzz7wk5vfdjxchttbr44ojcxks72ytdmeybpub6zqt3l327vi"
+    },
+    "chat.bsky.convo.defs": {
+      "source": "atproto",
+      "cid": "bafyreibpb3r5pqc3yrjslx7ntfl5vvgdlgqanuwbcvq3q7sfhayi75x7uu"
+    },
+    "chat.bsky.convo.deleteMessageForSelf": {
+      "source": "atproto",
+      "cid": "bafyreicsfbucwa3y5jdtzv6focgl5dao2lhmaa22jljllwjp6rz4noxowe"
+    },
+    "chat.bsky.convo.getConvo": {
+      "source": "atproto",
+      "cid": "bafyreidjox5oa467rn7x6xjuko23w5ekypjbkdryia4hz5s7isswhxrilu"
+    },
+    "chat.bsky.convo.getConvoAvailability": {
+      "source": "atproto",
+      "cid": "bafyreidnzzp2b7w4pedgnspgwlzl7oc4uuwxlbh3asteu6s4rgcuagnzl4"
+    },
+    "chat.bsky.convo.getConvoForMembers": {
+      "source": "atproto",
+      "cid": "bafyreicheufh7jkrstr6hgpggylildyh3k5tihbh5747dumqe5nabp24fi"
+    },
+    "chat.bsky.convo.getConvoMembers": {
+      "source": "atproto",
+      "cid": "bafyreigup3axpdj3r3p4s3x7qgarrysft3vognwzgetl4bn3n2bgocxl4m"
+    },
+    "chat.bsky.convo.getLog": {
+      "source": "atproto",
+      "cid": "bafyreicc4wwkmh5rskpzyriwad4lte64rk2w7vnzzzofy6tnhbisxsint4"
+    },
+    "chat.bsky.convo.getMessages": {
+      "source": "atproto",
+      "cid": "bafyreif2fjad4zrbjwhbuk3ny7yfnv6sjyr6llrveh2dr4i2aovwe77yia"
+    },
+    "chat.bsky.convo.getUnreadCounts": {
+      "source": "atproto",
+      "cid": "bafyreibuu7abhy74gxfprerxpiimjit43fhcrrewe43zhili7rmr4crrsi"
+    },
+    "chat.bsky.convo.leaveConvo": {
+      "source": "atproto",
+      "cid": "bafyreigdjs5t2jod6zojwnj5giqucsad257vhocykv6fftkj3qkqzqlqua"
+    },
+    "chat.bsky.convo.listConvoRequests": {
+      "source": "atproto",
+      "cid": "bafyreieoce2dsrg6czlm7tkfi7glxjvqh6wwvfq777s5zxi6hyzqjeqo3e"
+    },
+    "chat.bsky.convo.listConvos": {
+      "source": "atproto",
+      "cid": "bafyreifxh52sx6i7vrlj2xi5h3yd56dmawkplcfdsfiu4npou6rutz4pge"
+    },
+    "chat.bsky.convo.lockConvo": {
+      "source": "atproto",
+      "cid": "bafyreidnrgfxtyg233wfvasho34p34k2tiekrpiticcl4sau7k2masydby"
+    },
+    "chat.bsky.convo.muteConvo": {
+      "source": "atproto",
+      "cid": "bafyreihpyxtotf6ltd6w6ayoirar7obxoqlijljov6yrb7r5qztq3ag74e"
+    },
+    "chat.bsky.convo.removeReaction": {
+      "source": "atproto",
+      "cid": "bafyreiagvcoqprw5jew2m4uoeg6i32wu6ld2ltgjgb2d2s36k4o6i7arb4"
+    },
+    "chat.bsky.convo.sendMessage": {
+      "source": "atproto",
+      "cid": "bafyreih7yu45wtptd7qjg6iomrugxucfw7zkkz7ijjj7o3bddee3od2q3m"
+    },
+    "chat.bsky.convo.sendMessageBatch": {
+      "source": "atproto",
+      "cid": "bafyreifvinecphums77xvuuspqgjkgfa7cpre3zavtrkh5tffmi643q2rq"
+    },
+    "chat.bsky.convo.unlockConvo": {
+      "source": "atproto",
+      "cid": "bafyreiaind2trvtuo2bgqupx4acxx5vvfhvvo4xwencwcf2trnrithwkya"
+    },
+    "chat.bsky.convo.unmuteConvo": {
+      "source": "atproto",
+      "cid": "bafyreifbip4w4q4dnm2bvhtaxr4ut3yrzck4xkdu2ifnkoggyqigsuasbe"
+    },
+    "chat.bsky.convo.updateAllRead": {
+      "source": "atproto",
+      "cid": "bafyreiewx6wmllc4nujgtakvu4jiapnrjtbqyxvugohuu7xfy3bhrn4wq4"
+    },
+    "chat.bsky.convo.updateRead": {
+      "source": "atproto",
+      "cid": "bafyreihba5bopb5vnlqqvtavipybqgemp6itwrz4xysnp6yi6iow5ntnv4"
+    },
+    "chat.bsky.embed.joinLink": {
+      "source": "atproto",
+      "cid": "bafyreib3z65a2myai4hc55vxa7woue4bmelo2a4dlgnawps746w3l2y72q"
+    },
+    "chat.bsky.group.addMembers": {
+      "source": "atproto",
+      "cid": "bafyreiftelalu5yc3zctgch7req6syovskusqgma5vyyd4elas5rs47tvy"
+    },
+    "chat.bsky.group.approveJoinRequest": {
+      "source": "atproto",
+      "cid": "bafyreicykc372f7ebk7c3wrco75wgox3poyop7w3duovvn2piqzsvhzthq"
+    },
+    "chat.bsky.group.createGroup": {
+      "source": "atproto",
+      "cid": "bafyreidhalpchhospn2hwox54navotl4svw4pmt33aynj22gp52ofoxzau"
+    },
+    "chat.bsky.group.createJoinLink": {
+      "source": "atproto",
+      "cid": "bafyreicxjzsyjrqbkwd7vztmaxstgulx5naln55gsppix27pjnoz5okv7i"
+    },
+    "chat.bsky.group.defs": {
+      "source": "atproto",
+      "cid": "bafyreiexck6gwns5nesq44mqgsikwrjkgplz33cemxaq365xwdcxeoqjje"
+    },
+    "chat.bsky.group.disableJoinLink": {
+      "source": "atproto",
+      "cid": "bafyreiholtxhmuqku64fkv6rjl2rn3jyicutkcuieoviys3zdzx6lh43n4"
+    },
+    "chat.bsky.group.editGroup": {
+      "source": "atproto",
+      "cid": "bafyreifwwj2mzridii6sm6wlc5sxgu7g6k67bijvylus4jnbvfcup7ecfe"
+    },
+    "chat.bsky.group.editJoinLink": {
+      "source": "atproto",
+      "cid": "bafyreiafmbnein4xpbr76jzofk53ut6u5opeuwyorilkhpe3u2kzgavlde"
+    },
+    "chat.bsky.group.enableJoinLink": {
+      "source": "atproto",
+      "cid": "bafyreib45q6ccuobjlws7sysjojabo6gvww6wlgy7dif5ejkoasb23l7su"
+    },
+    "chat.bsky.group.getJoinLinkPreviews": {
+      "source": "atproto",
+      "cid": "bafyreigrglu52cdsrc7sxxflwoxr6eg6paw4zsd7ioy7kyue2kqfdjyqn4"
+    },
+    "chat.bsky.group.listJoinRequests": {
+      "source": "atproto",
+      "cid": "bafyreigoj66wx3sx7nbav4ywxckk7ggjklxvy2w5tmmnrapib7nfpgh3ci"
+    },
+    "chat.bsky.group.listMutualGroups": {
+      "source": "atproto",
+      "cid": "bafyreihp23gsqmaie6uzouxfqi6zwhr3wqglqjblbcawkp6asirzmqq4oi"
+    },
+    "chat.bsky.group.rejectJoinRequest": {
+      "source": "atproto",
+      "cid": "bafyreiaztaygpnfglcldsdbh5dunovp2nz3kenetahycpymoxxrxkafiha"
+    },
+    "chat.bsky.group.removeMembers": {
+      "source": "atproto",
+      "cid": "bafyreidfkumfvrtsseaavuhs2lfblcsmrjbkeaeojh2u576jze5xrfcasy"
+    },
+    "chat.bsky.group.requestJoin": {
+      "source": "atproto",
+      "cid": "bafyreiatzqdp7zlnbqmbti6xt3orag7yqyuqr6tqzwzzp52gq7hlu3it6q"
+    },
+    "chat.bsky.group.updateJoinRequestsRead": {
+      "source": "atproto",
+      "cid": "bafyreieod4o3cdfkhev6tia63q6yrdk3pgwvrrpyxggswxpp6pzwjj2jyi"
+    },
+    "chat.bsky.group.withdrawJoinRequest": {
+      "source": "atproto",
+      "cid": "bafyreicdn25bcyya4for6vtdhhkjaeyfbkldgaxqtqoh5hfwljbrxszezy"
+    },
+    "chat.bsky.moderation.defs": {
+      "source": "atproto",
+      "cid": "bafyreiee3r5j2psnahumolqrbr6gj6adqt3ov3xflbeibnyfzlwwc3e5km"
+    },
+    "chat.bsky.moderation.getActorMetadata": {
+      "source": "atproto",
+      "cid": "bafyreifo2qp6ozex6phd5dd2sewpyltlnzijjqmfl5xpujxk3mkx6b4pze"
+    },
+    "chat.bsky.moderation.getConvo": {
+      "source": "atproto",
+      "cid": "bafyreie6ds2blosf5zeg7eralqp5jmbbvsv4befevms3nyqoihblzxwzsy"
+    },
+    "chat.bsky.moderation.getConvoMembers": {
+      "source": "atproto",
+      "cid": "bafyreicm4fvldxqk5zdwopjjrsukl7wpib2ixqgkfc3nrszorx46i4np34"
+    },
+    "chat.bsky.moderation.getConvos": {
+      "source": "atproto",
+      "cid": "bafyreif5k5jqz4546omvosnx2sey4apq4nebiizwo3xit6q2knf2tteoey"
+    },
+    "chat.bsky.moderation.getMessageContext": {
+      "source": "atproto",
+      "cid": "bafyreih436hnrsenvuaelqk5bz4esvjku2kz3blwh7lk5fmmjfzn5uxaei"
+    },
+    "chat.bsky.moderation.subscribeModEvents": {
+      "source": "atproto",
+      "cid": "bafyreifb7xeucadmhsbzezibkn4hxyezzajfydjfyy3tjmwm7bwjmiam3u"
+    },
+    "chat.bsky.moderation.updateActorAccess": {
+      "source": "atproto",
+      "cid": "bafyreif3kv6qzqf533kjoodzu6s2cf3qypyafsntemeir6uuac4dnnzlwe"
+    },
+    "chat.bsky.notification.defs": {
+      "source": "atproto",
+      "cid": "bafyreifv3xy2nhjxvr4uqfheezyp3bo2eczvihqto4kp4mmkirnpkmmt4u"
+    },
+    "chat.bsky.notification.getPreferences": {
+      "source": "atproto",
+      "cid": "bafyreicfjpp5ldakcwyo7wmq6e5kpwtizn5owdd7cux4pbif6s2u6dbxne"
+    },
+    "chat.bsky.notification.putPreferences": {
+      "source": "atproto",
+      "cid": "bafyreiatnvy5wssiuzrjtdtv3sd2yarrd3xiaijpeuvsnopq3neh52bfay"
+    },
+    "com.atproto.admin.defs": {
+      "source": "atproto",
+      "cid": "bafyreicuagseedq4ko6lx6ublh6agdyeaox4pkvbaq7yj54s2d66yjk2h4"
+    },
+    "com.atproto.admin.deleteAccount": {
+      "source": "atproto",
+      "cid": "bafyreigzxdce4ztwo2n5xxahr6fwd4bozc4budnaepl26mbejpa3q2ess4"
+    },
+    "com.atproto.admin.disableAccountInvites": {
+      "source": "atproto",
+      "cid": "bafyreihi35g5ngllvyykzlq3fdfqs4xjiuao7nxg37ealsdtqcdquvj2ce"
+    },
+    "com.atproto.admin.disableInviteCodes": {
+      "source": "atproto",
+      "cid": "bafyreiatqxhcmu23qc2nkttjf2e7gjsdhbh6x5nrqambamo5fcwq523eey"
+    },
+    "com.atproto.admin.enableAccountInvites": {
+      "source": "atproto",
+      "cid": "bafyreid5xvqhkbpywbk5eaumneqzdcxtkj5lh45hzmcbed4exzvqk37p2i"
+    },
+    "com.atproto.admin.getAccountInfo": {
+      "source": "atproto",
+      "cid": "bafyreifcp3jeg332nfwatctxwjiokqv72tyuppb2mzwjxih7qdtr2glou4"
+    },
+    "com.atproto.admin.getAccountInfos": {
+      "source": "atproto",
+      "cid": "bafyreib7kdehrlwtxbpdkdk3hxswvjdgw63yadellwf4n32qofh5pbf2zy"
+    },
+    "com.atproto.admin.getInviteCodes": {
+      "source": "atproto",
+      "cid": "bafyreiec5v6odvpqm3qfcxmuq5nihskij7xmb5nij32vve426z6s7tii24"
+    },
+    "com.atproto.admin.getSubjectStatus": {
+      "source": "atproto",
+      "cid": "bafyreicx3n74uhu3jtolm6vvtxx4xy3vo57iu4boxn7chocuokx3q7fazm"
+    },
+    "com.atproto.admin.searchAccounts": {
+      "source": "atproto",
+      "cid": "bafyreigqi7z4ic2ljca6zvmtzha4gdnsa25gsn4pw2upqymrh6lelkzqjy"
+    },
+    "com.atproto.admin.sendEmail": {
+      "source": "atproto",
+      "cid": "bafyreig7vffo7s4diefuoylvl6crosfo5mcc74hlnpkd24fb3xs2wyewbi"
+    },
+    "com.atproto.admin.updateAccountEmail": {
+      "source": "atproto",
+      "cid": "bafyreidlzhtftznouwxruqumookeupzk4iytlvm5giwziuv4m7wzi76lf4"
+    },
+    "com.atproto.admin.updateAccountHandle": {
+      "source": "atproto",
+      "cid": "bafyreidsj323nackffydrz3buggrubayxwnhxu2v2sf3saoiao44im6dnm"
+    },
+    "com.atproto.admin.updateAccountPassword": {
+      "source": "atproto",
+      "cid": "bafyreieptac2cku6iazjjbgn6oy2ivaleofleprdhiysprato336fapghq"
+    },
+    "com.atproto.admin.updateAccountSigningKey": {
+      "source": "atproto",
+      "cid": "bafyreibzf73rasuo5rhzjjugexi5l7tpyahcmmjg2rl2bweoxyb3672cca"
+    },
+    "com.atproto.admin.updateSubjectStatus": {
+      "source": "atproto",
+      "cid": "bafyreieirresnt6qdfshzsaaikwpstoql5q5n7vlbfadkmjwzuweeojuyu"
+    },
+    "com.atproto.identity.defs": {
+      "source": "atproto",
+      "cid": "bafyreiftikhen7lwpyay4e4sycmmflexkroqjwwpfuqtmog3vjhs2qnz3m"
+    },
+    "com.atproto.identity.getRecommendedDidCredentials": {
+      "source": "atproto",
+      "cid": "bafyreidkfpbromp7kjmpbzkbcamycj3722sxvcm47pabju744ytk2ljhay"
+    },
+    "com.atproto.identity.refreshIdentity": {
+      "source": "atproto",
+      "cid": "bafyreiabglay3heljv6azsioza4lbbq7ocfnllbugb4ep4cmoofvhbz74q"
+    },
+    "com.atproto.identity.requestPlcOperationSignature": {
+      "source": "atproto",
+      "cid": "bafyreiefkbiptbpxy4ijubutlp2lbjzlkdqbbvt77uguxwg2lns7ba2anm"
+    },
+    "com.atproto.identity.resolveDid": {
+      "source": "atproto",
+      "cid": "bafyreicy6cgn4agn5jnteswy624asmf74k34do54sptozrcmyrlglvnufu"
+    },
+    "com.atproto.identity.resolveHandle": {
+      "source": "atproto",
+      "cid": "bafyreigckmqtt3jrtzd7tvigjatnz6ajqyafs26h5pwcudwag2anedxnmu"
+    },
+    "com.atproto.identity.resolveIdentity": {
+      "source": "atproto",
+      "cid": "bafyreibc3gr2wcoogckav25quul7dz24jnq7oevwvrve4fhanmyypujpai"
+    },
+    "com.atproto.identity.signPlcOperation": {
+      "source": "atproto",
+      "cid": "bafyreicjgnk7lmloumjsgwpk6fbnplcu7or23edto4vgdow2quxq2okjha"
+    },
+    "com.atproto.identity.submitPlcOperation": {
+      "source": "atproto",
+      "cid": "bafyreigu67ehin43bdmkt5oyrwsttvzon3lsmp4fkfpzlyptpfnx2hozau"
+    },
+    "com.atproto.identity.updateHandle": {
+      "source": "atproto",
+      "cid": "bafyreibzqwkofzc7g5j7vatyyzolgnarm3zd2g6swegkc3ivz4xivm2buu"
+    },
+    "com.atproto.label.defs": {
+      "source": "atproto",
+      "cid": "bafyreidp2wpcbzl2qiob2uwoc7lhntojx3tjcr553mmahw2f5cumtm3wpm"
+    },
+    "com.atproto.label.queryLabels": {
+      "source": "atproto",
+      "cid": "bafyreig424opkctuzynvqvbwcoqafbqzqu6tl2kilwif7ivnwcdmafbhni"
+    },
+    "com.atproto.label.subscribeLabels": {
+      "source": "atproto",
+      "cid": "bafyreigeyxddcuwebpvscyy2l7s3urxsbdtzpjrljncjo4az62woytutx4"
+    },
+    "com.atproto.lexicon.resolveLexicon": {
+      "source": "atproto",
+      "cid": "bafyreihyejjwx2cpbv3ikfojbq57jmtmilhjjsamqwfeiwkg2vanxxaz6m"
+    },
+    "com.atproto.lexicon.schema": {
+      "source": "atproto",
+      "cid": "bafyreigtmtzisxiuao4kcswgnbud7wmpkcnsdb6h2kenhbnaolsx7bpiq4"
+    },
+    "com.atproto.moderation.createReport": {
+      "source": "atproto",
+      "cid": "bafyreib5kl3klngngi47k7nx2g2bmrg2roj52q3dobvuf73kr3exvn73n4"
+    },
+    "com.atproto.moderation.defs": {
+      "source": "atproto",
+      "cid": "bafyreideawy4rlpgces2oebk5q4kpurbonhb5qtl4pes7dvxsc5osaiksy"
+    },
+    "com.atproto.repo.applyWrites": {
+      "source": "atproto",
+      "cid": "bafyreidwfwif7k5uncwqxhpxpxhvdkgedbvp6kqy6r4nozii433lwlajba"
+    },
+    "com.atproto.repo.createRecord": {
+      "source": "atproto",
+      "cid": "bafyreihyvpmy2l4ou2v5etx25j5lbqty6tvna7gsxdqge76rbb7gltulei"
+    },
+    "com.atproto.repo.defs": {
+      "source": "atproto",
+      "cid": "bafyreigmp5xfpkhnmwr3l5o626ued2gc2ouioykj2tpgqjqqajvbvm3wlm"
+    },
+    "com.atproto.repo.deleteRecord": {
+      "source": "atproto",
+      "cid": "bafyreibwdxbyhuuljujl7g4ylwdso2x2ov6yv6nk3ext3sr7kjvvubkula"
+    },
+    "com.atproto.repo.describeRepo": {
+      "source": "atproto",
+      "cid": "bafyreif5ho6rtknjmiqjclrfogiqyzxnix2fzpwxyftfebplkj4q23pnrm"
+    },
+    "com.atproto.repo.getRecord": {
+      "source": "atproto",
+      "cid": "bafyreihdnm3v25uaptt5vjvnpfsfgb6fbhxew2ye3l6q4ndm7xi5wpc4vy"
+    },
+    "com.atproto.repo.importRepo": {
+      "source": "atproto",
+      "cid": "bafyreihymzggr6n33y3ile7hiy5zekxkgqc6ypkoby5og7tr6buqiasabu"
+    },
+    "com.atproto.repo.listMissingBlobs": {
+      "source": "atproto",
+      "cid": "bafyreiayrrhk77vn3az63mor2bepw2qnkskr5awxvpzb5xtgwtzr5z6v3u"
+    },
+    "com.atproto.repo.listRecords": {
+      "source": "atproto",
+      "cid": "bafyreihv666jp6lxncj6amcgsu5qrvwq4rwmtc7xbxzndxqdwxamlsatee"
+    },
+    "com.atproto.repo.putRecord": {
+      "source": "atproto",
+      "cid": "bafyreigevzo2cypxpaj5re2u35so36df4rkgx6oh4zpi4zwicfvzqfdqpa"
+    },
+    "com.atproto.repo.strongRef": {
+      "source": "atproto",
+      "cid": "bafyreifrkdbnkvfjujntdaeigolnrjj3srrs53tfixjhmacclps72qlov4"
+    },
+    "com.atproto.repo.uploadBlob": {
+      "source": "atproto",
+      "cid": "bafyreifj5rusrt7rd763rqcnyh7srwukrdn427m7qrhwyb5hiayyyq4lxe"
+    },
+    "com.atproto.server.activateAccount": {
+      "source": "atproto",
+      "cid": "bafyreih4z7qtht643ddxszglbworpyttngm4iahyne5vp5n6puvysckc2u"
+    },
+    "com.atproto.server.checkAccountStatus": {
+      "source": "atproto",
+      "cid": "bafyreiggejdmd3ezjwphxo6jgcaf4cnwwc2jxq5so7gvet3suozhb2a52q"
+    },
+    "com.atproto.server.confirmEmail": {
+      "source": "atproto",
+      "cid": "bafyreigsd23jlgjwtbbvv2pueoiuji3qini232nwzhjiex6tj7ehc57cdy"
+    },
+    "com.atproto.server.createAccount": {
+      "source": "atproto",
+      "cid": "bafyreie6o2sq47ukysnnnwxcb7eocpyyazetp5n3m4u3n5f7v5xr7qn62u"
+    },
+    "com.atproto.server.createAppPassword": {
+      "source": "atproto",
+      "cid": "bafyreickddwu7udrphtmvpcajiittidvobrror7tztxkshnnhcxyexylbu"
+    },
+    "com.atproto.server.createInviteCode": {
+      "source": "atproto",
+      "cid": "bafyreicce55wknsshpysqc2torzhkuo6v555piprncrkw7glptinbssbli"
+    },
+    "com.atproto.server.createInviteCodes": {
+      "source": "atproto",
+      "cid": "bafyreidpwhayukm2ytzncekfinio4dehp5y6ksmwpvrxwl4fhdnqh62ewa"
+    },
+    "com.atproto.server.createSession": {
+      "source": "atproto",
+      "cid": "bafyreieftxrfcsudzvfk5l73r2cukzwa6axzkfjs2l7dxtieyqnkdngwsq"
+    },
+    "com.atproto.server.deactivateAccount": {
+      "source": "atproto",
+      "cid": "bafyreicewuflgo55i4yr7wblmnfcfsrqehy6zrq5jcqap2igkniantarwu"
+    },
+    "com.atproto.server.defs": {
+      "source": "atproto",
+      "cid": "bafyreie6rctvespvjvdsway3keyu5yy25eqordhq44jmkxbf6roirlidwm"
+    },
+    "com.atproto.server.deleteAccount": {
+      "source": "atproto",
+      "cid": "bafyreie44rxc4ax3u2hg54636cgjedydzvy2q2cnifsayo3kxlpockkhzu"
+    },
+    "com.atproto.server.deleteSession": {
+      "source": "atproto",
+      "cid": "bafyreiave4iopcsa62d5hm42ctf4n6z2ajkdqhz5evq53hmw26hghoz35q"
+    },
+    "com.atproto.server.describeServer": {
+      "source": "atproto",
+      "cid": "bafyreihitbc3tjrcozuarkbvbzlq2d2ryjx65mtft3zqqdtj7lrpzc3kpq"
+    },
+    "com.atproto.server.getAccountInviteCodes": {
+      "source": "atproto",
+      "cid": "bafyreibeczlag36upzn67uqsheo4st47z7nbpvfrdgko777633saur7jui"
+    },
+    "com.atproto.server.getServiceAuth": {
+      "source": "atproto",
+      "cid": "bafyreiaw2itjl4tfvckxjkkmaeo4dvjzgh3iajov5ilxxsqfigqhqv3uei"
+    },
+    "com.atproto.server.getSession": {
+      "source": "atproto",
+      "cid": "bafyreihjh3lkkbdznrs5jfnt6mhxtnaitviqqma6zmoltt3weknwxlc5ae"
+    },
+    "com.atproto.server.listAppPasswords": {
+      "source": "atproto",
+      "cid": "bafyreic7ipzaep5tjfw6pzvcl5goidfhkvquzvwyfftqnlgnc6eu2sjqjy"
+    },
+    "com.atproto.server.refreshSession": {
+      "source": "atproto",
+      "cid": "bafyreie5cdpsl3ibp473xuycfxakryp5svq4gzdcwnfdzwm5xkxyzux2ly"
+    },
+    "com.atproto.server.requestAccountDelete": {
+      "source": "atproto",
+      "cid": "bafyreietqywku2g5whu4hehlopx3mwwrnkhupuw3udhp76ovdsqrhbhzgm"
+    },
+    "com.atproto.server.requestEmailConfirmation": {
+      "source": "atproto",
+      "cid": "bafyreidwpigpyhtbka5bgc3qkyr6ifp2j22bwdpjuitb2b3sjy5fae6cj4"
+    },
+    "com.atproto.server.requestEmailUpdate": {
+      "source": "atproto",
+      "cid": "bafyreibd4flizyrui5mlyv5icokqhgocw2txvgjpmxkjrd6ok43jpjbleq"
+    },
+    "com.atproto.server.requestPasswordReset": {
+      "source": "atproto",
+      "cid": "bafyreihcycgtiyv5ah2nnpbbez3qleo2y2a3cf5uvz34tcaliicke2osfa"
+    },
+    "com.atproto.server.reserveSigningKey": {
+      "source": "atproto",
+      "cid": "bafyreig4anpzivr7yutnqobuqdtta6ls6i4xbarupyud5bwztmmpnvcr2u"
+    },
+    "com.atproto.server.resetPassword": {
+      "source": "atproto",
+      "cid": "bafyreighhpnpsmoauobk4gqxpa5qtirodft25gcxnfxme7ic5zpv73tu6u"
+    },
+    "com.atproto.server.revokeAppPassword": {
+      "source": "atproto",
+      "cid": "bafyreif7fouud77wtwkbbxrgz2ixc7pofd7klamsrxotvs4cw63dzcqqvi"
+    },
+    "com.atproto.server.updateEmail": {
+      "source": "atproto",
+      "cid": "bafyreia57t6r2crv7hinanwkcfyhqfcbt3qnfqponrj3j5owwlepnbxb7u"
+    },
+    "com.atproto.simplespace.checkUserAccess": {
+      "source": "atproto",
+      "cid": "bafyreih5p47feoi7skubovivyp6po2gsmvc7wmhbz5g7la5fyqphmn34kq"
+    },
+    "com.atproto.simplespace.createSpace": {
+      "source": "atproto",
+      "cid": "bafyreidtjf5gvigtlyavoolvppzdm5e46e4h3mwvi4uemeztj4kswzlqfi"
+    },
+    "com.atproto.simplespace.defs": {
+      "source": "atproto",
+      "cid": "bafyreifhtuvmbsyenkwsdmz6hra6riz737zpzznjrvrbxssfttqjbnvbue"
+    },
+    "com.atproto.simplespace.deleteSpace": {
+      "source": "atproto",
+      "cid": "bafyreihtzi3mmvf5mexxos6rj63vgyunxu4f4p4skym5ptvlfiqcu4hrme"
+    },
+    "com.atproto.simplespace.getSpace": {
+      "source": "atproto",
+      "cid": "bafyreiazf773pjxdpptzbhswmrg2pl2ilcotgtmveffnedo7e6vl2cghbq"
+    },
+    "com.atproto.simplespace.listMembers": {
+      "source": "atproto",
+      "cid": "bafyreihrcuwcwbpb4cpc5iaan32epdjvfa2eipftib72diipuwrdzjobdy"
+    },
+    "com.atproto.simplespace.putMember": {
+      "source": "atproto",
+      "cid": "bafyreicftkrr3bf5rewoufj7imiiahtd66jqznp3lafcltkbnwcjb4ec4i"
+    },
+    "com.atproto.simplespace.removeMember": {
+      "source": "atproto",
+      "cid": "bafyreihhubam22u7grhlddz2374td6zaxx2ny5oqniqryjpjdj4obksm3y"
+    },
+    "com.atproto.simplespace.updateSpace": {
+      "source": "atproto",
+      "cid": "bafyreid5w3gnbxnm3vruhgj4ltquyvt7anv57fnqp4zqk57idxvgvugcjm"
+    },
+    "com.atproto.space.applyWrites": {
+      "source": "atproto",
+      "cid": "bafyreibb3ecitkuoctwqdpe54krkgxuzkr32raxkqbex5zsmh3llpmqqni"
+    },
+    "com.atproto.space.createRecord": {
+      "source": "atproto",
+      "cid": "bafyreic3jkwdydwmi2a7kr3tdpf7xm2o2cmtulhenc5skamqd6unvuzxeq"
+    },
+    "com.atproto.space.defs": {
+      "source": "atproto",
+      "cid": "bafyreida6jgkdcs77auqphltobru3dx27jmpg6ev6hpzbnonqgmaek6ap4"
+    },
+    "com.atproto.space.deleteRecord": {
+      "source": "atproto",
+      "cid": "bafyreifijfqb2u5y7ogmzbuv5rtfqulapfqnclbqoeurgqpjni5nhqk5mm"
+    },
+    "com.atproto.space.getBlob": {
+      "source": "atproto",
+      "cid": "bafyreiegr64tzonogmwwbqhncidzo2gh5daitqfps3zcshnyfs467ye5tq"
+    },
+    "com.atproto.space.getDelegationToken": {
+      "source": "atproto",
+      "cid": "bafyreief6zuqqkg54leye4a23h2lx7fwlc447vqfs6prou5i47ab47w3ke"
+    },
+    "com.atproto.space.getLatestCommit": {
+      "source": "atproto",
+      "cid": "bafyreigxqr4y3u4juvsxculgdbrpkivtm2tfijnw6433zqums6djrua3ja"
+    },
+    "com.atproto.space.getRecord": {
+      "source": "atproto",
+      "cid": "bafyreidtf7nrfzhhxbh6aa4bx4mwbhoqilbr5nvghqyefrj3g3uv7gb74e"
+    },
+    "com.atproto.space.getRepo": {
+      "source": "atproto",
+      "cid": "bafyreihcrwach6h4uksg6b6p6olk4n3bt74wqqs32vieotvzr5yc7fhm5m"
+    },
+    "com.atproto.space.getSpaceCredential": {
+      "source": "atproto",
+      "cid": "bafyreia3ewd5apt4cbfexnhv25zuofbpzclsigto7r76znyn453uozmfiu"
+    },
+    "com.atproto.space.listBlobs": {
+      "source": "atproto",
+      "cid": "bafyreiblwxigmqor6sjwqj6pahps6d2l2wiolevzukvrplmi7r22mvejoa"
+    },
+    "com.atproto.space.listRecords": {
+      "source": "atproto",
+      "cid": "bafyreif7qig3uxwbnrgu3rv2yjpegjie3ged6driagq5car4d2uerqmxe4"
+    },
+    "com.atproto.space.listRepoOps": {
+      "source": "atproto",
+      "cid": "bafyreia4ngw4eeorgouksbgekz4vqa6cnknknyu4wsx6linuzjjsbyssyy"
+    },
+    "com.atproto.space.listRepos": {
+      "source": "atproto",
+      "cid": "bafyreidqeqpdmpdmrzscmzjwhvxfnjget67l6oa5zifkdm66lpmwv53fl4"
+    },
+    "com.atproto.space.listSpaces": {
+      "source": "atproto",
+      "cid": "bafyreib7onexoqgdjtvv3zbcm36d46sfr75ow6prfa4ccgvexxbgtdv55i"
+    },
+    "com.atproto.space.notifyCredentialRevoked": {
+      "source": "atproto",
+      "cid": "bafyreibfnuopxn6e6fdt6oillosp6duqngkx2mo5p6edomwkbfpn7ay5ry"
+    },
+    "com.atproto.space.notifySpaceDeleted": {
+      "source": "atproto",
+      "cid": "bafyreiemriesauq7r3nyuwxgcsahkdzmx6kstwrva3yvsl3narmfbek6ee"
+    },
+    "com.atproto.space.notifyWrite": {
+      "source": "atproto",
+      "cid": "bafyreidxoprv6qe6a5zat2k5pszog57s44wwretbtwz4qqxr676fp7yp2u"
+    },
+    "com.atproto.space.putRecord": {
+      "source": "atproto",
+      "cid": "bafyreig2k4wfadwffhyfryj7xgaj7qu7bo6wvvmkjjp23t2uleob7de3ru"
+    },
+    "com.atproto.space.registerNotify": {
+      "source": "atproto",
+      "cid": "bafyreigp3ftdi647trqqm3t53pppzk4bbztkundy6qtgb6xicv3y3svcce"
+    },
+    "com.atproto.space.unregisterNotify": {
+      "source": "atproto",
+      "cid": "bafyreigzv6oh22bqt5hwddl3gkshdcxztbjtst52xhj63tfeipuer6l5wq"
+    },
+    "com.atproto.sync.defs": {
+      "source": "atproto",
+      "cid": "bafyreia6vzfbj2nfmr7kn7fwy6lnugozgimpdcg2f3vovgsa4fk6fsfhse"
+    },
+    "com.atproto.sync.getBlob": {
+      "source": "atproto",
+      "cid": "bafyreigievymssvpqn7v5gb6q7hrlepcyzy7xko5rnfrk2ywcjcfbd3574"
+    },
+    "com.atproto.sync.getBlocks": {
+      "source": "atproto",
+      "cid": "bafyreie5jvieoangaotlziavns65njosj5pklfqv6u5psgtkhdgmk25lpa"
+    },
+    "com.atproto.sync.getCheckout": {
+      "source": "atproto",
+      "cid": "bafyreiba6hvjo2chopkgwsy5n2sumywx2qhqvqycd5a6tqfsnbf5nodkzm"
+    },
+    "com.atproto.sync.getHead": {
+      "source": "atproto",
+      "cid": "bafyreiecq2pcytdy56ucv22a7snlt5lgacmfvemioj5jjyco6uo7t7akwi"
+    },
+    "com.atproto.sync.getHostStatus": {
+      "source": "atproto",
+      "cid": "bafyreiazetpylsjgp5qfnu6qfb6ahthgjw7spbcl7hpyiz3srl7wnebdsq"
+    },
+    "com.atproto.sync.getLatestCommit": {
+      "source": "atproto",
+      "cid": "bafyreifewzvfus7z6rnmtv74lpulhldvikqmhzepwqdlaqmhllgyg4oejq"
+    },
+    "com.atproto.sync.getRecord": {
+      "source": "atproto",
+      "cid": "bafyreiermob6nqcfc6hlhmvuo7jv3imo7hfy3og34oom2p3qe6tldajoru"
+    },
+    "com.atproto.sync.getRepo": {
+      "source": "atproto",
+      "cid": "bafyreieyt5x6wf4pgcn56tb2724uplmwcqjivkubmi25km3xrvroz6dw5q"
+    },
+    "com.atproto.sync.getRepoStatus": {
+      "source": "atproto",
+      "cid": "bafyreidv752rhe2abwz2rp2akok2gnopmsk4wlwrwsf22uwhfzst6nh4ry"
+    },
+    "com.atproto.sync.listBlobs": {
+      "source": "atproto",
+      "cid": "bafyreidjsbhbe5rstmx5tjbbjjrznqr2ehlqkdklvlnhlcndhdjycnuc4a"
+    },
+    "com.atproto.sync.listHosts": {
+      "source": "atproto",
+      "cid": "bafyreigxo77zttzvqzmhhvttfs7kom5npwjxkapmnmpirjyg7oui5tpwbe"
+    },
+    "com.atproto.sync.listRepos": {
+      "source": "atproto",
+      "cid": "bafyreic6q46ptlr4kv4eonzw3isiqegom5ldr32onhrv2kyrmppgakss2i"
+    },
+    "com.atproto.sync.listReposByCollection": {
+      "source": "atproto",
+      "cid": "bafyreicl2azqcl4poa5cqyp3ghlomqkzswmu4uqff6cpwk2c7bjrhth75y"
+    },
+    "com.atproto.sync.notifyOfUpdate": {
+      "source": "atproto",
+      "cid": "bafyreigohysvh6tjme6ihyygbrnjckr7e3rgmsoes6tx7xxhszulbek6gm"
+    },
+    "com.atproto.sync.requestCrawl": {
+      "source": "atproto",
+      "cid": "bafyreiepdcevsxqy6matus3wn2n3htnyihgc3etubne2ay3idq7h523hte"
+    },
+    "com.atproto.sync.subscribeRepos": {
+      "source": "atproto",
+      "cid": "bafyreid5fdkjulxpnbfqwi4hjehx7ibzzj2h5ln7nachurdzqcpihytbuu"
+    },
+    "com.atproto.temp.addReservedHandle": {
+      "source": "atproto",
+      "cid": "bafyreiawp7zrk3rzdjdzyozce6egakzaipnmxymkkdbiu3b6t6nxbjwuoq"
+    },
+    "com.atproto.temp.checkHandleAvailability": {
+      "source": "atproto",
+      "cid": "bafyreibpeuxb774ysn2pri2l6mwouibn2y6kpma5iw4gyjgkb4rgjgkebm"
+    },
+    "com.atproto.temp.checkSignupQueue": {
+      "source": "atproto",
+      "cid": "bafyreid5bp2a5htq7ad5xgf3ts2vpg55kxfisixidfh7i27nqqilgauq44"
+    },
+    "com.atproto.temp.dereferenceScope": {
+      "source": "atproto",
+      "cid": "bafyreieaxlzag6opizo4ygbhpf3lrclkajz4cki63hl2paiex4e6bklyfy"
+    },
+    "com.atproto.temp.fetchLabels": {
+      "source": "atproto",
+      "cid": "bafyreidondv6tderv34cqypfs4dy7awvkjbz67bmgpfsfzhukozjgqw4wu"
+    },
+    "com.atproto.temp.requestPhoneVerification": {
+      "source": "atproto",
+      "cid": "bafyreicppmhhe6vgi4a4rga5schtcuvuo75jjzvdiuzcy7fu2zdphzyngq"
+    },
+    "com.atproto.temp.revokeAccountCredentials": {
+      "source": "atproto",
+      "cid": "bafyreidouzd7lgcwc6l7wrp3gw5sf4ayan2vasucmsflptgzlvcwmk5jv4"
+    },
+    "site.standard.authFull": {
+      "source": "standard.site",
+      "cid": "bafyreicwk5myf4dwjr6kpfy4qiko5mcwltk6kmnewbcvvdu2le3sbgpm4e"
+    },
+    "site.standard.authSocial": {
+      "source": "standard.site",
+      "cid": "bafyreibdamyqel7hurrk66bbpvrqgf6cby3kmpnchvwrkjb5rijgkrdsve"
+    },
+    "site.standard.document": {
+      "source": "standard.site",
+      "cid": "bafyreifylc5lfr4vqfzrwdtqm4pnfg7cbra7z4acbgikylqandzefwdeaq"
+    },
+    "site.standard.graph.recommend": {
+      "source": "standard.site",
+      "cid": "bafyreibglev4uvatb5do5obqxlif5w6b63tysjb7ve6w44x54g7hfe2rgy"
+    },
+    "site.standard.graph.subscription": {
+      "source": "standard.site",
+      "cid": "bafyreiccyb5e4vq3rwhrajeud72ztezljufzrqbo73vz6mw2jwbgsxfqta"
+    },
+    "site.standard.publication": {
+      "source": "standard.site",
+      "cid": "bafyreiapvnarfn3nl2wvg27hsylli5zqvou7a74p7od5mu4detprtejapy"
+    },
+    "site.standard.theme.basic": {
+      "source": "standard.site",
+      "cid": "bafyreiabm6f64zosv5jcdmwd3qvekjhoi7enevg53rxj734ney4sd6lmku"
+    },
+    "site.standard.theme.color": {
+      "source": "standard.site",
+      "cid": "bafyreicps42z5maxdqwml7t3klsrrpk332jthyfgpeb4zjn3wlvp5vyjia"
+    },
+    "tools.ozone.communication.createTemplate": {
+      "source": "atproto",
+      "cid": "bafyreifqj7bvggylsolmkorhxmukkk64be6qtsf5lruzmwka6rrgmwjd7a"
+    },
+    "tools.ozone.communication.defs": {
+      "source": "atproto",
+      "cid": "bafyreieovkhnnak6qeihrissomvypwcbyvpbnxbuxuai3jkqjngibagrva"
+    },
+    "tools.ozone.communication.deleteTemplate": {
+      "source": "atproto",
+      "cid": "bafyreichjalljf5yn4zjblcrapf342d3jfkwo5omurw7nwgzr4apc4d4x4"
+    },
+    "tools.ozone.communication.listTemplates": {
+      "source": "atproto",
+      "cid": "bafyreihek5vjriqy5z4gpyyymnnxgo6uevp7u3dynr4eaiv4py2gbpyvjq"
+    },
+    "tools.ozone.communication.updateTemplate": {
+      "source": "atproto",
+      "cid": "bafyreifaptsxxt3tgcrcmmioizqbdrkrzdpn5uge6ktxdt2kw6rvesgv44"
+    },
+    "tools.ozone.hosting.getAccountHistory": {
+      "source": "atproto",
+      "cid": "bafyreib5lubc76mgzrlegehotdpikjh7nqhn7pycjhehlooqdopm5lx2fa"
+    },
+    "tools.ozone.inbox.appealActionedSubject": {
+      "source": "atproto",
+      "cid": "bafyreihyc3tqs3mqacjp2vp645ood7qrsx3xz7hxup7p6zkz3dskns3u3a"
+    },
+    "tools.ozone.inbox.defs": {
+      "source": "atproto",
+      "cid": "bafyreibzwqmokvlyicnjdyx4oq5n3xdrhsjxypjkexeqng3z5tt7r27a74"
+    },
+    "tools.ozone.moderation.cancelScheduledActions": {
+      "source": "atproto",
+      "cid": "bafyreibppdbgckuadgwrm3fouoxm7dxhxkzo64jnszvr2toij3yt37lgte"
+    },
+    "tools.ozone.moderation.defs": {
+      "source": "atproto",
+      "cid": "bafyreie4vzhwikpfmgqq4l5io6cdsf5iw2fwq2pwbjv5usbgxuyllxvhea"
+    },
+    "tools.ozone.moderation.emitEvent": {
+      "source": "atproto",
+      "cid": "bafyreifalub737qtff6p46vicc6falpwj7wd7lrmou2gc4cjluret7b3xy"
+    },
+    "tools.ozone.moderation.getAccountPreferences": {
+      "source": "atproto",
+      "cid": "bafyreic6sdrh3hz3wlsgmhf5mgcxrxzilmku6zehn7y6g2i4qjr6myatiy"
+    },
+    "tools.ozone.moderation.getAccountTimeline": {
+      "source": "atproto",
+      "cid": "bafyreigefofmktxu5ckeghyn33gigj2lkts5labk2it2krqlj5wdyn5ndm"
+    },
+    "tools.ozone.moderation.getEvent": {
+      "source": "atproto",
+      "cid": "bafyreieknnrzv4g23n5h2cbg4lsba4ipn4hbnkii2ghjn74atblltzqjdu"
+    },
+    "tools.ozone.moderation.getRecord": {
+      "source": "atproto",
+      "cid": "bafyreibnztkctsqkzi4celw7rzht46el7uih5ljmvrvw744sx3h5wpd3hu"
+    },
+    "tools.ozone.moderation.getRecords": {
+      "source": "atproto",
+      "cid": "bafyreie3b4bvymrvbz5nwz43l4t5vguomoioscpdgi4hmhtt3dczquqbjq"
+    },
+    "tools.ozone.moderation.getRepo": {
+      "source": "atproto",
+      "cid": "bafyreihxhj2pjictpzqfacwxxd7qzbrb3jniah2vwm2fqjbzwrua6se2fi"
+    },
+    "tools.ozone.moderation.getReporterStats": {
+      "source": "atproto",
+      "cid": "bafyreichlhmoyg4snzdrtena26mozn2piectiyvqumijephg4pjtjarqoa"
+    },
+    "tools.ozone.moderation.getRepos": {
+      "source": "atproto",
+      "cid": "bafyreieozkprzcubtic5jbzn5rraxlquqbm6tkwv6ofe342jnsrj3nrc3y"
+    },
+    "tools.ozone.moderation.getSubjects": {
+      "source": "atproto",
+      "cid": "bafyreib43drukx7nctlq46gi7swwxyrxnupoitqdxzuqd42z6e6c5ymaum"
+    },
+    "tools.ozone.moderation.listScheduledActions": {
+      "source": "atproto",
+      "cid": "bafyreiat6j3r3lbbjucozzvwy4hry3ds7creidzhyiikp32lhsxmlhhhvq"
+    },
+    "tools.ozone.moderation.queryEvents": {
+      "source": "atproto",
+      "cid": "bafyreidc3ofcgjfxve3yxpf6l35vcxytls2tgfjuc4w4gbaqd73unzaz7i"
+    },
+    "tools.ozone.moderation.queryStatuses": {
+      "source": "atproto",
+      "cid": "bafyreih67xgh76yu2gn2xw4iedo6wpv34bhnczw7jbewf3wsjpxek4heua"
+    },
+    "tools.ozone.moderation.scheduleAction": {
+      "source": "atproto",
+      "cid": "bafyreiacql23anujg7k4ph6cfyi53hwn6belrfgohjqjaid42vsquk5szm"
+    },
+    "tools.ozone.moderation.searchRepos": {
+      "source": "atproto",
+      "cid": "bafyreicd5c7zfpa2ifg4fp26yy2xjhxp2t2slgfukfjg74ho4so6liltty"
+    },
+    "tools.ozone.queue.assignModerator": {
+      "source": "atproto",
+      "cid": "bafyreibcgo5khgsdkfdxqa6am4hoofgbuf4sgxxwuhbmq7hioycap3rdmi"
+    },
+    "tools.ozone.queue.createQueue": {
+      "source": "atproto",
+      "cid": "bafyreias7762oe2n2q7jdesluaeei2jv3kkjqt6nytu2jrg2im2praxcdu"
+    },
+    "tools.ozone.queue.defs": {
+      "source": "atproto",
+      "cid": "bafyreify2cxcs5fziz6pqeufotqh632tp7oxedraayjstw6tglwjpuoalm"
+    },
+    "tools.ozone.queue.deleteQueue": {
+      "source": "atproto",
+      "cid": "bafyreifkhubkezmrryn5otsehebsir3gx3tbtnm5djetvkrfzxcq4ie3g4"
+    },
+    "tools.ozone.queue.getAssignments": {
+      "source": "atproto",
+      "cid": "bafyreigs2yjrkr3whnvejxlyok5tnjpiwb73qqhwvfdp2kqgqrj5x5t5si"
+    },
+    "tools.ozone.queue.listQueues": {
+      "source": "atproto",
+      "cid": "bafyreiay7h7z5mxxeh573txmg5x62uck6mkxyiukhgbq244z2p3aywsyey"
+    },
+    "tools.ozone.queue.routeReports": {
+      "source": "atproto",
+      "cid": "bafyreieblt35gusmfuoipiyyl4mielpstrhddwbu42pjujdymu6ue7ngmq"
+    },
+    "tools.ozone.queue.unassignModerator": {
+      "source": "atproto",
+      "cid": "bafyreidvfq2lskbzb6y636p77xwqfyyydclipaxte2gwp2pjipdduubguy"
+    },
+    "tools.ozone.queue.updateQueue": {
+      "source": "atproto",
+      "cid": "bafyreicvarfwhuqwg4xzu7ri3lhahq3q6bc2obcizjim6rynhhd76sdkle"
+    },
+    "tools.ozone.report.assignModerator": {
+      "source": "atproto",
+      "cid": "bafyreidtemwwbmua7myuvjbkonbqiwccfkiwngnedvcfrckynyto3eu3be"
+    },
+    "tools.ozone.report.closeReports": {
+      "source": "atproto",
+      "cid": "bafyreihqkycesh2y2n777bojwgjhnhlk4zdlgumyjhzjdrbiwwyyyzd6i4"
+    },
+    "tools.ozone.report.createActivity": {
+      "source": "atproto",
+      "cid": "bafyreidijd6r4ge7f63g32iwamgwyrtpzylghcjzzwej6l3pyjq2kj3ntm"
+    },
+    "tools.ozone.report.defs": {
+      "source": "atproto",
+      "cid": "bafyreibfark4q32hks5u6ytbgpsqga7unriwg224lzimwtgdgwe6v3m4ue"
+    },
+    "tools.ozone.report.getAssignments": {
+      "source": "atproto",
+      "cid": "bafyreiejnx4mzzmsv7q564pptnqjyza47bllcxk6w2xqksyosvwmhqdqhe"
+    },
+    "tools.ozone.report.getHistoricalStats": {
+      "source": "atproto",
+      "cid": "bafyreibi6rm5lhrw2zui3y5sdeawsnhw3mrhqen7bwv7j3txza5ggdpbhi"
+    },
+    "tools.ozone.report.getLatestReport": {
+      "source": "atproto",
+      "cid": "bafyreignkumvjcjcpndhl65uctvynmq4v5mggwcd4fnxjzlrnwcrobxh3y"
+    },
+    "tools.ozone.report.getLiveStats": {
+      "source": "atproto",
+      "cid": "bafyreiczyzmpltytc366esks4y6qjctlsekub6gnkcitfgo336dox5sd6y"
+    },
+    "tools.ozone.report.getReport": {
+      "source": "atproto",
+      "cid": "bafyreiawwm7dpli4zqu5c6x6jomuy6e3jsxy5ncmoehb3jade5svfpmwhi"
+    },
+    "tools.ozone.report.listActivities": {
+      "source": "atproto",
+      "cid": "bafyreidfcbjlcgjbnbpe5q6s5lv4jnkf73m3kj2nr5izel2mhkee3x5wbu"
+    },
+    "tools.ozone.report.queryActivities": {
+      "source": "atproto",
+      "cid": "bafyreifqnrth7maluxwwrsyo453vljtapuqrmh4prnooyk5s5tjuua2fom"
+    },
+    "tools.ozone.report.queryReports": {
+      "source": "atproto",
+      "cid": "bafyreiekozl5lpqv7cfxkh6hyt5owk4whdvzuy7joxrcctmiznasfp3cxa"
+    },
+    "tools.ozone.report.reassignQueue": {
+      "source": "atproto",
+      "cid": "bafyreihgwd3oaprwwq4bxvuljg7uovxwzxbctmwtlloehrzool5rfkckpu"
+    },
+    "tools.ozone.report.refreshStats": {
+      "source": "atproto",
+      "cid": "bafyreihikkfzypqr7tfxuokkkxlqm2qkwfxgvwgqcfxn4of4lkx2j6dgda"
+    },
+    "tools.ozone.report.unassignModerator": {
+      "source": "atproto",
+      "cid": "bafyreibp5hjcnmfykvxuh5rv27zcevpvup3uv5ccfwmnic5xrx3a6w7eve"
+    },
+    "tools.ozone.safelink.addRule": {
+      "source": "atproto",
+      "cid": "bafyreifbnjv4hhxzgpdmbjl6ipwgzq233rjw3eu2cayp2benof7ajqovlq"
+    },
+    "tools.ozone.safelink.defs": {
+      "source": "atproto",
+      "cid": "bafyreicsjuzp6gm3hd2lwgqclbci3jgafgfhh32mkqzhlyjv5zthbxu2mu"
+    },
+    "tools.ozone.safelink.queryEvents": {
+      "source": "atproto",
+      "cid": "bafyreieqoii76z7tumoq3pcq6mkaxpulfxe47qoosy4geo3qx4bzkno6qa"
+    },
+    "tools.ozone.safelink.queryRules": {
+      "source": "atproto",
+      "cid": "bafyreie3wgnt3ry7bsxweczmoi3ltcmw2dyfbeojmuyb5bwmzn2yo46bla"
+    },
+    "tools.ozone.safelink.removeRule": {
+      "source": "atproto",
+      "cid": "bafyreieixtpu7psfur2fn7by564bim2ajzstambw3gnijwq2tcekbh4xza"
+    },
+    "tools.ozone.safelink.updateRule": {
+      "source": "atproto",
+      "cid": "bafyreibuhb4dha34ifevqe6zb62ma2qd55hfsawtpmbthnpyh6mml25ypm"
+    },
+    "tools.ozone.server.getConfig": {
+      "source": "atproto",
+      "cid": "bafyreifgodx76tzgl7k6kgnftin5ipcbyknmtnjo4wi4kuhvrkf2ythv3e"
+    },
+    "tools.ozone.set.addValues": {
+      "source": "atproto",
+      "cid": "bafyreig7gtf5j45rairkass6u6qah5s6ftwszuohlwxt6uv7hpmsgdhgk4"
+    },
+    "tools.ozone.set.defs": {
+      "source": "atproto",
+      "cid": "bafyreibvpruvlqr4mbonhlum6t2loyuqzwnp5yvobm7ztnq5ich3kasxvm"
+    },
+    "tools.ozone.set.deleteSet": {
+      "source": "atproto",
+      "cid": "bafyreibglm7a2ic3csidcimhoevn4oe7nakx3b7w7ysjms22qid66nfixe"
+    },
+    "tools.ozone.set.deleteValues": {
+      "source": "atproto",
+      "cid": "bafyreihpri25sjn22zbik35nbbsixhzva3xyxds3jpmvctz2c4epdfn62i"
+    },
+    "tools.ozone.set.getValues": {
+      "source": "atproto",
+      "cid": "bafyreice5ek2gln3h2mg5waf6qdzybue2zfsllvrobzvqbk2uufsqrb6iu"
+    },
+    "tools.ozone.set.querySets": {
+      "source": "atproto",
+      "cid": "bafyreidymt3juzvqjjgxhpiefzety5t243ntbyx34y7b23jyhi4plmxuwq"
+    },
+    "tools.ozone.set.upsertSet": {
+      "source": "atproto",
+      "cid": "bafyreie3rq6hozr2drl5kg22tev5xel5gcpiob4b2hjszua2lco3ayom3a"
+    },
+    "tools.ozone.setting.defs": {
+      "source": "atproto",
+      "cid": "bafyreigf46w5ttx6bsrqohtx4xngp7wc6mxq2txr7icur73pklo3gnjgpy"
+    },
+    "tools.ozone.setting.listOptions": {
+      "source": "atproto",
+      "cid": "bafyreidph42ciyqc7b4f4cv5pvgjpdxqqaqbyll7bu5ee77iz2dydmzdmi"
+    },
+    "tools.ozone.setting.removeOptions": {
+      "source": "atproto",
+      "cid": "bafyreifqnik3hdcfxh6v33jgqjy6hiwrf5mzitlocep6t2arocnqwlmjoa"
+    },
+    "tools.ozone.setting.upsertOption": {
+      "source": "atproto",
+      "cid": "bafyreidlcqfg63kl2f2edxtbs75y2ab5embfw5i3noburzdu5vbmb3mwmm"
+    },
+    "tools.ozone.signature.defs": {
+      "source": "atproto",
+      "cid": "bafyreibjuzvyhbe34rgnlsxmi2tb3rytmjt2k7ilme7trh7vqcgqdlj52a"
+    },
+    "tools.ozone.signature.findCorrelation": {
+      "source": "atproto",
+      "cid": "bafyreicbfibgga3djdyz3g5cksl6pk5hh6z6qeds24slwx57i4kjlk3tjq"
+    },
+    "tools.ozone.signature.findRelatedAccounts": {
+      "source": "atproto",
+      "cid": "bafyreih5mr7ukqje5gxvwnhnxdllem6ueuv75wuwf3jjqtuzqwdgjyxixq"
+    },
+    "tools.ozone.signature.searchAccounts": {
+      "source": "atproto",
+      "cid": "bafyreieusybccy7wgj3yncpvgznjh7cfaqfbltmaa6op5bixu4gtbr6wzq"
+    },
+    "tools.ozone.team.addMember": {
+      "source": "atproto",
+      "cid": "bafyreifgesrgojatdptjp3ryaavymdyl52yyn3hplyiaibqatgdnulsxom"
+    },
+    "tools.ozone.team.defs": {
+      "source": "atproto",
+      "cid": "bafyreihqaijzof4hbey6u5lzfyhahuxjj5d7c3irremztfkavrqekvtvj4"
+    },
+    "tools.ozone.team.deleteMember": {
+      "source": "atproto",
+      "cid": "bafyreiaeswkkefhpz3d5opeuqpt2ooga6x4qia767hvv7zyrvd7lpqre4i"
+    },
+    "tools.ozone.team.listMembers": {
+      "source": "atproto",
+      "cid": "bafyreiaeoq2quupabrftxb3axiu2hrewgoega3hi7gil2vna5v5lladxem"
+    },
+    "tools.ozone.team.updateMember": {
+      "source": "atproto",
+      "cid": "bafyreicceqaizyoqvpwsyqxonbi6niv7a4llzsblm4fgsdkicomrkm7g74"
+    },
+    "tools.ozone.verification.defs": {
+      "source": "atproto",
+      "cid": "bafyreif4dwgfhzseoer6e2qmq362ur7hsnqsoirmkajokdzm5z2gwizo3a"
+    },
+    "tools.ozone.verification.grantVerifications": {
+      "source": "atproto",
+      "cid": "bafyreialittsxl64dfpse3bsyjthvhknlnftx4gj74rg5qdq2johntmesi"
+    },
+    "tools.ozone.verification.listVerifications": {
+      "source": "atproto",
+      "cid": "bafyreibxtd67fz7izpqkn3wjbrpzvstgexrsrpgn2gg4c7lwjmxzd44pkm"
+    },
+    "tools.ozone.verification.revokeVerifications": {
+      "source": "atproto",
+      "cid": "bafyreidurpaaqqhcmkdg3z2btbs2ltpq5fguvnll653venhb3l4u54f5wi"
+    }
+  }
+}

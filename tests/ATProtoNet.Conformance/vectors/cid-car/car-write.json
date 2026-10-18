@@ -1,0 +1,64 @@
+[
+  {
+    "name": "single root and blocks",
+    "note": "DAT-62",
+    "roots": [
+      "bafkreid6rzchqhotg63qhuzjkzkknfbnsgilizk4r5bbiapitzwh2dz4m4"
+    ],
+    "blocks": [
+      [
+        "bafkreid6rzchqhotg63qhuzjkzkknfbnsgilizk4r5bbiapitzwh2dz4m4",
+        "726f6f7420626c6f636b"
+      ],
+      [
+        "bafkreifxewo4hitlmtocsbd63qwqc3uxkhcqvy3fryuhadu2ifncs3riqa",
+        "626c6f636b206f6e65"
+      ]
+    ],
+    "car": "3aa265726f6f747381d82a582500015512207e8e44781dd337b703d3295654a6942d9190b4655c8f421401e89e6c7d0f3c676776657273696f6e012e015512207e8e44781dd337b703d3295654a6942d9190b4655c8f421401e89e6c7d0f3c67726f6f7420626c6f636b2d01551220b7259dc3a26b64dc29047edc2d016e9751c50ae3658e28700e9a415a296e2880626c6f636b206f6e65"
+  },
+  {
+    "name": "no roots",
+    "note": "DAT-62",
+    "roots": [],
+    "blocks": [
+      [
+        "bafkreifxewo4hitlmtocsbd63qwqc3uxkhcqvy3fryuhadu2ifncs3riqa",
+        "626c6f636b206f6e65"
+      ],
+      [
+        "bafkreieu4onlmdkovfen3deldq4kn24zibnadw6rbbwsjgagdfljb22xsq",
+        "626c6f636b2074776f"
+      ]
+    ],
+    "car": "11a265726f6f7473806776657273696f6e012d01551220b7259dc3a26b64dc29047edc2d016e9751c50ae3658e28700e9a415a296e2880626c6f636b206f6e652d0155122094e39ab60d4ea948dd8c8b1c38a6eb99405a01dbd1086d249806195690eb5794626c6f636b2074776f"
+  },
+  {
+    "name": "no blocks",
+    "note": "DAT-62",
+    "roots": [
+      "bafkreid6rzchqhotg63qhuzjkzkknfbnsgilizk4r5bbiapitzwh2dz4m4"
+    ],
+    "blocks": [],
+    "car": "3aa265726f6f747381d82a582500015512207e8e44781dd337b703d3295654a6942d9190b4655c8f421401e89e6c7d0f3c676776657273696f6e01"
+  },
+  {
+    "name": "two roots",
+    "note": "DAT-62",
+    "roots": [
+      "bafkreifxewo4hitlmtocsbd63qwqc3uxkhcqvy3fryuhadu2ifncs3riqa",
+      "bafkreieu4onlmdkovfen3deldq4kn24zibnadw6rbbwsjgagdfljb22xsq"
+    ],
+    "blocks": [
+      [
+        "bafkreifxewo4hitlmtocsbd63qwqc3uxkhcqvy3fryuhadu2ifncs3riqa",
+        "626c6f636b206f6e65"
+      ],
+      [
+        "bafkreieu4onlmdkovfen3deldq4kn24zibnadw6rbbwsjgagdfljb22xsq",
+        "626c6f636b2074776f"
+      ]
+    ],
+    "car": "63a265726f6f747382d82a58250001551220b7259dc3a26b64dc29047edc2d016e9751c50ae3658e28700e9a415a296e2880d82a5825000155122094e39ab60d4ea948dd8c8b1c38a6eb99405a01dbd1086d249806195690eb57946776657273696f6e012d01551220b7259dc3a26b64dc29047edc2d016e9751c50ae3658e28700e9a415a296e2880626c6f636b206f6e652d0155122094e39ab60d4ea948dd8c8b1c38a6eb99405a01dbd1086d249806195690eb5794626c6f636b2074776f"
+  }
+]

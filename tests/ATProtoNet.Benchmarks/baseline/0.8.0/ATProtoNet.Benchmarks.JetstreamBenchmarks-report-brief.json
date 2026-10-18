@@ -1,0 +1,90 @@
+{
+   "Title":"ATProtoNet.Benchmarks.JetstreamBenchmarks-20261018-163443",
+   "HostEnvironmentInfo":{
+      "BenchmarkDotNetCaption":"BenchmarkDotNet",
+      "BenchmarkDotNetVersion":"0.15.8",
+      "OsVersion":"Linux Fedora Linux 44 (Workstation Edition)",
+      "ProcessorName":"AMD Ryzen 5 7600X",
+      "PhysicalProcessorCount":1,
+      "PhysicalCoreCount":6,
+      "LogicalCoreCount":12,
+      "RuntimeVersion":".NET 11.0.0 (11.0.0-rc.2.26504.105, 11.0.26.50505)",
+      "Architecture":"X64",
+      "HasAttachedDebugger":false,
+      "HasRyuJit":true,
+      "Configuration":"RELEASE",
+      "DotNetCliVersion":"11.0.100-rc.2.26504.105",
+      "ChronometerFrequency":{
+         "Hertz":1000000000
+      },
+      "HardwareTimerKind":"Unknown"
+   },
+   "Benchmarks":[
+      {
+         "DisplayInfo":"JetstreamBenchmarks.Decode: Baseline(Toolchain=InProcessEmitToolchain, IterationCount=15, LaunchCount=1, WarmupCount=5)",
+         "Namespace":"ATProtoNet.Benchmarks",
+         "Type":"JetstreamBenchmarks",
+         "Method":"Decode",
+         "MethodTitle":"Decode",
+         "Parameters":"",
+         "FullName":"ATProtoNet.Benchmarks.JetstreamBenchmarks.Decode",
+         "HardwareIntrinsics":"",
+         "Statistics":{
+            "OriginalValues":[
+               907.8857019042969,908.8166857910156,909.8496960449219,916.15556640625,910.3602880859376,908.2256066894531,912.3858386230469,912.0307666015625,906.3598461914063,904.8927099609375,911.4993469238282,905.9992602539063,908.2930334472657,905.935283203125,906.2830163574218
+            ],
+            "N":15,
+            "Min":904.8927099609375,
+            "LowerFence":899.4088519287109,
+            "Q1":906.3214312744141,
+            "Median":908.2930334472657,
+            "Mean":908.9981764322916,
+            "Q3":910.9298175048829,
+            "UpperFence":917.842396850586,
+            "Max":916.15556640625,
+            "InterquartileRange":4.6083862304687955,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":0.7948182032664286,
+            "Variance":9.476039643655108,
+            "StandardDeviation":3.0783176645133796,
+            "Skewness":0.6553287894945129,
+            "Kurtosis":2.5551679567227614,
+            "ConfidenceInterval":{
+               "N":15,
+               "Mean":908.9981764322916,
+               "StandardError":0.7948182032664286,
+               "Level":12,
+               "Margin":3.2909082972796155,
+               "Lower":905.707268135012,
+               "Upper":912.2890847295713
+            },
+            "Percentiles":{
+               "P0":904.8927099609375,
+               "P25":906.3214312744141,
+               "P50":908.2930334472657,
+               "P67":910.0437210205077,
+               "P80":911.6056308593751,
+               "P85":911.977624633789,
+               "P90":912.243809814453,
+               "P95":913.5167569580078,
+               "P100":916.15556640625
+            }
+         },
+         "Memory":{
+            "Gen0Collections":62,
+            "Gen1Collections":0,
+            "Gen2Collections":0,
+            "TotalOperations":819200,
+            "BytesAllocatedPerOperation":1275
+         }
+      }
+   ]
+}

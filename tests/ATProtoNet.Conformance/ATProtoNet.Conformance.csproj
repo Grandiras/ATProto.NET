@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The conformance suite: vectors, the IProtocolAdapter interface and abstract test classes.
+       It references neither SDK. Each Adapter.* project implements the interface over one
+       implementation and derives one test class per suite. -->
+
+  <ItemGroup>
+    <Compile Remove="Adapter.*/**" />
+    <None Remove="Adapter.*/**" />
+    <None Include="vectors/**" Exclude="vectors/**/*.md;vectors/**/*.mjs;vectors/**/*.py;vectors/**/.editorconfig" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <PackageReference Include="xunit.v3.assert" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

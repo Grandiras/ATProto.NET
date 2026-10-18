@@ -51,3 +51,9 @@ secrets.json
 *.tmp
 *.bak
 *.orig
+
+# Local agent worktrees
+.claude/worktrees/
+
+# build.sh output
+artifacts/

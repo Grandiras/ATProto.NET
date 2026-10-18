@@ -1,0 +1,482 @@
+{
+  "source": "ATProto.NET 0.8.0 tests/ATProtoNet.Tests/Lexicon/EndpointRequestTests.cs at 6aee361",
+  "cases": [
+    {
+      "case": "tools.ozone.queue.createQueue",
+      "nsid": "tools.ozone.queue.createQueue",
+      "params": {"name": "Post spam", "subjectTypes": ["record"], "collection": "app.bsky.feed.post", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"], "description": "Spammy posts", "recommendedPolicies": ["spam"]},
+      "request": {"method": "POST", "query": [], "body": {"name": "Post spam", "subjectTypes": ["record"], "collection": "app.bsky.feed.post", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"], "description": "Spammy posts", "recommendedPolicies": ["spam"]}, "contentType": "application/json"},
+      "response": {"body": {"queue": {"id": 4, "name": "Post spam", "subjectTypes": ["record"], "collection": "app.bsky.feed.post", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"], "description": "Spammy posts", "recommendedPolicies": ["spam"], "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "updatedAt": "2026-09-02T00:00:00.000Z", "enabled": true, "stats": {"pendingCount": 3, "actionedCount": 10, "inboundCount": 13, "actionRate": 77, "lastUpdated": "2026-09-02T00:00:00.000Z"}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.queue.createQueue (name only)",
+      "nsid": "tools.ozone.queue.createQueue",
+      "params": {"name": "Manual"},
+      "request": {"method": "POST", "query": [], "body": {"name": "Manual"}, "contentType": "application/json"},
+      "response": {"body": {"queue": {"id": 4, "name": "Post spam", "subjectTypes": ["record"], "collection": "app.bsky.feed.post", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"], "description": "Spammy posts", "recommendedPolicies": ["spam"], "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "updatedAt": "2026-09-02T00:00:00.000Z", "enabled": true, "stats": {"pendingCount": 3, "actionedCount": 10, "inboundCount": 13, "actionRate": 77, "lastUpdated": "2026-09-02T00:00:00.000Z"}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.queue.updateQueue",
+      "nsid": "tools.ozone.queue.updateQueue",
+      "params": {"queueId": 4, "enabled": false, "description": "Paused"},
+      "request": {"method": "POST", "query": [], "body": {"queueId": 4, "enabled": false, "description": "Paused"}, "contentType": "application/json"},
+      "response": {"body": {"queue": {"id": 4, "name": "Post spam", "subjectTypes": ["record"], "collection": "app.bsky.feed.post", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"], "description": "Spammy posts", "recommendedPolicies": ["spam"], "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "updatedAt": "2026-09-02T00:00:00.000Z", "enabled": true, "stats": {"pendingCount": 3, "actionedCount": 10, "inboundCount": 13, "actionRate": 77, "lastUpdated": "2026-09-02T00:00:00.000Z"}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.queue.deleteQueue",
+      "nsid": "tools.ozone.queue.deleteQueue",
+      "params": {"queueId": 4, "migrateToQueueId": 5},
+      "request": {"method": "POST", "query": [], "body": {"queueId": 4, "migrateToQueueId": 5}, "contentType": "application/json"},
+      "response": {"body": {"deleted": true, "reportsMigrated": 12}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.queue.listQueues",
+      "nsid": "tools.ozone.queue.listQueues",
+      "params": {"enabled": true, "subjectType": "record", "collection": "app.bsky.feed.post", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"], "limit": 10},
+      "request": {"method": "GET", "query": [["enabled", "true"], ["subjectType", "record"], ["collection", "app.bsky.feed.post"], ["reportTypes", "tools.ozone.report.defs#reasonMisleadingSpam"], ["limit", "10"]]},
+      "response": {"body": {"cursor": "c1", "queues": [{"id": 4, "name": "Post spam", "subjectTypes": ["record"], "collection": "app.bsky.feed.post", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"], "description": "Spammy posts", "recommendedPolicies": ["spam"], "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "updatedAt": "2026-09-02T00:00:00.000Z", "enabled": true, "stats": {"pendingCount": 3, "actionedCount": 10, "inboundCount": 13, "actionRate": 77, "lastUpdated": "2026-09-02T00:00:00.000Z"}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.queue.routeReports",
+      "nsid": "tools.ozone.queue.routeReports",
+      "params": {"startReportId": 1000, "endReportId": 1999},
+      "request": {"method": "POST", "query": [], "body": {"startReportId": 1000, "endReportId": 1999}, "contentType": "application/json"},
+      "response": {"body": {"assigned": 40, "unmatched": 2}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.queue.assignModerator",
+      "nsid": "tools.ozone.queue.assignModerator",
+      "params": {"queueId": 4, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"},
+      "request": {"method": "POST", "query": [], "body": {"queueId": 4, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}, "contentType": "application/json"},
+      "response": {"body": {"id": 8, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "queue": {"id": 4, "name": "Post spam", "subjectTypes": ["record"], "collection": "app.bsky.feed.post", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"], "description": "Spammy posts", "recommendedPolicies": ["spam"], "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "updatedAt": "2026-09-02T00:00:00.000Z", "enabled": true, "stats": {"pendingCount": 3, "actionedCount": 10, "inboundCount": 13, "actionRate": 77, "lastUpdated": "2026-09-02T00:00:00.000Z"}}, "startAt": "2026-09-01T00:00:00.000Z"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.queue.unassignModerator",
+      "nsid": "tools.ozone.queue.unassignModerator",
+      "params": {"queueId": 4, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"},
+      "request": {"method": "POST", "query": [], "body": {"queueId": 4, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "tools.ozone.queue.getAssignments",
+      "nsid": "tools.ozone.queue.getAssignments",
+      "params": {"onlyActive": true, "queueIds": [4, 5], "dids": ["did:plc:ewvi7nxzyoun6zhxrhs64oiz"], "limit": 20, "cursor": "c0"},
+      "request": {"method": "GET", "query": [["onlyActive", "true"], ["queueIds", "4"], ["queueIds", "5"], ["dids", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], ["limit", "20"], ["cursor", "c0"]]},
+      "response": {"body": {"assignments": [{"id": 8, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "queue": {"id": 4, "name": "Post spam", "subjectTypes": ["record"], "collection": "app.bsky.feed.post", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"], "description": "Spammy posts", "recommendedPolicies": ["spam"], "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "updatedAt": "2026-09-02T00:00:00.000Z", "enabled": true, "stats": {"pendingCount": 3, "actionedCount": 10, "inboundCount": 13, "actionRate": 77, "lastUpdated": "2026-09-02T00:00:00.000Z"}}, "startAt": "2026-09-01T00:00:00.000Z"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.getReport",
+      "nsid": "tools.ozone.report.getReport",
+      "params": {"id": 42},
+      "request": {"method": "GET", "query": [["id", "42"]]},
+      "response": {"body": {"id": 42, "eventId": 7, "status": "open", "subject": {"type": "record", "subject": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la"}, "reportType": "tools.ozone.report.defs#reasonMisleadingSpam", "reportedBy": "did:plc:z72i7hdynmk6r22z27h6tvur", "reporter": {"type": "account", "subject": "did:plc:z72i7hdynmk6r22z27h6tvur"}, "comment": "spam", "createdAt": "2026-09-01T00:00:00.000Z", "actionEventIds": [9, 8], "assignment": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "assignedAt": "2026-09-01T00:00:00.000Z"}, "isMuted": false}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.getLatestReport",
+      "nsid": "tools.ozone.report.getLatestReport",
+      "params": {},
+      "request": {"method": "GET", "query": []},
+      "response": {"body": {"report": {"id": 42, "eventId": 7, "status": "open", "subject": {"type": "record", "subject": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la"}, "reportType": "tools.ozone.report.defs#reasonMisleadingSpam", "reportedBy": "did:plc:z72i7hdynmk6r22z27h6tvur", "reporter": {"type": "account", "subject": "did:plc:z72i7hdynmk6r22z27h6tvur"}, "comment": "spam", "createdAt": "2026-09-01T00:00:00.000Z", "actionEventIds": [9, 8], "assignment": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "assignedAt": "2026-09-01T00:00:00.000Z"}, "isMuted": false}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.queryReports",
+      "nsid": "tools.ozone.report.queryReports",
+      "params": {"queueId": -1, "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam", "com.atproto.moderation.defs#reasonSpam"], "status": "open", "did": "did:plc:z72i7hdynmk6r22z27h6tvur", "subjectType": "record", "collections": ["app.bsky.feed.post"], "reportedAfter": "2026-09-01T00:00:00.000Z", "isMuted": true, "assignedTo": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "sortField": "updatedAt", "sortDirection": "asc", "limit": 25, "cursor": "c0"},
+      "request": {"method": "GET", "query": [["queueId", "-1"], ["reportTypes", "tools.ozone.report.defs#reasonMisleadingSpam"], ["reportTypes", "com.atproto.moderation.defs#reasonSpam"], ["status", "open"], ["did", "did:plc:z72i7hdynmk6r22z27h6tvur"], ["subjectType", "record"], ["collections", "app.bsky.feed.post"], ["reportedAfter", "2026-09-01T00:00:00.000Z"], ["isMuted", "true"], ["assignedTo", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], ["sortField", "updatedAt"], ["sortDirection", "asc"], ["limit", "25"], ["cursor", "c0"]]},
+      "response": {"body": {"cursor": "c1", "reports": [{"id": 42, "eventId": 7, "status": "open", "subject": {"type": "record", "subject": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la"}, "reportType": "tools.ozone.report.defs#reasonMisleadingSpam", "reportedBy": "did:plc:z72i7hdynmk6r22z27h6tvur", "reporter": {"type": "account", "subject": "did:plc:z72i7hdynmk6r22z27h6tvur"}, "comment": "spam", "createdAt": "2026-09-01T00:00:00.000Z", "actionEventIds": [9, 8], "assignment": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "assignedAt": "2026-09-01T00:00:00.000Z"}, "isMuted": false}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.queryReports (status only)",
+      "nsid": "tools.ozone.report.queryReports",
+      "params": {"status": "escalated"},
+      "request": {"method": "GET", "query": [["status", "escalated"]]},
+      "response": {"body": {"reports": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.closeReports",
+      "nsid": "tools.ozone.report.closeReports",
+      "params": {"subject": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"], "internalNote": "resolved upstream", "isAutomated": true},
+      "request": {"method": "POST", "query": [], "body": {"subject": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"], "internalNote": "resolved upstream", "isAutomated": true}, "contentType": "application/json"},
+      "response": {"body": {"closedCount": 2, "reportIds": [42, 43]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.reassignQueue",
+      "nsid": "tools.ozone.report.reassignQueue",
+      "params": {"reportId": 42, "queueId": -1, "comment": "wrong queue"},
+      "request": {"method": "POST", "query": [], "body": {"reportId": 42, "queueId": -1, "comment": "wrong queue"}, "contentType": "application/json"},
+      "response": {"body": {"report": {"id": 42, "eventId": 7, "status": "open", "subject": {"type": "record", "subject": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la"}, "reportType": "tools.ozone.report.defs#reasonMisleadingSpam", "reportedBy": "did:plc:z72i7hdynmk6r22z27h6tvur", "reporter": {"type": "account", "subject": "did:plc:z72i7hdynmk6r22z27h6tvur"}, "comment": "spam", "createdAt": "2026-09-01T00:00:00.000Z", "actionEventIds": [9, 8], "assignment": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "assignedAt": "2026-09-01T00:00:00.000Z"}, "isMuted": false}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.assignModerator",
+      "nsid": "tools.ozone.report.assignModerator",
+      "params": {"reportId": 42, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "queueId": 4, "isPermanent": true},
+      "request": {"method": "POST", "query": [], "body": {"reportId": 42, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "queueId": 4, "isPermanent": true}, "contentType": "application/json"},
+      "response": {"body": {"id": 11, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "reportId": 42, "startAt": "2026-09-01T00:00:00.000Z", "moderator": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "role": "tools.ozone.team.defs#roleModerator"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.assignModerator (report only)",
+      "nsid": "tools.ozone.report.assignModerator",
+      "params": {"reportId": 42},
+      "request": {"method": "POST", "query": [], "body": {"reportId": 42}, "contentType": "application/json"},
+      "response": {"body": {"id": 11, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "reportId": 42, "startAt": "2026-09-01T00:00:00.000Z", "moderator": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "role": "tools.ozone.team.defs#roleModerator"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.unassignModerator",
+      "nsid": "tools.ozone.report.unassignModerator",
+      "params": {"reportId": 42},
+      "request": {"method": "POST", "query": [], "body": {"reportId": 42}, "contentType": "application/json"},
+      "response": {"body": {"id": 11, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "reportId": 42, "startAt": "2026-09-01T00:00:00.000Z", "moderator": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "role": "tools.ozone.team.defs#roleModerator"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.getAssignments",
+      "nsid": "tools.ozone.report.getAssignments",
+      "params": {"onlyActive": false, "reportIds": [42, 43], "dids": ["did:plc:ewvi7nxzyoun6zhxrhs64oiz"], "limit": 5},
+      "request": {"method": "GET", "query": [["onlyActive", "false"], ["reportIds", "42"], ["reportIds", "43"], ["dids", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], ["limit", "5"]]},
+      "response": {"body": {"cursor": "c1", "assignments": [{"id": 11, "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "reportId": 42, "startAt": "2026-09-01T00:00:00.000Z", "moderator": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "role": "tools.ozone.team.defs#roleModerator"}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.createActivity (for an event)",
+      "nsid": "tools.ozone.report.createActivity",
+      "params": {"eventId": 7, "activity": {"$type": "tools.ozone.report.defs#noteActivity"}, "internalNote": "seen"},
+      "request": {"method": "POST", "query": [], "body": {"eventId": 7, "activity": {"$type": "tools.ozone.report.defs#noteActivity"}, "internalNote": "seen"}, "contentType": "application/json"},
+      "response": {"body": {"activity": {"id": 5, "reportId": 42, "activity": {"$type": "tools.ozone.report.defs#closeActivity", "previousStatus": "assigned"}, "internalNote": "dupe", "meta": {"assignmentId": 11}, "isAutomated": false, "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.listActivities",
+      "nsid": "tools.ozone.report.listActivities",
+      "params": {"reportId": 42, "limit": 10, "cursor": "c0"},
+      "request": {"method": "GET", "query": [["reportId", "42"], ["limit", "10"], ["cursor", "c0"]]},
+      "response": {"body": {"cursor": "c1", "activities": [{"id": 5, "reportId": 42, "activity": {"$type": "tools.ozone.report.defs#closeActivity", "previousStatus": "assigned"}, "internalNote": "dupe", "meta": {"assignmentId": 11}, "isAutomated": false, "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.queryActivities",
+      "nsid": "tools.ozone.report.queryActivities",
+      "params": {"activityTypes": ["closeActivity", "escalationActivity"], "createdAfter": "2026-09-01T00:00:00.000Z", "sortDirection": "asc", "limit": 50},
+      "request": {"method": "GET", "query": [["activityTypes", "closeActivity"], ["activityTypes", "escalationActivity"], ["createdAfter", "2026-09-01T00:00:00.000Z"], ["sortDirection", "asc"], ["limit", "50"]]},
+      "response": {"body": {"activities": [{"id": 5, "reportId": 42, "activity": {"$type": "tools.ozone.report.defs#closeActivity", "previousStatus": "assigned"}, "internalNote": "dupe", "meta": {"assignmentId": 11}, "isAutomated": false, "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.getLiveStats",
+      "nsid": "tools.ozone.report.getLiveStats",
+      "params": {"queueId": 4, "moderatorDid": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "reportTypes": ["tools.ozone.report.defs#reasonMisleadingSpam"]},
+      "request": {"method": "GET", "query": [["queueId", "4"], ["moderatorDid", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], ["reportTypes", "tools.ozone.report.defs#reasonMisleadingSpam"]]},
+      "response": {"body": {"stats": {"pendingCount": 12, "actionedCount": 30, "escalatedCount": 2, "inboundCount": 40, "actionRate": 75, "avgHandlingTimeSec": 300, "lastUpdated": "2026-09-01T12:00:00.000Z"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.getHistoricalStats",
+      "nsid": "tools.ozone.report.getHistoricalStats",
+      "params": {"startDate": "2026-08-01T00:00:00.000Z", "endDate": "2026-09-01T00:00:00.000Z", "limit": 30},
+      "request": {"method": "GET", "query": [["startDate", "2026-08-01T00:00:00.000Z"], ["endDate", "2026-09-01T00:00:00.000Z"], ["limit", "30"]]},
+      "response": {"body": {"stats": [{"date": "2026-09-01", "computedAt": "2026-09-02T00:00:00.000Z", "inboundCount": 40}], "cursor": "c1"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.report.refreshStats",
+      "nsid": "tools.ozone.report.refreshStats",
+      "params": {"startDate": "2026-08-01", "endDate": "2026-08-31", "queueIds": [4, -1]},
+      "request": {"method": "POST", "query": [], "body": {"startDate": "2026-08-01", "endDate": "2026-08-31", "queueIds": [4, -1]}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "tools.ozone.moderation.emitEvent",
+      "nsid": "tools.ozone.moderation.emitEvent",
+      "params": {"event": {"$type": "tools.ozone.moderation.defs#modEventTakedown", "comment": "spam", "durationInHours": 24}, "subject": {"$type": "com.atproto.admin.defs#repoRef", "did": "did:plc:abc"}, "subjectBlobCids": ["bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"], "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"},
+      "request": {"method": "POST", "query": [], "body": {"event": {"$type": "tools.ozone.moderation.defs#modEventTakedown", "comment": "spam", "durationInHours": 24}, "subject": {"$type": "com.atproto.admin.defs#repoRef", "did": "did:plc:abc"}, "subjectBlobCids": ["bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"], "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}, "contentType": "application/json"},
+      "response": {"body": {"id": 1, "event": {"$type": "tools.ozone.moderation.defs#modEventTakedown", "comment": "spam", "durationInHours": 24}, "subject": {"$type": "com.atproto.admin.defs#repoRef", "did": "did:plc:abc"}, "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2024-01-01T00:00:00Z"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.getEvent",
+      "nsid": "tools.ozone.moderation.getEvent",
+      "params": {"id": 42},
+      "request": {"method": "GET", "query": [["id", "42"]]},
+      "response": {"body": {"id": 42, "event": {"$type": "tools.ozone.moderation.defs#modEventComment", "comment": "test"}, "subject": {"$type": "com.atproto.admin.defs#repoRef", "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}, "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2024-01-01T00:00:00Z"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.getRepo",
+      "nsid": "tools.ozone.moderation.getRepo",
+      "params": {"did": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["did", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"body": {"did": "did:plc:z72i7hdynmk6r22z27h6tvur", "handle": "user.example.com", "relatedRecords": [], "indexedAt": "2026-09-01T00:00:00.000Z", "moderation": {}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.getRecord",
+      "nsid": "tools.ozone.moderation.getRecord",
+      "params": {"uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"},
+      "request": {"method": "GET", "query": [["uri", "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la"], ["cid", "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm"]]},
+      "response": {"body": {"uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la", "cid": "bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm", "value": {}, "blobs": [], "indexedAt": "2024-01-01T00:00:00Z", "moderation": {}, "repo": {"did": "did:plc:z72i7hdynmk6r22z27h6tvur", "handle": "user.example.com", "relatedRecords": [], "indexedAt": "2026-09-01T00:00:00.000Z", "moderation": {}}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.getRecords",
+      "nsid": "tools.ozone.moderation.getRecords",
+      "params": {"uris": ["at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la", "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a"]},
+      "request": {"method": "GET", "query": [["uris", "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la"], ["uris", "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3lwinfmsd2k2a"]]},
+      "response": {"body": {"records": [{"$type": "tools.ozone.moderation.defs#recordViewNotFound", "uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.getSubjects",
+      "nsid": "tools.ozone.moderation.getSubjects",
+      "params": {"subjects": ["did:plc:z72i7hdynmk6r22z27h6tvur", "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la"]},
+      "request": {"method": "GET", "query": [["subjects", "did:plc:z72i7hdynmk6r22z27h6tvur"], ["subjects", "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3k2la"]]},
+      "response": {"body": {"subjects": [{"type": "account", "subject": "did:plc:z72i7hdynmk6r22z27h6tvur", "repo": {"did": "did:plc:z72i7hdynmk6r22z27h6tvur", "handle": "user.example.com", "relatedRecords": [], "indexedAt": "2026-09-01T00:00:00.000Z", "moderation": {}}}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.getAccountPreferences",
+      "nsid": "tools.ozone.moderation.getAccountPreferences",
+      "params": {"did": "did:plc:z72i7hdynmk6r22z27h6tvur"},
+      "request": {"method": "GET", "query": [["did", "did:plc:z72i7hdynmk6r22z27h6tvur"]]},
+      "response": {"body": {"preferences": [{"$type": "app.bsky.actor.defs#adultContentPref", "enabled": true}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.queryEvents",
+      "nsid": "tools.ozone.moderation.queryEvents",
+      "params": {"subject": "did:plc:abc", "sortDirection": "desc", "limit": 10},
+      "request": {"method": "GET", "query": [["subject", "did:plc:abc"], ["sortDirection", "desc"], ["limit", "10"]]},
+      "response": {"body": {"events": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.queryEvents (typed filters)",
+      "nsid": "tools.ozone.moderation.queryEvents",
+      "params": {"subject": "did:plc:abc", "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAfter": "2024-01-01T00:00:00Z", "createdBefore": "2024-02-01T00:00:00.000Z", "types": ["tools.ozone.moderation.defs#modEventTakedown"], "limit": 5, "cursor": "c"},
+      "request": {"method": "GET", "query": [["subject", "did:plc:abc"], ["createdBy", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], ["createdAfter", "2024-01-01T00:00:00Z"], ["createdBefore", "2024-02-01T00:00:00.000Z"], ["types", "tools.ozone.moderation.defs#modEventTakedown"], ["limit", "5"], ["cursor", "c"]]},
+      "response": {"body": {"events": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.queryStatuses",
+      "nsid": "tools.ozone.moderation.queryStatuses",
+      "params": {"collections": ["app.bsky.feed.post"], "reviewState": "tools.ozone.moderation.defs#reviewEscalated", "takendown": true, "appealed": false, "minPriorityScore": 5, "limit": 10},
+      "request": {"method": "GET", "query": [["collections", "app.bsky.feed.post"], ["reviewState", "tools.ozone.moderation.defs#reviewEscalated"], ["takendown", "true"], ["appealed", "false"], ["minPriorityScore", "5"], ["limit", "10"]]},
+      "response": {"body": {"subjectStatuses": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.getAccountTimeline",
+      "nsid": "tools.ozone.moderation.getAccountTimeline",
+      "params": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"},
+      "request": {"method": "GET", "query": [["did", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"]]},
+      "response": {"body": {"timeline": [{"day": "2026-09-01", "summary": [{"eventSubjectType": "account", "eventType": "tools.ozone.moderation.defs#modEventTakedown", "count": 1}]}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.getReporterStats",
+      "nsid": "tools.ozone.moderation.getReporterStats",
+      "params": {"dids": ["did:plc:ewvi7nxzyoun6zhxrhs64oiz"]},
+      "request": {"method": "GET", "query": [["dids", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"]]},
+      "response": {"body": {"stats": [{"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "accountReportCount": 1, "recordReportCount": 2, "reportedAccountCount": 3, "reportedRecordCount": 4, "takendownAccountCount": 5, "takendownRecordCount": 6, "labeledAccountCount": 7, "labeledRecordCount": 8}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.scheduleAction",
+      "nsid": "tools.ozone.moderation.scheduleAction",
+      "params": {"subjects": ["did:plc:z72i7hdynmk6r22z27h6tvur", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], "action": {"$type": "tools.ozone.moderation.scheduleAction#takedown", "comment": "ban wave", "strikeCount": 1, "emailSubject": "Your account"}, "scheduling": {"executeAfter": "2026-10-01T00:00:00.000Z", "executeUntil": "2026-10-02T00:00:00.000Z"}, "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "modTool": {"name": "ozone/workspace"}},
+      "request": {"method": "POST", "query": [], "body": {"subjects": ["did:plc:z72i7hdynmk6r22z27h6tvur", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], "action": {"$type": "tools.ozone.moderation.scheduleAction#takedown", "comment": "ban wave", "strikeCount": 1, "emailSubject": "Your account"}, "scheduling": {"executeAfter": "2026-10-01T00:00:00.000Z", "executeUntil": "2026-10-02T00:00:00.000Z"}, "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "modTool": {"name": "ozone/workspace"}}, "contentType": "application/json"},
+      "response": {"body": {"succeeded": ["did:plc:z72i7hdynmk6r22z27h6tvur"], "failed": [{"subject": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "error": "Already scheduled", "errorCode": "Conflict"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.listScheduledActions",
+      "nsid": "tools.ozone.moderation.listScheduledActions",
+      "params": {"statuses": ["pending", "executed"], "subjects": ["did:plc:z72i7hdynmk6r22z27h6tvur"], "startsAfter": "2026-09-01T00:00:00.000Z", "limit": 10, "cursor": "c0"},
+      "request": {"method": "POST", "query": [], "body": {"statuses": ["pending", "executed"], "subjects": ["did:plc:z72i7hdynmk6r22z27h6tvur"], "startsAfter": "2026-09-01T00:00:00.000Z", "limit": 10, "cursor": "c0"}, "contentType": "application/json"},
+      "response": {"body": {"cursor": "c1", "actions": [{"id": 9, "action": "takedown", "eventData": {"comment": "ban wave"}, "did": "did:plc:z72i7hdynmk6r22z27h6tvur", "executeAt": "2026-10-01T00:00:00.000Z", "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "status": "executed", "lastExecutedAt": "2026-10-01T00:00:01.000Z", "executionEventId": 77}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.moderation.cancelScheduledActions",
+      "nsid": "tools.ozone.moderation.cancelScheduledActions",
+      "params": {"subjects": ["did:plc:z72i7hdynmk6r22z27h6tvur", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], "comment": "appeal granted"},
+      "request": {"method": "POST", "query": [], "body": {"subjects": ["did:plc:z72i7hdynmk6r22z27h6tvur", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], "comment": "appeal granted"}, "contentType": "application/json"},
+      "response": {"body": {"succeeded": ["did:plc:z72i7hdynmk6r22z27h6tvur"], "failed": [{"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "error": "Nothing pending"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.communication.createTemplate",
+      "nsid": "tools.ozone.communication.createTemplate",
+      "params": {"name": "Warning", "contentMarkdown": "You violated...", "subject": "Policy Warning"},
+      "request": {"method": "POST", "query": [], "body": {"name": "Warning", "contentMarkdown": "You violated...", "subject": "Policy Warning"}, "contentType": "application/json"},
+      "response": {"body": {"id": "tmpl-1", "name": "Warning", "contentMarkdown": "You violated...", "disabled": false, "lastUpdatedBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2024-01-01T00:00:00Z", "updatedAt": "2024-01-01T00:00:00Z"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.communication.listTemplates",
+      "nsid": "tools.ozone.communication.listTemplates",
+      "params": {},
+      "request": {"method": "GET", "query": []},
+      "response": {"body": {"communicationTemplates": [{"id": "tmpl-1", "name": "Warning", "contentMarkdown": "You violated...", "disabled": false, "lastUpdatedBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2024-01-01T00:00:00Z", "updatedAt": "2024-01-01T00:00:00Z"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.team.addMember",
+      "nsid": "tools.ozone.team.addMember",
+      "params": {"did": "did:plc:newmod", "role": "tools.ozone.team.defs#roleModerator"},
+      "request": {"method": "POST", "query": [], "body": {"did": "did:plc:newmod", "role": "tools.ozone.team.defs#roleModerator"}, "contentType": "application/json"},
+      "response": {"body": {"did": "did:plc:newmod", "role": "tools.ozone.team.defs#roleModerator"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.team.listMembers",
+      "nsid": "tools.ozone.team.listMembers",
+      "params": {"limit": 25},
+      "request": {"method": "GET", "query": [["limit", "25"]]},
+      "response": {"body": {"members": [{"did": "did:plc:admin", "role": "tools.ozone.team.defs#roleAdmin", "lastUpdatedBy": "admin_token"}], "cursor": "next-page"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.set.upsertSet",
+      "nsid": "tools.ozone.set.upsertSet",
+      "params": {"name": "bad-words", "description": "Known bad words"},
+      "request": {"method": "POST", "query": [], "body": {"name": "bad-words", "description": "Known bad words"}, "contentType": "application/json"},
+      "response": {"body": {"name": "bad-words", "setSize": 0, "createdAt": "2024-01-01T00:00:00Z", "updatedAt": "2024-01-01T00:00:00Z"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.set.getValues",
+      "nsid": "tools.ozone.set.getValues",
+      "params": {"name": "bad-words"},
+      "request": {"method": "GET", "query": [["name", "bad-words"]]},
+      "response": {"body": {"set": {"name": "bad-words", "setSize": 0, "createdAt": "2024-01-01T00:00:00Z", "updatedAt": "2024-01-01T00:00:00Z"}, "values": ["word1", "word2"]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.server.getConfig",
+      "nsid": "tools.ozone.server.getConfig",
+      "params": {},
+      "request": {"method": "GET", "query": []},
+      "response": {"body": {"appview": {"url": "https://api.bsky.app"}, "pds": {"url": "https://pds.example.com"}, "viewer": {"role": "tools.ozone.team.defs#roleAdmin"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.signature.findRelatedAccounts",
+      "nsid": "tools.ozone.signature.findRelatedAccounts",
+      "params": {"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "cursor": "c", "limit": 10},
+      "request": {"method": "GET", "query": [["did", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], ["cursor", "c"], ["limit", "10"]]},
+      "response": {"body": {"accounts": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.signature.searchAccounts",
+      "nsid": "tools.ozone.signature.searchAccounts",
+      "params": {"values": ["192.0.2.1", "device-7"], "limit": 10, "cursor": "c"},
+      "request": {"method": "GET", "query": [["values", "192.0.2.1"], ["values", "device-7"], ["limit", "10"], ["cursor", "c"]]},
+      "response": {"body": {"accounts": [{"did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "mod.example.com", "indexedAt": "2026-09-01T00:00:00.000Z"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.setting.listOptions",
+      "nsid": "tools.ozone.setting.listOptions",
+      "params": {"limit": 10, "scope": "personal", "keys": ["tools.ozone.setting.client.queues", "tools.ozone.setting.client.tags"]},
+      "request": {"method": "GET", "query": [["limit", "10"], ["scope", "personal"], ["keys", "tools.ozone.setting.client.queues"], ["keys", "tools.ozone.setting.client.tags"]]},
+      "response": {"body": {"cursor": "c1", "options": [{"key": "tools.ozone.setting.client.queues", "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "value": {"order": ["spam"]}, "managerRole": "tools.ozone.team.defs#roleAdmin", "scope": "instance", "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "lastUpdatedBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.setting.upsertOption",
+      "nsid": "tools.ozone.setting.upsertOption",
+      "params": {"key": "tools.ozone.setting.client.queues", "scope": "instance", "value": {"order": ["spam"]}, "description": "Queue order", "managerRole": "tools.ozone.team.defs#roleAdmin"},
+      "request": {"method": "POST", "query": [], "body": {"key": "tools.ozone.setting.client.queues", "scope": "instance", "value": {"order": ["spam"]}, "description": "Queue order", "managerRole": "tools.ozone.team.defs#roleAdmin"}, "contentType": "application/json"},
+      "response": {"body": {"option": {"key": "tools.ozone.setting.client.queues", "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "value": {"order": ["spam"]}, "managerRole": "tools.ozone.team.defs#roleAdmin", "scope": "instance", "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "lastUpdatedBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.setting.removeOptions",
+      "nsid": "tools.ozone.setting.removeOptions",
+      "params": {"keys": ["tools.ozone.setting.client.queues"], "scope": "personal"},
+      "request": {"method": "POST", "query": [], "body": {"keys": ["tools.ozone.setting.client.queues"], "scope": "personal"}, "contentType": "application/json"},
+      "response": {"body": {}}
+    },
+    {
+      "case": "tools.ozone.safelink.addRule",
+      "nsid": "tools.ozone.safelink.addRule",
+      "params": {"url": "scam.example.com", "pattern": "domain", "action": "block", "reason": "phishing", "comment": "reported"},
+      "request": {"method": "POST", "query": [], "body": {"url": "scam.example.com", "pattern": "domain", "action": "block", "reason": "phishing", "comment": "reported"}, "contentType": "application/json"},
+      "response": {"body": {"id": 3, "eventType": "addRule", "url": "scam.example.com", "pattern": "domain", "action": "block", "reason": "phishing", "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "comment": "reported"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.safelink.updateRule",
+      "nsid": "tools.ozone.safelink.updateRule",
+      "params": {"url": "https://scam.example.com/x", "pattern": "url", "action": "warn", "reason": "spam", "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"},
+      "request": {"method": "POST", "query": [], "body": {"url": "https://scam.example.com/x", "pattern": "url", "action": "warn", "reason": "spam", "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}, "contentType": "application/json"},
+      "response": {"body": {"id": 3, "eventType": "addRule", "url": "scam.example.com", "pattern": "domain", "action": "block", "reason": "phishing", "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "comment": "reported"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.safelink.removeRule",
+      "nsid": "tools.ozone.safelink.removeRule",
+      "params": {"url": "scam.example.com", "pattern": "domain", "comment": "false positive"},
+      "request": {"method": "POST", "query": [], "body": {"url": "scam.example.com", "pattern": "domain", "comment": "false positive"}, "contentType": "application/json"},
+      "response": {"body": {"id": 3, "eventType": "addRule", "url": "scam.example.com", "pattern": "domain", "action": "block", "reason": "phishing", "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "comment": "reported"}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.safelink.queryRules",
+      "nsid": "tools.ozone.safelink.queryRules",
+      "params": {"urls": ["scam.example.com"], "actions": ["block", "warn"], "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "limit": 10, "cursor": "c0"},
+      "request": {"method": "POST", "query": [], "body": {"urls": ["scam.example.com"], "actions": ["block", "warn"], "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "limit": 10, "cursor": "c0"}, "contentType": "application/json"},
+      "response": {"body": {"cursor": "c1", "rules": [{"url": "scam.example.com", "pattern": "domain", "action": "block", "reason": "phishing", "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "updatedAt": "2026-09-02T00:00:00.000Z"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.safelink.queryEvents",
+      "nsid": "tools.ozone.safelink.queryEvents",
+      "params": {"limit": 5, "cursor": "c0", "patternType": "domain", "sortDirection": "asc"},
+      "request": {"method": "POST", "query": [], "body": {"limit": 5, "cursor": "c0", "patternType": "domain", "sortDirection": "asc"}, "contentType": "application/json"},
+      "response": {"body": {"events": [{"id": 3, "eventType": "addRule", "url": "scam.example.com", "pattern": "domain", "action": "block", "reason": "phishing", "createdBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "createdAt": "2026-09-01T00:00:00.000Z", "comment": "reported"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.verification.grantVerifications",
+      "nsid": "tools.ozone.verification.grantVerifications",
+      "params": {"verifications": [{"subject": "did:plc:z72i7hdynmk6r22z27h6tvur", "handle": "user.example.com", "displayName": "User"}, {"subject": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "mod.example.com", "displayName": "Mod", "createdAt": "2026-09-01T00:00:00.000Z"}]},
+      "request": {"method": "POST", "query": [], "body": {"verifications": [{"subject": "did:plc:z72i7hdynmk6r22z27h6tvur", "handle": "user.example.com", "displayName": "User"}, {"subject": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "handle": "mod.example.com", "displayName": "Mod", "createdAt": "2026-09-01T00:00:00.000Z"}]}, "contentType": "application/json"},
+      "response": {"body": {"verifications": [{"issuer": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.verification/3lndpmyzszx2b", "subject": "did:plc:z72i7hdynmk6r22z27h6tvur", "handle": "user.example.com", "displayName": "User", "createdAt": "2026-09-01T00:00:00.000Z"}], "failedVerifications": [{"error": "Handle mismatch", "subject": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}]}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.verification.revokeVerifications",
+      "nsid": "tools.ozone.verification.revokeVerifications",
+      "params": {"uris": ["at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.verification/3lndpmyzszx2b"], "revokeReason": "handle changed"},
+      "request": {"method": "POST", "query": [], "body": {"uris": ["at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.verification/3lndpmyzszx2b"], "revokeReason": "handle changed"}, "contentType": "application/json"},
+      "response": {"body": {"revokedVerifications": ["at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.verification/3lndpmyzszx2b"], "failedRevocations": []}},
+      "expect": {"outputIsResponse": true}
+    },
+    {
+      "case": "tools.ozone.verification.listVerifications",
+      "nsid": "tools.ozone.verification.listVerifications",
+      "params": {"limit": 10, "createdAfter": "2026-08-01T00:00:00.000Z", "issuers": ["did:plc:ewvi7nxzyoun6zhxrhs64oiz"], "subjects": ["did:plc:z72i7hdynmk6r22z27h6tvur"], "isRevoked": true},
+      "request": {"method": "GET", "query": [["limit", "10"], ["createdAfter", "2026-08-01T00:00:00.000Z"], ["issuers", "did:plc:ewvi7nxzyoun6zhxrhs64oiz"], ["subjects", "did:plc:z72i7hdynmk6r22z27h6tvur"], ["isRevoked", "true"]]},
+      "response": {"body": {"verifications": [{"issuer": "did:plc:ewvi7nxzyoun6zhxrhs64oiz", "uri": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.graph.verification/3lndpmyzszx2b", "subject": "did:plc:z72i7hdynmk6r22z27h6tvur", "handle": "user.example.com", "displayName": "User", "createdAt": "2026-09-01T00:00:00.000Z", "revokeReason": "x", "revokedAt": "2026-09-02T00:00:00.000Z", "revokedBy": "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}]}},
+      "expect": {"outputIsResponse": true}
+    }
+  ]
+}

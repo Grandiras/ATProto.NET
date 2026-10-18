@@ -1,26 +1,16 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/ATProtoNet.Aspire.Hosting/ATProtoNet.Aspire.Hosting.csproj" />
-    <Project Path="src/ATProtoNet.Blazor/ATProtoNet.Blazor.csproj" />
-    <Project Path="src/ATProtoNet.Server/ATProtoNet.Server.csproj" />
-    <Project Path="src/ATProtoNet.Server.EntityFrameworkCore/ATProtoNet.Server.EntityFrameworkCore.csproj" />
     <Project Path="src/ATProtoNet/ATProtoNet.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/AotSmoke/AotSmoke.csproj" />
+    <Project Path="tests/ATProtoNet.Architecture.Tests/ATProtoNet.Architecture.Tests.csproj" />
+    <Project Path="tests/ATProtoNet.Benchmarks/Legacy/ATProtoNet.Benchmarks.Legacy.csproj" />
+    <Project Path="tests/ATProtoNet.Conformance/ATProtoNet.Conformance.csproj" />
+    <Project Path="tests/ATProtoNet.Conformance/Adapter.Legacy/ATProtoNet.Conformance.Legacy.csproj" />
     <Project Path="tests/ATProtoNet.DocSnippets/ATProtoNet.DocSnippets.csproj" />
     <Project Path="tests/ATProtoNet.DocSnippets.Generator/ATProtoNet.DocSnippets.Generator.csproj" />
-    <Project Path="tests/ATProtoNet.IntegrationTests/ATProtoNet.IntegrationTests.csproj" />
+    <Project Path="tests/ATProtoNet.TestKit/ATProtoNet.TestKit.csproj" />
     <Project Path="tests/ATProtoNet.Tests/ATProtoNet.Tests.csproj" />
-  </Folder>
-  <Folder Name="/samples/">
-    <Project Path="samples/FirehoseConsumerSample/FirehoseConsumerSample.csproj" />
-    <Project Path="samples/JetstreamReplaySample/JetstreamReplaySample.csproj" />
-    <Project Path="samples/ManagedPdsSample/ManagedPdsSample.csproj" />
-    <Project Path="samples/ManagedPdsSample.AppHost/ManagedPdsSample.AppHost.csproj" />
-    <Project Path="samples/ServerIntegrationSample/ServerIntegrationSample.csproj" />
-    <Project Path="samples/SpacesSample/SpacesSample.csproj" />
-  </Folder>
-  <Folder Name="/tools/">
-    <Project Path="tools/ATProtoNet.LexiconGenerator/ATProtoNet.LexiconGenerator.csproj" />
   </Folder>
 </Solution>

@@ -1,0 +1,59 @@
+{
+  "comment": "BLAKE3 extended output past the official vectors: SHA-256 of @noble/hashes 1.8.0 output for inputs of i % 251.",
+  "cases": [
+    {
+      "name": "0 bytes in, 2048 out",
+      "inputLength": 0,
+      "outputLength": 2048,
+      "sha256": "c700539924eb9d06649c0b8478f48455baa0562f93f10a2613539e3efd9a2f2e"
+    },
+    {
+      "name": "1 bytes in, 2048 out",
+      "inputLength": 1,
+      "outputLength": 2048,
+      "sha256": "d365f0775d8cd2a359fcf60b4966119a845d21c7773e3736b329d802ad621eaf"
+    },
+    {
+      "name": "64 bytes in, 2048 out",
+      "inputLength": 64,
+      "outputLength": 2048,
+      "sha256": "dd3ee983da21c6b5afabb05660c51d1a28ad2da8f82007819f5b6e62e1996735"
+    },
+    {
+      "name": "65 bytes in, 1000 out",
+      "inputLength": 65,
+      "outputLength": 1000,
+      "sha256": "6528ed68864e4ad1007a15799834249e6f0b6750fa30fb500535eb56eac977cd"
+    },
+    {
+      "name": "1024 bytes in, 2048 out",
+      "inputLength": 1024,
+      "outputLength": 2048,
+      "sha256": "b3dec1e2872e517492507570abeae0427075e861b1e7167a9d78f39e2bede8c5"
+    },
+    {
+      "name": "1025 bytes in, 2048 out",
+      "inputLength": 1025,
+      "outputLength": 2048,
+      "sha256": "a01508f215456cde8d99a531b13c5965d58665387b234b2266b4c2eea1515abc"
+    },
+    {
+      "name": "2049 bytes in, 1000 out",
+      "inputLength": 2049,
+      "outputLength": 1000,
+      "sha256": "a00f1717a95e7eba0a7a9cdb364df59600c06fa964a8f4aeef5fead296ca4be2"
+    },
+    {
+      "name": "8193 bytes in, 4099 out",
+      "inputLength": 8193,
+      "outputLength": 4099,
+      "sha256": "56a8ab7bde1adf011aacc9bd1f57101356868451853cd19b06ccef528fdada77"
+    },
+    {
+      "name": "102400 bytes in, 2048 out",
+      "inputLength": 102400,
+      "outputLength": 2048,
+      "sha256": "8f9ebf9833beb42780229cad517362eaf361265e2f0ec05d4f80b566772e95ce"
+    }
+  ]
+}

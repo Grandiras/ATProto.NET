@@ -1,0 +1,265 @@
+{
+  "keys": {
+    "p256": {
+      "curve": "P-256",
+      "privateKey": "212bc87fe8ce9998eb7ac1b5fdeba0e52e8541e1d87ad6073342cee2a328e324",
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "QOYaErUrFmOt9Rx107afrCjflF25OaU_cglQRSsd218",
+        "y": "l7K9sGZdCAv0vzfFvHGzBBszCDxcSVFSG7mJYW9bZs4"
+      }
+    },
+    "k256": {
+      "curve": "K-256",
+      "privateKey": "2638c431d703a8aa18eb921acd1efd40b1cbd73e1f0100a8f0ef3246fdd1ada8"
+    }
+  },
+  "thumbprints": [
+    {
+      "name": "RFC 9449 key",
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "l8tFrhx-34tV3hRICRDY9zCkDlpBhF42UQUfWVAWBFs",
+        "y": "9VE4jf_Ok_o64zbTTlcuNJajHmt6v9TDVrU0CdvGRDA"
+      },
+      "expect": "0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I"
+    },
+    {
+      "name": "members RFC 7638 does not require",
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "l8tFrhx-34tV3hRICRDY9zCkDlpBhF42UQUfWVAWBFs",
+        "y": "9VE4jf_Ok_o64zbTTlcuNJajHmt6v9TDVrU0CdvGRDA",
+        "kid": "key-1",
+        "use": "sig",
+        "alg": "ES256"
+      },
+      "expect": "0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I"
+    },
+    {
+      "name": "the vector key",
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "QOYaErUrFmOt9Rx107afrCjflF25OaU_cglQRSsd218",
+        "y": "l7K9sGZdCAv0vzfFvHGzBBszCDxcSVFSG7mJYW9bZs4"
+      },
+      "expect": "PJZde1EBfAxOSKSoARTfRPR7d9DCBppiJ0KJwRDq-SE"
+    },
+    {
+      "name": "not an EC key",
+      "jwk": {
+        "kty": "RSA",
+        "crv": "P-256",
+        "x": "l8tFrhx-34tV3hRICRDY9zCkDlpBhF42UQUfWVAWBFs",
+        "y": "9VE4jf_Ok_o64zbTTlcuNJajHmt6v9TDVrU0CdvGRDA"
+      },
+      "expect": null
+    },
+    {
+      "name": "EC key without y",
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "l8tFrhx-34tV3hRICRDY9zCkDlpBhF42UQUfWVAWBFs"
+      },
+      "expect": null
+    }
+  ],
+  "accessTokenHashes": [
+    {
+      "name": "RFC 9449 token",
+      "token": "Kz~8mXK1EalYznwH-LC-1fBAo.4Ljp~zsPE_NeO.gxU",
+      "expect": "fUHyO2r2Z3DZ53EsNrWBb0xWXoaNy59IiKCAqksmQEo"
+    },
+    {
+      "name": "token-one",
+      "token": "token-one",
+      "expect": "dcXBDyVsdbZQxv_C6DxliK8Cdm79LeKPTeNFRwBujRo"
+    },
+    {
+      "name": "token-two",
+      "token": "token-two",
+      "expect": "rbl__VmdMLeIB3hWUC5V2e9VQzhs1gpRBuA067w6yww"
+    }
+  ],
+  "htu": [
+    {
+      "name": "https://pds.example.com/xrpc/a",
+      "url": "https://pds.example.com/xrpc/a",
+      "expect": "https://pds.example.com/xrpc/a"
+    },
+    {
+      "name": "https://pds.example.com/xrpc/a?b=c#d",
+      "url": "https://pds.example.com/xrpc/a?b=c#d",
+      "expect": "https://pds.example.com/xrpc/a"
+    },
+    {
+      "name": "https://user:pw@pds.example.com/xrpc/a",
+      "url": "https://user:pw@pds.example.com/xrpc/a",
+      "expect": "https://pds.example.com/xrpc/a"
+    },
+    {
+      "name": "https://user@pds.example.com:8443/xrpc/a",
+      "url": "https://user@pds.example.com:8443/xrpc/a",
+      "expect": "https://pds.example.com:8443/xrpc/a"
+    },
+    {
+      "name": "https://user@pds.example.com:8443/xrpc/a?b=c",
+      "url": "https://user@pds.example.com:8443/xrpc/a?b=c",
+      "expect": "https://pds.example.com:8443/xrpc/a"
+    },
+    {
+      "name": "HTTPS://PDS.EXAMPLE.COM/xrpc/a",
+      "url": "HTTPS://PDS.EXAMPLE.COM/xrpc/a",
+      "expect": "https://pds.example.com/xrpc/a"
+    },
+    {
+      "name": "HTTPS://PDS.Example.COM:443/xrpc/a",
+      "url": "HTTPS://PDS.Example.COM:443/xrpc/a",
+      "expect": "https://pds.example.com/xrpc/a"
+    },
+    {
+      "name": "https://pds.example.com:443/xrpc/a",
+      "url": "https://pds.example.com:443/xrpc/a",
+      "expect": "https://pds.example.com/xrpc/a"
+    },
+    {
+      "name": "http://pds.example.com:80/xrpc/a",
+      "url": "http://pds.example.com:80/xrpc/a",
+      "expect": "http://pds.example.com/xrpc/a"
+    },
+    {
+      "name": "http://[::1]:2583/xrpc/a",
+      "url": "http://[::1]:2583/xrpc/a",
+      "expect": "http://[::1]:2583/xrpc/a"
+    },
+    {
+      "name": "https://pds.example.com",
+      "url": "https://pds.example.com",
+      "expect": "https://pds.example.com/"
+    },
+    {
+      "name": "/xrpc/a",
+      "url": "/xrpc/a",
+      "expect": null
+    },
+    {
+      "name": "pds.example.com/xrpc/a",
+      "url": "pds.example.com/xrpc/a",
+      "expect": null
+    },
+    {
+      "name": "not a url at all",
+      "url": "not a url at all",
+      "expect": null
+    },
+    {
+      "name": "file:///xrpc/a",
+      "url": "file:///xrpc/a",
+      "expect": null
+    }
+  ],
+  "proofs": [
+    {
+      "name": "without a nonce",
+      "key": "p256",
+      "method": "POST",
+      "url": "https://example.com/token",
+      "expect": {
+        "htm": "POST",
+        "htu": "https://example.com/token",
+        "nonce": null,
+        "ath": null
+      }
+    },
+    {
+      "name": "with a nonce",
+      "key": "p256",
+      "method": "POST",
+      "url": "https://example.com/token",
+      "nonce": "test-nonce-value",
+      "expect": {
+        "htm": "POST",
+        "nonce": "test-nonce-value"
+      }
+    },
+    {
+      "name": "lower-case method",
+      "key": "p256",
+      "method": "get",
+      "url": "https://example.com/token",
+      "expect": {
+        "htm": "GET"
+      }
+    },
+    {
+      "name": "userinfo, query and fragment dropped",
+      "key": "p256",
+      "method": "GET",
+      "url": "https://user@pds.example.com:8443/xrpc/a?b=c#d",
+      "expect": {
+        "htu": "https://pds.example.com:8443/xrpc/a"
+      }
+    },
+    {
+      "name": "scheme and host lower-cased",
+      "key": "p256",
+      "method": "GET",
+      "url": "HTTPS://PDS.Example.COM:443/xrpc/a",
+      "expect": {
+        "htu": "https://pds.example.com/xrpc/a"
+      }
+    },
+    {
+      "name": "access token hash",
+      "key": "p256",
+      "method": "GET",
+      "url": "https://resource.example.org/protectedresource",
+      "accessToken": "Kz~8mXK1EalYznwH-LC-1fBAo.4Ljp~zsPE_NeO.gxU",
+      "expect": {
+        "htm": "GET",
+        "htu": "https://resource.example.org/protectedresource",
+        "ath": "fUHyO2r2Z3DZ53EsNrWBb0xWXoaNy59IiKCAqksmQEo"
+      }
+    },
+    {
+      "name": "relative URL",
+      "key": "p256",
+      "method": "GET",
+      "url": "/xrpc/a",
+      "expect": null
+    },
+    {
+      "name": "URL without a scheme",
+      "key": "p256",
+      "method": "GET",
+      "url": "pds.example.com/xrpc/a",
+      "expect": null
+    },
+    {
+      "name": "file URL",
+      "key": "p256",
+      "method": "GET",
+      "url": "file:///xrpc/a",
+      "expect": null
+    },
+    {
+      "name": "K-256 key",
+      "key": "k256",
+      "method": "POST",
+      "url": "https://example.com/token",
+      "expect": null
+    }
+  ],
+  "pkce": [
+    {
+      "name": "RFC 7636 appendix B",
+      "verifier": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+      "expect": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+    }
+  ]
+}

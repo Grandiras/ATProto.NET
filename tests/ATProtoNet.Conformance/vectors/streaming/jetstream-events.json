@@ -1,0 +1,762 @@
+{
+  "comment": "Jetstream frames (protocol 1 or 2) and the subset of the parsed result each must produce; see gen-jetstream-events.mjs.",
+  "cases": [
+    {
+      "name": "v1 create",
+      "spec": "STR-64",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":1725911162329308,\"kind\":\"commit\",\"commit\":{\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}},\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\"}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit",
+        "did": "did:plc:eygmaihciaxprqvxpfvl6flk",
+        "timeUs": 1725911162329308,
+        "collection": "app.bsky.feed.like",
+        "rkey": "3l3qo2vuowo2b",
+        "operation": "create",
+        "rev": "3l3qo2vutsw2b",
+        "cid": "bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi",
+        "uri": "at://did:plc:eygmaihciaxprqvxpfvl6flk/app.bsky.feed.like/3l3qo2vuowo2b",
+        "cursor": null,
+        "record": {
+          "$type": "app.bsky.feed.like",
+          "createdAt": "2024-09-09T19:46:02.102Z",
+          "subject": {
+            "cid": "bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4",
+            "uri": "at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325"
+          }
+        }
+      }
+    },
+    {
+      "name": "v1 update",
+      "spec": "STR-64",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":1725911162329308,\"kind\":\"commit\",\"commit\":{\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"update\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}},\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\"}}",
+      "expect": {
+        "kind": "event",
+        "operation": "update"
+      }
+    },
+    {
+      "name": "v1 delete",
+      "spec": "STR-64",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":1725911162329309,\"kind\":\"commit\",\"commit\":{\"rev\":\"3l3qo2vutsx2b\",\"operation\":\"delete\",\"collection\":\"app.bsky.feed.post\",\"rkey\":\"3l3qo2vuowo2b\"}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit",
+        "operation": "delete",
+        "collection": "app.bsky.feed.post",
+        "rev": "3l3qo2vutsx2b",
+        "cid": null,
+        "record": null
+      }
+    },
+    {
+      "name": "v1 identity",
+      "spec": "STR-64",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"time_us\":1725911162329308,\"kind\":\"identity\",\"identity\":{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"handle\":\"yohenrique.com\",\"seq\":1409752997,\"time\":\"2024-09-09T19:46:02.102Z\"}}",
+      "expect": {
+        "kind": "event",
+        "type": "identity",
+        "did": "did:plc:ufbl4k27gp6kzas5glhz7fim",
+        "handle": "yohenrique.com",
+        "seq": 1409752997,
+        "time": "2024-09-09T19:46:02.102Z"
+      }
+    },
+    {
+      "name": "v1 active account",
+      "spec": "STR-64",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"time_us\":1725911162329308,\"kind\":\"account\",\"account\":{\"active\":true,\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"seq\":1409753013,\"time\":\"2024-09-09T19:46:02.102Z\"}}",
+      "expect": {
+        "kind": "event",
+        "type": "account",
+        "active": true,
+        "status": null,
+        "seq": 1409753013
+      }
+    },
+    {
+      "name": "v1 inactive account",
+      "spec": "STR-64",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"time_us\":1725911162329308,\"kind\":\"account\",\"account\":{\"active\":false,\"status\":\"takendown\",\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"seq\":1409753013,\"time\":\"2024-09-09T19:46:02.102Z\"}}",
+      "expect": {
+        "kind": "event",
+        "type": "account",
+        "active": false,
+        "status": "takendown"
+      }
+    },
+    {
+      "name": "v1 commit with an invalid collection",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":1725911162329308,\"kind\":\"commit\",\"commit\":{\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"not an nsid\",\"rkey\":\"3l3qo2vuowo2b\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}},\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\"}}",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "v1 commit with an invalid record key",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":1725911162329308,\"kind\":\"commit\",\"commit\":{\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"not a record key\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}},\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\"}}",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "v1 commit with a malformed rev",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":1725911162329308,\"kind\":\"commit\",\"commit\":{\"rev\":\"not-a-tid\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}},\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\"}}",
+      "expect": {
+        "kind": "event",
+        "rev": null,
+        "rkey": "3l3qo2vuowo2b"
+      }
+    },
+    {
+      "name": "v1 commit with a malformed cid",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":1725911162329308,\"kind\":\"commit\",\"commit\":{\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}},\"cid\":\"!!!\"}}",
+      "expect": {
+        "kind": "event",
+        "cid": null,
+        "record": {
+          "$type": "app.bsky.feed.like",
+          "createdAt": "2024-09-09T19:46:02.102Z",
+          "subject": {
+            "cid": "bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4",
+            "uri": "at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325"
+          }
+        }
+      }
+    },
+    {
+      "name": "v1 identity with a malformed handle",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"time_us\":1725911162329308,\"kind\":\"identity\",\"identity\":{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"handle\":\"not a handle\",\"seq\":1409752997,\"time\":\"2024-09-09T19:46:02.102Z\"}}",
+      "expect": {
+        "kind": "event",
+        "type": "identity",
+        "handle": null,
+        "did": "did:plc:ufbl4k27gp6kzas5glhz7fim"
+      }
+    },
+    {
+      "name": "v1 unknown kind",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"time_us\":1,\"kind\":\"somethingNew\",\"somethingNew\":{}}",
+      "expect": {
+        "kind": "dropped",
+        "reason": "unknownType"
+      }
+    },
+    {
+      "name": "v1 unknown operation",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":1725911162329308,\"kind\":\"commit\",\"commit\":{\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"merge\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}},\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\"}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v1 not JSON",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "not json at all",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "v1 truncated JSON",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"truncated\":",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "v1 empty array",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "[]",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "v1 bare number",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "42",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "v1 missing did",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"time_us\":1,\"kind\":\"commit\",\"commit\":{\"operation\":\"create\",\"collection\":\"a.b.c\",\"rkey\":\"x\"}}",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "v1 invalid did",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"did\":\"not-a-did\",\"time_us\":1725911162329308,\"kind\":\"commit\",\"commit\":{\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}},\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\"}}",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "v1 commit without its body",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"time_us\":1,\"kind\":\"commit\"}",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "v1 unknown fields",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":1725911162329308,\"kind\":\"commit\",\"futureField\":{\"nested\":true},\"commit\":{\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}},\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\"}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit"
+      }
+    },
+    {
+      "name": "v1 non-numeric time_us",
+      "spec": "STR-71",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":\"soon\",\"kind\":\"commit\",\"commit\":{\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}},\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\"}}",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "v2 frame on v1",
+      "spec": "STR-64",
+      "protocol": 1,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v1 frame from a v2 host",
+      "spec": "STR-64",
+      "protocol": 1,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":1725911162329308,\"cursor\":12345,\"kind\":\"commit\",\"commit\":{\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\"}}",
+      "expect": {
+        "kind": "event",
+        "cursor": 12345,
+        "timeUs": 1725911162329308
+      }
+    },
+    {
+      "name": "v2 commit",
+      "spec": "STR-64",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit",
+        "did": "did:plc:eygmaihciaxprqvxpfvl6flk",
+        "timeUs": 1725911162329308,
+        "collection": "app.bsky.feed.like",
+        "rkey": "3l3qo2vuowo2b",
+        "operation": "create",
+        "rev": "3l3qo2vutsw2b",
+        "cid": "bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi",
+        "uri": "at://did:plc:eygmaihciaxprqvxpfvl6flk/app.bsky.feed.like/3l3qo2vuowo2b",
+        "cursor": 24664288881,
+        "record": {
+          "$type": "app.bsky.feed.like",
+          "createdAt": "2024-09-09T19:46:02.102Z",
+          "subject": {
+            "cid": "bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4",
+            "uri": "at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325"
+          }
+        }
+      }
+    },
+    {
+      "name": "v2 delete",
+      "spec": "STR-64",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288882,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329309Z\",\"rev\":\"3l3qo2vutsx2b\",\"operation\":\"delete\",\"collection\":\"app.bsky.feed.post\",\"rkey\":\"3l3qo2vuowo2b\"}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit",
+        "operation": "delete",
+        "cid": null,
+        "record": null
+      }
+    },
+    {
+      "name": "v2 identity",
+      "spec": "STR-64",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#identity\",\"seq\":24664288883,\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"identity\":{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"handle\":\"yohenrique.com\",\"seq\":1409752997,\"time\":\"2024-09-09T19:46:02.102Z\"}}}",
+      "expect": {
+        "kind": "event",
+        "type": "identity",
+        "handle": "yohenrique.com",
+        "seq": 1409752997,
+        "cursor": 24664288883
+      }
+    },
+    {
+      "name": "v2 account",
+      "spec": "STR-64",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#account\",\"seq\":24664288884,\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"account\":{\"active\":false,\"status\":\"deleted\",\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"seq\":1409753013,\"time\":\"2024-09-09T19:46:02.102Z\"}}}",
+      "expect": {
+        "kind": "event",
+        "type": "account",
+        "active": false,
+        "status": "deleted",
+        "cursor": 24664288884
+      }
+    },
+    {
+      "name": "v2 sync",
+      "spec": "STR-64",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#sync\",\"seq\":24664288885,\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"sync\":{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"rev\":\"3l3qo2vutsw2b\",\"seq\":1409753014,\"time\":\"2024-09-09T19:46:02.102Z\",\"blocks\":{\"$bytes\":\"emVyb0NBUg==\"}}}}",
+      "expect": {
+        "kind": "event",
+        "type": "sync",
+        "rev": "3l3qo2vutsw2b",
+        "seq": 1409753014,
+        "cursor": 24664288885,
+        "blocks": "emVyb0NBUg=="
+      }
+    },
+    {
+      "name": "v2 sync with unpadded bytes",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#sync\",\"seq\":24664288885,\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"sync\":{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"rev\":\"3l3qo2vutsw2b\",\"seq\":1409753014,\"time\":\"2024-09-09T19:46:02.102Z\",\"blocks\":{\"$bytes\":\"emVyb0NBUg\"}}}}",
+      "expect": {
+        "kind": "event",
+        "type": "sync",
+        "blocks": "emVyb0NBUg=="
+      }
+    },
+    {
+      "name": "v2 sync with undecodable blocks",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#sync\",\"seq\":24664288885,\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"sync\":{\"did\":\"did:plc:ufbl4k27gp6kzas5glhz7fim\",\"rev\":\"3l3qo2vutsw2b\",\"seq\":1409753014,\"time\":\"2024-09-09T19:46:02.102Z\",\"blocks\":{\"$bytes\":\"not base64!\"}}}}",
+      "expect": {
+        "kind": "event",
+        "type": "sync",
+        "blocks": null,
+        "rev": "3l3qo2vutsw2b"
+      }
+    },
+    {
+      "name": "v2 info",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#info\",\"name\":\"OutdatedCursor\",\"message\":\"resumed from seq 24664288000\"}}",
+      "expect": {
+        "kind": "info",
+        "name": "OutdatedCursor",
+        "message": "resumed from seq 24664288000"
+      }
+    },
+    {
+      "name": "v2 error",
+      "spec": "STR-64",
+      "protocol": 2,
+      "frame": "{\"$type\":\"error\",\"error\":\"ConsumerTooSlow\",\"message\":\"reader below floor rate\"}",
+      "expect": {
+        "kind": "error",
+        "error": "ConsumerTooSlow",
+        "message": "reader below floor rate"
+      }
+    },
+    {
+      "name": "v2 unqualified type fragment",
+      "spec": "STR-64",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit"
+      }
+    },
+    {
+      "name": "v1 frame on v2",
+      "spec": "STR-64",
+      "protocol": 2,
+      "frame": "{\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time_us\":1,\"kind\":\"commit\"}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 unknown envelope",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"heartbeat\"}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 unknown message type",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#future\"}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 envelope without a payload",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\"}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 error without a name",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"error\",\"message\":\"...\"}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 not JSON",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "not json",
+      "expect": {
+        "kind": "dropped",
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "v2 missing time",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 time 2024-09-09T19:46:02.329308Z",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "timeUs": 1725911162329308
+      }
+    },
+    {
+      "name": "v2 time 2024-09-09T19:46:02Z",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "timeUs": 1725911162000000
+      }
+    },
+    {
+      "name": "v2 time 2024-09-09T19:46:02.123456+01:45",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.123456+01:45\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "timeUs": 1725904862123456
+      }
+    },
+    {
+      "name": "v2 time 2024-09-09T19:46:02.329-14:00",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329-14:00\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "timeUs": 1725961562329000
+      }
+    },
+    {
+      "name": "v2 time 2024-09-09T19:46:02.329-00:00",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329-00:00\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "timeUs": 1725911162329000
+      }
+    },
+    {
+      "name": "v2 time 2024-02-29T00:00:00Z",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-02-29T00:00:00Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "timeUs": 1709164800000000
+      }
+    },
+    {
+      "name": "v2 time 2023-02-29T00:00:00Z",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2023-02-29T00:00:00Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 time not a time",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"not a time\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 escaped collection",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.\\u006cike\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit",
+        "did": "did:plc:eygmaihciaxprqvxpfvl6flk",
+        "timeUs": 1725911162329308,
+        "collection": "app.bsky.feed.like",
+        "rkey": "3l3qo2vuowo2b",
+        "operation": "create",
+        "rev": "3l3qo2vutsw2b",
+        "cid": "bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi",
+        "uri": "at://did:plc:eygmaihciaxprqvxpfvl6flk/app.bsky.feed.like/3l3qo2vuowo2b",
+        "cursor": 24664288881
+      }
+    },
+    {
+      "name": "v2 escaped rkey",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vu\\u006fwo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit",
+        "did": "did:plc:eygmaihciaxprqvxpfvl6flk",
+        "timeUs": 1725911162329308,
+        "collection": "app.bsky.feed.like",
+        "rkey": "3l3qo2vuowo2b",
+        "operation": "create",
+        "rev": "3l3qo2vutsw2b",
+        "cid": "bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi",
+        "uri": "at://did:plc:eygmaihciaxprqvxpfvl6flk/app.bsky.feed.like/3l3qo2vuowo2b",
+        "cursor": 24664288881
+      }
+    },
+    {
+      "name": "v2 escaped did",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6fl\\u006b\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit",
+        "did": "did:plc:eygmaihciaxprqvxpfvl6flk",
+        "timeUs": 1725911162329308,
+        "collection": "app.bsky.feed.like",
+        "rkey": "3l3qo2vuowo2b",
+        "operation": "create",
+        "rev": "3l3qo2vutsw2b",
+        "cid": "bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi",
+        "uri": "at://did:plc:eygmaihciaxprqvxpfvl6flk/app.bsky.feed.like/3l3qo2vuowo2b",
+        "cursor": 24664288881
+      }
+    },
+    {
+      "name": "v2 escaped rev",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2\\u0062\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit",
+        "did": "did:plc:eygmaihciaxprqvxpfvl6flk",
+        "timeUs": 1725911162329308,
+        "collection": "app.bsky.feed.like",
+        "rkey": "3l3qo2vuowo2b",
+        "operation": "create",
+        "rev": "3l3qo2vutsw2b",
+        "cid": "bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi",
+        "uri": "at://did:plc:eygmaihciaxprqvxpfvl6flk/app.bsky.feed.like/3l3qo2vuowo2b",
+        "cursor": 24664288881
+      }
+    },
+    {
+      "name": "v2 escaped operation",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"cr\\u0065ate\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit",
+        "did": "did:plc:eygmaihciaxprqvxpfvl6flk",
+        "timeUs": 1725911162329308,
+        "collection": "app.bsky.feed.like",
+        "rkey": "3l3qo2vuowo2b",
+        "operation": "create",
+        "rev": "3l3qo2vutsw2b",
+        "cid": "bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi",
+        "uri": "at://did:plc:eygmaihciaxprqvxpfvl6flk/app.bsky.feed.like/3l3qo2vuowo2b",
+        "cursor": 24664288881
+      }
+    },
+    {
+      "name": "v2 commit with a collection that is not an NSID",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.-like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 commit with a collection that is a number",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":7,\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 commit with a record key that is not one",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"..\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 commit with a capitalised operation",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"Create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 commit with a null operation",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":null,\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 commit with a unknown operation",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"merge\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 commit with a invalid did",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"not-a-did\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 commit with a non-numeric seq",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":\"next\",\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "dropped"
+      }
+    },
+    {
+      "name": "v2 commit with a malformed rev",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"not-a-tid\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "rev": null,
+        "collection": "app.bsky.feed.like"
+      }
+    },
+    {
+      "name": "v2 commit with a malformed cid",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"Qm-not-a-cid\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "cid": null,
+        "collection": "app.bsky.feed.like"
+      }
+    },
+    {
+      "name": "v2 unknown fields",
+      "spec": "STR-71",
+      "protocol": 2,
+      "frame": "{\"$type\":\"message\",\"payload\":{\"$type\":\"network.bsky.jetstream.subscribeEvents#commit\",\"seq\":24664288881,\"prevRev\":\"3l3q\",\"did\":\"did:plc:eygmaihciaxprqvxpfvl6flk\",\"time\":\"2024-09-09T19:46:02.329308Z\",\"rev\":\"3l3qo2vutsw2b\",\"operation\":\"create\",\"collection\":\"app.bsky.feed.like\",\"rkey\":\"3l3qo2vuowo2b\",\"cid\":\"bafyreidwaivazkwu67xztlmuobx35hs2lnfh3kolmgfmucldvhd3sgzcqi\",\"record\":{\"$type\":\"app.bsky.feed.like\",\"createdAt\":\"2024-09-09T19:46:02.102Z\",\"subject\":{\"cid\":\"bafyreidc6sydkkbchcyg62v77wbhzvb2mvytlmsychqgwf2xojjtirmzj4\",\"uri\":\"at://did:plc:wa7b35aakoll7hugkrjuf3xf/app.bsky.feed.post/3l3pte3p2e325\"}}}}",
+      "expect": {
+        "kind": "event",
+        "type": "commit"
+      }
+    }
+  ]
+}
