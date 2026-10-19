@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The benchmark scenarios against the rewrite (src/ATProtoNet), compared with baseline/0.8.0.
+       Each phase adds the scenarios of the areas it builds (README.md). -->
+
+  <Import Project="..\Shared\Benchmarks.Shared.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\ATProtoNet\ATProtoNet.csproj" />
+  </ItemGroup>
+
+</Project>

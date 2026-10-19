@@ -18,3 +18,6 @@ migration guide.
 ### Added
 
 - **The 0.9 tree** — a fresh tree on `next`, built from the accepted design in `design/`, with a conformance suite that runs the same protocol vectors against 0.8 and the rewrite (#225)
+- **Identifier types** — the atproto identifiers, `Cid` and the space addresses (`SpaceUri`, `SpaceRecordUri`, `AtAddress`) validate on construction and share `IAtIdentifier<T>`. `DecimalString` carries numbers written in Lexicon strings without changing their text (#237)
+- **Data model** — a strict-by-default DRISL reader and a canonical writer, `DataModelValue` for schema-less values, `CidLink` and `BlobRef` (legacy blobs read and written back), bounded streaming CAR and STAR readers and writers, and the public `Base32`, `Base58Btc` and `UnsignedVarint` codecs (#237)
+- **Cryptography** — `SigningKey`, `VerificationKey` and `DidKey` for P-256 and K-256 with low-S signatures, `SignedObject` for signed DRISL maps, JWS and JWK, BLAKE3, key encapsulation for Spaces, and RFC 9421 HTTP message signatures with RFC 8941 structured fields (#237)

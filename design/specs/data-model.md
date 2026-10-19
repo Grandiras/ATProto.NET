@@ -60,11 +60,11 @@ public sealed record DrislReaderOptions
     public int MaxDepth { get; init; } = DrislLimits.MaxDepth;
 }
 
-public sealed class DrislReader                                  // over System.Formats.Cbor
+public sealed class DrislReader                                  // span-based, no System.Formats.Cbor (phase 1 outcome 1)
 {
     public DrislReader(ReadOnlyMemory<byte> data, DrislReaderOptions? options = null);
     public DrislValueKind PeekKind();
-    public int ReadStartMap();  public string ReadKey();  public void ReadEndMap();
+    public int ReadStartMap();  public string ReadKey();  public void ReadEndMap();   // -1: indefinite (lenient)
     public int ReadStartArray();  public void ReadEndArray();
     public long ReadInt64();  public string ReadString();  public ReadOnlyMemory<byte> ReadBytes();
     public Cid ReadLink();  public bool ReadBoolean();  public void ReadNull();
@@ -114,11 +114,11 @@ public sealed record CarReaderOptions
     public long MaxTotalBytes { get; init; } = CarLimits.DefaultMaxTotalBytes;
     public int MaxBlocks { get; init; } = CarLimits.DefaultMaxBlocks;
     public int MaxBlockBytes { get; init; } = CarLimits.DefaultMaxBlockBytes;
-    public int MaxHeaderBytes { get; init; } = CarLimits.MaxHeaderBytes;
+    public int MaxHeaderBytes { get; init; } = CarLimits.DefaultMaxHeaderBytes;
     public bool VerifyBlockCids { get; init; }
 }
-public sealed record CarHeader(int Version, IReadOnlyList<Cid> Roots);
-public sealed record CarBlock(Cid Cid, ReadOnlyMemory<byte> Data);
+public sealed class CarHeader { public IReadOnlyList<Cid> Roots { get; } }   // version 1, checked, not exposed
+public sealed class CarBlock(Cid cid, ReadOnlyMemory<byte> data) { public Cid Cid { get; } public ReadOnlyMemory<byte> Data { get; } }
 public sealed class CarFile                                      // whole-buffer result
 {
     public CarHeader Header { get; }
@@ -144,10 +144,10 @@ public sealed record StarReaderOptions
     public long MaxTotalBytes { get; init; } = StarLimits.DefaultMaxTotalBytes;
     public int MaxEntries { get; init; } = StarLimits.DefaultMaxEntries;
     public int MaxEntryBytes { get; init; } = StarLimits.DefaultMaxEntryBytes;
-    public int MaxHeaderBytes { get; init; } = StarLimits.MaxHeaderBytes;
+    public int MaxHeaderBytes { get; init; } = StarLimits.DefaultMaxHeaderBytes;
 }
-public sealed record StarHeader(ReadOnlyMemory<byte> Drisl);    // interpreted by its consumer (the space commit, spaces.md)
-public sealed record StarEntry(string Path, Cid Cid, ReadOnlyMemory<byte> Record);   // Cid recomputed, never read
+public sealed class StarHeader { public ReadOnlyMemory<byte> Drisl { get; } }    // interpreted by its consumer (the space commit, spaces.md)
+public sealed class StarEntry { public string Path { get; } public Cid Cid { get; } public ReadOnlyMemory<byte> Record { get; } }   // Cid recomputed, never read
 public static class StarReader
 {
     public static ValueTask<StarHeader> ReadHeaderAsync(Stream star, StarReaderOptions? options = null, CancellationToken cancellationToken = default);
@@ -479,16 +479,17 @@ Space repositories have no MST; their state is a set of records committed to by 
 | Constant | Value | Applies to |
 |---|---|---|
 | `DrislLimits.MaxDepth` | 64 | DAT-30, DAT-31, DAT-48 |
-| `CarLimits.MaxHeaderBytes` | 64 KiB | DAT-55 (new; 0.8 bounded the header only by the input) |
-| `CarLimits.MaxVarintBytes` | 9 | DAT-56 |
+| `CarLimits.DefaultMaxHeaderBytes` | 64 KiB | DAT-55 (new; 0.8 bounded the header only by the input) |
+| `UnsignedVarint.MaxLength` | 9 | DAT-56 |
 | `CarLimits.DefaultMaxBlockBytes` | 2 MiB | DAT-57 (records are at most 1 MB under the sync spec; MST nodes are small) |
 | `CarLimits.DefaultMaxTotalBytes` | 256 MiB | DAT-59 (matches 0.8's resync and Spaces repository bounds) |
 | `CarLimits.DefaultMaxBlocks` | 4,194,304 | DAT-59 (raise together with `MaxTotalBytes` for very large repositories) |
 | `Cid.BinaryLength` | 36 | DAT-10 |
-| `StarLimits.MaxHeaderBytes` | 64 KiB | DAT-73 |
+| `StarLimits.DefaultMaxHeaderBytes` | 64 KiB | DAT-73 (also the most `StarWriter` writes) |
 | `StarLimits.DefaultMaxEntryBytes` | 1 MiB | DAT-73 (records are at most 1 MB) |
 | `StarLimits.DefaultMaxTotalBytes` | 256 MiB | DAT-73 (matches 0.8's `SpaceSyncer.MaxRepoSize`) |
 | `StarLimits.DefaultMaxEntries` | 1,048,576 | DAT-73 |
+| `StarLimits.MaxPathBytes` | 830 | DAT-77 (a 317-character NSID, `/`, a 512-character record key) |
 
 ## Errors
 
@@ -500,7 +501,7 @@ Space repositories have no MST; their state is a set of records committed to by 
 | CAR block CID mismatch with `VerifyBlockCids` | `FormatException` |
 | STAR entry out of order, duplicated, CID mismatch, trailing bytes, non-map record | `FormatException` |
 | Writing a float, duplicate key or out-of-range integer | `ArgumentException` |
-| Invalid blob in JSON | `JsonException` with path |
+| JSON that is malformed or not a data-model value (also an invalid blob) | `JsonException` (with path inside System.Text.Json) |
 
 ## Conformance and tests
 
@@ -545,6 +546,7 @@ records the outcome here in the same PR.
 1. **Bare base64 for `bytes` fields.** 0.8's `LexBytesJsonConverter` also accepts a bare base64
    string where a `{"$bytes"}` object is expected. *Default:* drop it (wire fidelity,
    D-20), unless the conformance suite finds a real producer that relies on it.
+   *Phase 1:* dropped; bytes are `{"$bytes"}` only, and no vector needs more.
 2. **Strict reading of record bodies when verification is off.** *Default:* lenient
    only by explicit stream option (DAT-28). Strict is the default even for display, because
    upstream PDSs validate records on write and canonical encoding is required by the repository
@@ -557,3 +559,73 @@ records the outcome here in the same PR.
    whether a multi-repository bundle (for account migration) follows. *Default:*
    implement the flat variant as the pinned reference implementation emits it (DAT-78); add a
    multi-repository reader only when the GA specification defines one.
+   *Phase 1:* the pinned atproto reference (`619c6e85`) has no STAR writer yet, so the format is
+   STAR v1 as [microcosm.blue/star](https://next.tangled.org/microcosm.blue/star) specifies it at
+   `acc27a2` (2026-10-07), with its `atproto-space-repo` profile: magic `2A 6C 01 00`; a varint
+   length and a strict DRISL metadata map with a string `$type` (returned raw, its other fields left
+   to the space commit of phase 2); then pairs of a varint-prefixed key and a varint-prefixed value
+   to the end of the input. Keys are record paths `{collection}/{rkey}` (the archive is one author's,
+   the DID is in the metadata), strictly increasing by bytes; values are strict DRISL maps of at
+   most 1 MiB. No CID is on the wire. Proposal PR #114 may change this; the change lands here.
+5. **Floating point numbers** (added 2026-10-18). Upstream still has
+   [no float](https://atproto.com/specs/data-model#why-no-floats): the IETF ATP working group heard a
+   binary64 proposal at IETF 126 but decided nothing
+   ([minutes](http://ietfminutes.org/minutes/ietf126/atp.html)). *Default:* (1) numbers carried in
+   Lexicon strings use `DecimalString` with opt-in codegen per field
+   ([SYN-82–87](syntax.md#numbers-carried-in-strings), LEX-92), so an untouched record keeps its
+   CID; (2) scaled integers get a small static helper and a docs page, no codegen (Lexicon cannot
+   express the scale); (3) the data model stays strict (DAT-1, DAT-24, DAT-41), with number handling
+   behind one internal seam so a float kind can be added later. Options and reasons in
+   [D-26](../06-decisions.md#d-26-floating-point-numbers-string-encoded-decimals-strict-data-model).
+   Revisit when the ATP working group publishes a float mapping draft.
+   *Phase 1:* the seam is `DataModelNumbers` (internal): the one place that turns a JSON number into an
+   integer and words the rejection of floats and out-of-range integers.
+
+### Phase 1 outcomes
+
+1. **No `System.Formats.Cbor`.** `DrislReader` and `DrislWriter` read and write the bytes themselves.
+   The package is not referenced by `ATProtoNet` (`Directory.Packages.props` has no version), and a
+   lax `CborReader` would have needed every DRISL rule (shortest forms, key order, UTF-8, tags)
+   re-checked on the raw bytes anyway; the canonical modes allocate per map and cannot read
+   lenient-with-duplicate-detection. DAT-30 and DAT-34 hold by construction: the depth counter and
+   every exception are the SDK's own.
+2. **Public surface beyond the sketch.** `DrislValueKind` (`End` marks the end of a map, an array or the
+   input), `DrislLimits`; `DrislJson.ToDrisl`/`WriteJson` convert between JSON and DRISL without a tree
+   (the DRISL benchmarks measure them); `DataModelArray` and `DataModelMap` are `IReadOnlyList` and
+   `IReadOnlyDictionary`, map equality ignores key order, and `DataModelValue.ToString()` is the JSON
+   form; JSON converters for `DataModelValue`, `CidLink` (a record, for value equality) and `BlobRef`;
+   `SignedDrisl.GetUnsignedBytes`/`AddSignature`, public so DAT-65/66 are tested where they live
+   (`ATProtoNet.Crypto.SignedObject` wraps them); `StarLimits.MaxPathBytes`. `CarHeader`, `CarBlock`,
+   `StarHeader` and `StarEntry` are sealed classes, not records: generated equality would compare their
+   `ReadOnlyMemory<byte>` by reference.
+3. **Depth.** A byte string counts a level like a link (DAT-30), since its JSON form `{"$bytes"}` is
+   one, which DAT-48 needs. `MaxDepth` can be lowered, not raised.
+4. **Data-model rules in both directions.** Every conversion (DRISL, JSON, trees) checks, beyond the
+   format: `$type` is a non-empty string; a `{"$type": "blob"}` map has a `ref` link, a `mimeType`
+   string and an integer `size`; `$link` and `$bytes` are not map keys (the JSON form could not tell
+   them from a link or bytes). These are the interop `data-model-invalid` cases. The finer blob rules
+   (raw codec, non-empty `mimeType`, `size` ≥ 0, no other keys) are `BlobRef`'s (DAT-51), so a value
+   with an unusual blob still converts. A tag-42 link must be a definite 37-byte string in both modes.
+5. **Streaming.** `ReadHeaderAsync` reads exactly the header, so `ReadBlocksAsync`/`ReadEntriesAsync`
+   continue on the same stream; `MaxTotalBytes` then bounds the bytes after the header. A CID of an
+   unknown codec cannot be represented (DAT-10), so `VerifyBlockCids` fails closed at parse (DAT-58).
+6. **Phase 0 outcomes kept:** `123.0` is the integer 123 (DAT-2) and a malformed `$link`/`$bytes`
+   object is invalid (DAT-47), as the interop vectors say. The interop case "top-level not an object"
+   is a record rule, not a value rule: `DrislJson` and `DataModelValue` convert any value (our
+   `drisl-encode.json` encodes top-level scalars), so `Adapter.Next` lists it for phase 3's record
+   validation.
+7. **Review fixes.**
+   - *Lenient keys* are checked for duplicates by their decoded text, in a set per map from its second
+     key: lenient input may spell a key with a non-shortest length, and re-reading earlier entries once
+     the order broke was exponential in nested unsorted maps. Strict mode compares the encoded keys,
+     whose headers are shortest, against the previous one only.
+   - *Declared counts* size no allocation beyond a few items (DAT-33), in the tree builder and the CAR
+     header's roots alike.
+   - A refused `WriteKey` (lone surrogate, repeated key) leaves `DrislWriter` usable;
+     `DataModelValue.ToString()` never throws (a value no encoding accepts shows its kind's name);
+     `StarWriter` refuses metadata over `StarLimits.DefaultMaxHeaderBytes`, which readers refuse by
+     default.
+8. **Waivers.** DAT-49: the hot binders arrive with their consumers (MST and commits in phase 2,
+   frames in phase 7); phase 1 provides the `DrislReader` they bind from. DAT-77: record paths are
+   checked by an internal NSID and record-key check until the syntax types are merged, then by them.
+   DAT-78: no reference STAR vectors exist yet; the tests are written from the STAR text.

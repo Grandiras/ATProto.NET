@@ -325,7 +325,9 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
     limits in [data-model](data-model.md) style. Failures are `FormatException`s from our own
     checks, never library exceptions.
   - The GA format details (layout, framing, ordering, how the repo state and its revision are
-    carried) are recorded here when published (open point 1).
+    carried) are recorded here when published (open point 1). Until then phase 1 implements STAR
+    v1 with its `atproto-space-repo` profile, as [data-model open point 4](data-model.md#open-points)
+    records.
   *Source:* forum "Post-alpha plans" (bnewbold, 2026-10-08: "expect to ship with STAR files not CAR
   files")
 - **SPC-60** (MUST) Verifying an export checks, in order:
@@ -797,6 +799,15 @@ records the outcome here in the same PR.
    - the HKDF context encoding and which fields live in commit metadata vs headers (SPC-56).
 
    *Default:* implement against PR #122 as merged, re-validate in phase 10.
+
+   *Phase 1 (#237):* PR #122 is still open, so the KEM is the ECDH case it names, made concrete
+   as DHKEM(P-256, HKDF-SHA256) of RFC 9180 (`KemAlgorithm.EcdhP256`, published as a P-256
+   multikey; see [crypto.md](crypto.md) open point 3). BLAKE3 (SPC-10) and the RFC 9421/8941
+   primitives (SPC-22) are built; the conformance adapter checks the space request signature
+   (label `atproto-space`, a P-256 `did:key`, exactly `("authorization")` with `keyid` on the
+   exchange and `("authorization" "atproto-space-audience")` otherwise, SPC-23/24) over the public
+   API, and every `http-signatures.json` and `structured-fields.json` vector passes. LtHash
+   (phase 2) and space tokens (phase 6) remain.
 2. **URI scheme.** `at://…/space/…` (one scheme, proposed) or `ats://` (debated).
    - The scheme stays a single implementation point (SPC-51), so either outcome is contained.
    - If GA keeps `at://`, Lexicon `at-uri` fields can carry space addresses. Syntax and Lexicon

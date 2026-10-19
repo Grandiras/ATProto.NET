@@ -631,6 +631,49 @@ is a regeneration.
 
 ---
 
+## D-26 Floating point numbers: string-encoded decimals, strict data model
+
+**Status: Accepted** (maintainer, 2026-10-18; upstream checked the same day).
+
+**Context.** The data model lists float as not allowed and Lexicon has no float type; the spec
+recommends strings or bytes and leaves room for future rules
+([data model](https://atproto.com/specs/data-model#why-no-floats)). The community discussion of
+May–June 2026 ([Floats on ATProto](https://discourse.atmosphere.community/t/floats-on-atproto/877))
+moved to the IETF ATP working group. IETF 126 (2026-07-23) heard a proposal for finite binary64
+CBOR floats, inferred from JSON syntax (`.` or `e` means float, whole floats written as `5.0`)
+([slides](https://hackmd.io/@vmx/ietf-126-atp-floats)). Newbold and Holmgren called syntax-based
+inference fragile; there was no decision, only an action item to refine it on the ATP list
+([minutes](http://ietfminutes.org/minutes/ietf126/atp.html)). Meanwhile community Lexicons such
+as `community.lexicon.location.geo` carry numbers as strings.
+
+| Option | For | Against |
+|---|---|---|
+| A. String-encoded decimal helpers | Matches what existing Lexicons publish; lossless round trip | Opt-in per field; callers parse |
+| B. Scaled integers | Exact, no parsing | The scale is not expressible in Lexicon, so codegen cannot know it |
+| C. Wait on upstream | No speculative API | Leaves today's string-carried numbers unsupported for an unknown time |
+
+**Decision.**
+
+1. **A**: `DecimalString` ([SYN-82–87](specs/syntax.md#numbers-carried-in-strings)) stores the
+   original text and exposes `double` and `decimal` accessors, so an untouched record round-trips
+   byte for byte (`"-33.80"` does not become `"-33.8"`, the CID does not change). Only values the
+   app sets are formatted: invariant culture, shortest round-trip text. Codegen maps a field only
+   when the configuration names it ([LEX-92](specs/lexicon.md#generated-clients)); no guessing.
+   The parser accepts plain decimals with an optional exponent and rejects `NaN`, infinities, hex,
+   group separators and a leading `+`.
+2. **B** as a small static helper plus a docs page; no codegen support.
+3. The data model stays strict: the DRISL encoder never writes floats, the decoder rejects them
+   (DAT-1, DAT-24, DAT-41). Number handling sits behind one internal seam, so a native float kind
+   can be added when upstream defines one.
+
+**Why not wait (C).** Upstream's outcome changes the wire format of future floats, not the fact
+that existing Lexicons store numbers as strings, so A stays useful either way.
+
+**Revisit** when the ATP working group publishes a float mapping draft
+([data-model open point 5](specs/data-model.md#open-points)).
+
+---
+
 ## Open questions
 
 <a id="open-questions"></a>

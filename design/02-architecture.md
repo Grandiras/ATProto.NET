@@ -25,7 +25,7 @@ flowchart BT
 
 | Package | Install it when | Depends on (besides the BCL) |
 |---|---|---|
-| `ATProtoNet` | always: apps, bots, indexers, tools, worker services | `System.Formats.Cbor`; small `Microsoft.Extensions.*` packages (Logging, Caching, DependencyInjection and Hosting abstractions, Options, Http, HealthChecks abstractions); `Microsoft.AspNetCore.DataProtection.Abstractions` (for the encrypted file session store). Never the ASP.NET Core shared framework. |
+| `ATProtoNet` | always: apps, bots, indexers, tools, worker services | small `Microsoft.Extensions.*` packages (Logging, Caching, DependencyInjection and Hosting abstractions, Options, Http, HealthChecks abstractions); `Microsoft.AspNetCore.DataProtection.Abstractions` (for the encrypted file session store). Never the ASP.NET Core shared framework. |
 | `ATProtoNet.AspNetCore` | you serve XRPC endpoints, accept service auth, run the OAuth web login, a labeler or a Tap webhook | `ATProtoNet`, `Microsoft.AspNetCore.App` |
 | `ATProtoNet.EntityFrameworkCore` | you persist sessions, OAuth state, replay entries, cursors or sync state in a database | `ATProtoNet`, `Microsoft.EntityFrameworkCore.Relational` |
 | `ATProtoNet.Aspire.Hosting` | you run a PDS container (Bluesky or Tranquil) in an Aspire AppHost | Aspire hosting packages only; it starts containers and does not reference the SDK |
@@ -176,7 +176,7 @@ The identifier types (`Did`, `Handle`, `AtIdentifier`, `Nsid`, `AtUri`, `RecordK
 `AtDatetime`, `Cid`, `Language`) validate on construction per the atproto syntax specs.
 The data model has two encodings with one shape:
 
-- **DRISL-CBOR** (`DrislReader`/`DrislWriter` over `System.Formats.Cbor`, with explicit limits)
+- **DRISL-CBOR** (`DrislReader`/`DrislWriter`, which read and write the bytes themselves, with explicit limits; phase 1 dropped `System.Formats.Cbor`, see [data-model](specs/data-model.md#phase-1-outcomes))
   for commits, MST nodes, firehose frames, CAR blocks and signatures. The reader is **strict by
   default** (canonical key order, no duplicates, minimal integers, definite lengths, valid UTF-8,
   only tag 42) because anything hashed or signed must be; a lenient mode is opt-in for display

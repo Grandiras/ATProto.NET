@@ -11,8 +11,14 @@ tests/ATProtoNet.Benchmarks/
 ```
 
 Both SDKs are named `ATProtoNet` and cannot load into one process, so each implementation is
-its own project. `Legacy` exists now. `Next` (`ATProtoNet.Benchmarks.Next`, from phase 1) imports
-the same `Shared/Benchmarks.Shared.props` and implements the same scenarios.
+its own project. `Legacy` runs every scenario; `Next` (`ATProtoNet.Benchmarks.Next`) imports the same
+`Shared/Benchmarks.Shared.props` and implements the scenarios of each phase as it lands:
+
+- **Phase 1:** `DrislBenchmarks` and `CarBenchmarks`. `Encode` starts from the JSON text
+  (`DrislJson.ToDrisl`), where 0.8 started from a parsed `JsonElement`; `Decode` writes the JSON into
+  a reused `Utf8JsonWriter` (`DrislJson.WriteJson`), where 0.8 returned a `JsonElement`. The CAR's MST
+  nodes come from `Next/MstNodes.cs`, a stand-in built to the repository spec until phase 2's MST
+  replaces it.
 
 ## Running
 

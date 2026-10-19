@@ -41,7 +41,11 @@ public interface IAtIdentifier<TSelf> :
     string Value { get; }                       // canonical text
     static abstract int MaxLength { get; }
     static abstract TSelf Parse(string s);      // FormatException on invalid input
+    static abstract TSelf Parse(ReadOnlySpan<char> s);
+    static abstract TSelf Parse(ReadOnlySpan<byte> utf8Text);
     static abstract bool TryParse([NotNullWhen(true)] string? s, [MaybeNullWhen(false)] out TSelf result);
+    static abstract bool TryParse(ReadOnlySpan<char> s, [MaybeNullWhen(false)] out TSelf result);
+    static abstract bool TryParse(ReadOnlySpan<byte> utf8Text, [MaybeNullWhen(false)] out TSelf result);
 }
 
 public sealed class Did : IAtIdentifier<Did>
@@ -76,15 +80,17 @@ public sealed class Nsid : IAtIdentifier<Nsid>
 
 public sealed class RecordKey : IAtIdentifier<RecordKey>
 {
+    public static RecordKey Self { get; }               // "self", the key of singleton records
     public static RecordKey From(Tid tid);
 }
 
 public readonly struct Tid : IAtIdentifier<Tid>      // default == TID 0 ("2222222222222"), valid
 {
+    public const int Length = 13;
     public long TimestampMicroseconds { get; }
     public int ClockId { get; }
-    public long ToInt64();
-    public static Tid FromInt64(long value);
+    public long ToInt64();                              // the 64 bits as a signed long
+    public static Tid FromInt64(long value);            // any long: the bits are the TID's
     public static Tid Next();                           // TidGenerator.Default.Next()
 }
 
@@ -152,6 +158,10 @@ public sealed class DecimalString : IAtIdentifier<DecimalString>
     public static DecimalString From(double value);     // shortest round-trip text, invariant
     public static DecimalString From(decimal value);    // keeps the scale: 52.520m → "52.520"
 }
+
+// Public JSON converters, so source-generated contexts use them without reflection: IdentifierJsonConverter<T> (every
+// IAtIdentifier type but AtDatetime and DecimalString), AtDatetimeJsonConverter, AtAddressJsonConverter, and
+// DecimalStringJsonConverter in ATProtoNet.Data. All support dictionary keys.
 
 public static class UriFormat
 {
@@ -262,7 +272,9 @@ public static class UriFormat
 - **SYN-21** (MUST) An NSID has at least three `.`-separated segments and is at most 317
   characters. Authority segments (all but the last) follow handle label rules: 1–63 characters
   of `[a-zA-Z0-9-]`, not starting or ending with `-`. The first segment starts with a letter.
-  The authority part (all segments but the last, joined) is at most 253 characters.
+  There is no separate limit on the authority part: the upstream vectors accept a 287-character
+  NSID whose authority exceeds 253 characters, so only the total counts (*Phase 1: the 253-character
+  authority limit of the first draft was dropped*).
   *Source:* [specs/nsid](https://atproto.com/specs/nsid) · 0.8 `IdentifierSyntax.cs:99` ·
   vectors `nsid_syntax_*.txt`
 - **SYN-22** (MUST) The name segment (the last) is 1–63 ASCII letters and digits and starts with
@@ -296,6 +308,9 @@ public static class UriFormat
 - **SYN-28** (MUST) A TID's 64-bit value is 53 bits of microseconds since the Unix epoch
   followed by a 10-bit clock identifier. `ToInt64`/`FromInt64` round-trip, and ordinal order of
   the text equals numeric order of the value. `CompareTo` compares the values.
+  *Phase 1:* a TID is held as an unsigned 64-bit value, because SYN-27 admits first characters up
+  to `j` (bit 63 set, `jzzzzzzzzzzzz`): `ToInt64` then returns a negative `long`, `FromInt64`
+  accepts any `long` (it throws nothing), and `CompareTo` compares the unsigned values.
   *Source:* specs/tid · test `TidTests.FromInt64_ToInt64_RoundTrip`
 - **SYN-29** (MUST) `default(Tid)` is the TID with value 0 (`2222222222222`), which is valid.
   *Source:* **Decision** AG-8 (structs only where `default` is valid)
@@ -488,8 +503,8 @@ machine. Generated code uses it only where the developer opts in per field
   for a non-finite result.
   *Source:* **Decision**
 - **SYN-87** (MUST) Equality is ordinal on the text (`"52.52"` and `"52.520"` are different
-  values, as they are different bytes on the wire). There is no ordering; callers compare the
-  parsed numbers.
+  values, as they are different bytes on the wire). There is no numeric ordering; callers compare the
+  parsed numbers. `CompareTo`, which `IAtIdentifier<TSelf>` requires, is ordinal on the text.
   *Source:* **Decision**, as SYN-48
 
 A hand-written model can instead put
@@ -503,7 +518,10 @@ as `"52.52"`), so a read-modify-write can change the record's CID; `DecimalStrin
 - **SYN-49** (MUST) `Language` accepts BCP 47 language tags as RFC 5646 defines them, including
   grandfathered and private-use tags, case-insensitively. It rejects the syntactically invalid
   vectors and also the well-formed-but-invalid ones (repeated variant subtags, repeated
-  extension singletons).
+  extension singletons). *Phase 1:* two vectors of `language_syntax_invalid.txt` constrain the
+  primary language subtag: `JA` is invalid, so the primary subtag must be lower case (every other
+  subtag, the private-use `x` and the grandfathered tags are case-insensitive), and `jaja` is
+  invalid, so the four-letter primary subtags RFC 5646 reserves for future use are refused.
   *Source:* [specs/lexicon `language`](https://atproto.com/specs/lexicon#language) · RFC 5646
   §2.1, §2.2.5–2.2.6 · vectors `language_syntax_*.txt`, `language_parse_invalid.txt` (vendored
   but unasserted in 0.8)
@@ -534,7 +552,8 @@ as `"52.52"`), so a read-modify-write can change the record's CID; `DecimalStrin
 - **SYN-70** (MUST) Every type in this spec has a System.Text.Json converter, attached so that
   source-generated `JsonSerializerContext`s use it without reflection. Writing emits `Value`.
   *Source:* G6 · 0.8 `Serialization/IdentityJsonConverters.cs`
-- **SYN-71** (MUST) Reading an invalid identifier (every type except `AtDatetime`) throws a
+- **SYN-71** (MUST) Reading an invalid identifier (every type except `AtDatetime` and
+  `DecimalString`, which read leniently by SYN-46 and SYN-85) throws a
   `JsonException` carrying the JSON path, with the `FormatException` as its inner exception.
   Identifiers are strict on read.
   *Source:* D-20 · 0.8 behaviour (`migrating-to-0.7.md:236`) · test
@@ -556,7 +575,6 @@ as `"52.52"`), so a read-modify-write can change the record's CID; `DecimalStrin
 | `Handle.MaxLength` | 253 | SYN-15 |
 | `Handle.MaxLabelLength` | 63 | SYN-15, SYN-21 |
 | `Nsid.MaxLength` | 317 | SYN-21 |
-| `Nsid.MaxAuthorityLength` | 253 | SYN-21 |
 | `Nsid.MaxNameLength` | 63 | SYN-22 |
 | `RecordKey.MaxLength` | 512 | SYN-25 |
 | `Tid.Length` | 13 | SYN-27 |
@@ -650,3 +668,40 @@ records the outcome here in the same PR.
    (SYN-75) and follow the GA specification (Q-15); keep the space types distinct even if the scheme
    becomes `at://`, because public and space addresses resolve differently and must not be
    confused in APIs.
+
+## Settled in phase 1
+
+Open points 1, 2, 4 and 5 were applied as defaulted (point 3 is decided in [lexicon.md](lexicon.md)).
+What building the types settled or changed:
+
+1. **Parse forms are interface members.** `IAtIdentifier<TSelf>` declares all six `Parse`/`TryParse`
+   forms (string, `char` span, UTF-8) as static abstract members, so `Did.Parse(span)` works on the
+   type and generic code can call them; the BCL `IParsable`, `ISpanParsable` and `IUtf8SpanParsable`
+   members are default implementations over them. Each type states its grammar once, as a generic
+   `TryRead<TChar>` over `char` and `byte` (SYN-4), and its six public forms are one-liners over the
+   shared `Identifiers` helpers.
+2. **Limits are `const` on the types** (`Did.MaxLength`, …); the interface's static `MaxLength` is
+   implemented explicitly.
+3. **The default clock.** The layer 0 architecture rule counts `TimeProvider.System` as a clock read,
+   so the `TimeProvider? = null` defaults of `TidGenerator` and `AtDatetime.Now` use an internal
+   `TimeProvider` subclass that overrides nothing, which reads the system clock.
+4. **SYN-21, SYN-27/28, SYN-49, SYN-71 and SYN-87** are clarified in place (marked *Phase 1*): no
+   separate NSID authority limit, unsigned TID values, a lower-case primary language subtag and no
+   four-letter one, `DecimalString` reading leniently, ordinal `DecimalString.CompareTo`.
+5. **Additions to the sketch:** `RecordKey.Self` (0.8 had it; singleton records use it), `Tid.Length`,
+   `TidGenerator.MaxTimestamp`, `AtDatetime.MaxLength`/`MaxFractionDigits`, `Nsid.MaxNameLength`,
+   `Did.MinLength`, and the public converter types listed above.
+6. **Not carried over from 0.8:** `SpaceUri.IsSpaceUri` (`AtAddress.TryParse` classifies an address with
+   one scan) and `SpaceUri.HostAudience` (service identifiers belong with the space authority in
+   [spaces.md](spaces.md)).
+7. **`UriFormat`** takes a scheme (a letter, then letters, digits, `+`, `-`, `.`), a colon and a
+   non-empty remainder of printable ASCII, which the `uri_syntax_*` vectors confirm. It shares its
+   name with `System.UriFormat`, so a file that imports both namespaces must qualify it.
+8. **Error messages** quote the offending text up to 64 characters, and name the address type a
+   valid address of another kind is (SYN-75).
+9. **The oracle (SYN-8)** is the conformance suite's `ParseIdentifier_OracleInput_MatchesTheReferencePattern`
+   over `syntax/reference-patterns.json`; the Next adapter also checks, for every vector line of
+   every suite, that the string, `char` span and UTF-8 forms and `Parse` agree (SYN-3, SYN-4).
+10. **Waivers.** SYN-79 (a guideline for APIs that accept an address) and SYN-80 (follow the upstream
+    space syntax) have no test of their own: the first is applied where those APIs are written
+    (phases 5 and 8) and the second is the single scanner of SYN-75, which SYN-74 to SYN-77 pin.

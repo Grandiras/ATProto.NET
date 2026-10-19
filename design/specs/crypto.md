@@ -506,3 +506,52 @@ records the outcome here in the same PR.
    (OpenSSL 3.5+, recent Windows). *Default:* implement exactly the GA algorithm set;
    if ML-KEM is part of it and the platform lacks it, fail with `PlatformNotSupportedException`
    rather than falling back silently.
+
+**Phase 1 outcomes** (#237):
+
+- *Open point 1:* the managed fallback is included, verification only (`Crypto/ManagedEcdsa.cs`,
+  Jacobian coordinates over `BigInteger`). `VerificationKey` uses it for a curve the platform's
+  `ECDsa` lacks; the unit tests run it on Linux against the interop and scalar-range fixtures and
+  against platform signatures of both curves (they reach it with `UnsafeAccessor`, as the code has
+  no `InternalsVisibleTo`). CRY-16 stays a MUST.
+- *`SignedObject`* (CRY-40…42) has `Sign` and `Verify`. The encoding side, the sketch's
+  `GetUnsignedBytes`, is not repeated here: it is `ATProtoNet.Data.SignedDrisl.GetUnsignedBytes`
+  (DAT-66, one implementation), which hands back the signature entry as a `DataModelValue` (or
+  `null` when there is none), so `Verify` checks its type against the `SignatureEncoding`.
+- *Open point 2:* `ImportRawPrivateScalar` is kept, validated as `1 ≤ d < n`.
+- *Open point 3:* GA has not published its KEM yet, so the set is the ECDH case the space
+  commitment proposal names, made concrete as DHKEM(P-256, HKDF-SHA256) of RFC 9180 §4.1
+  (`KemAlgorithm.EcdhP256`, also `KemAlgorithm.Default`): the ciphertext is the 65-byte
+  uncompressed ephemeral point, the shared secret 32 bytes, checked against RFC 9180 A.3.1. The
+  key is published as a P-256 multikey (codec `0x1200`). `SharedSecret.DeriveKey` is
+  HKDF-Expand (SHA-256) over the consumer's context. Re-validated against GA in phase 10; ML-KEM
+  is a new case when GA names it.
+- *Deviations from the sketch.* Layer 0 may not use `System.Net.Http` (architecture tests), so
+  `HttpMessageSigner.Sign` takes an `HttpSignatureRequest` (the message's field lines, independent
+  of any HTTP stack) and returns the two field values (`HttpSignatureFields`); the layer-2
+  `SpaceRequestHandler` (phase 5) sets them on its `HttpRequestMessage`. The verifier takes an
+  `HttpSignatureRequirements` record (label, components, optional `TimeProvider` and clock skew;
+  AG-12 and RS0026) and either the expected key or a `keyid` → key function (the credential
+  exchange, whose key is its `keyid`), and returns the closed `HttpSignatureVerdict`
+  (`Accepted`/`Refused`). `created` and `expires` are values the signer's caller reads from its
+  own `TimeProvider` (CRY-57); a verifier given no clock refuses a signature that expires. Only
+  field components are supported; derived components (`@method`, …) are refused until a protocol
+  needs them. An `alg` parameter must be the key's RFC 9421 name (`ecdsa-p256-sha256`); K-256 has
+  none registered, so `alg` with a K-256 key is refused. `StructuredFields` models bare items as
+  the `union` `BareItem` (with `StructuredToken`), members as the closed `StructuredMember`
+  (`StructuredItem`, `StructuredInnerList`) and dictionaries as `StructuredDictionary`, which
+  reports repeated keys (`IsDuplicated`). `Blake3` is `Hash`, `HashKeyed`, `CreateHasher` and
+  `CreateKeyedHasher`; `Blake3Hasher` follows `IncrementalHash` (`AppendData`, `GetCurrentHash`,
+  which leaves the state open for more input); the derive-key mode is not needed and not built.
+  `Jws.Sign` refuses a header whose `alg` is not the key's (`ArgumentException`) instead of
+  overwriting it. There is no private JWK export: `d` is written only when a caller sets it, and
+  `JsonWebKeySet` drops it. `KemPrivateKey` gains `ExportPkcs8`.
+- *Waived for now:* CRY-56's "passes the HTTP WG structured-field test suite". The suite is not
+  vendored under `tests/ATProtoNet.Conformance/vectors` yet; RFC 8941's own cases and 0.8's
+  dictionary vectors are tested instead. Vendoring it is a conformance-suite change.
+- *Review fixes (#237):* `Jws.TryDecode` also refuses a header whose `alg` is not a string, any
+  header with `crit` (RFC 7515 §4.1.11; no critical extension is understood) and a `jwk` that is
+  not a valid P-256 or secp256k1 public key (CRY-30). The HTTP signature verifier compares
+  `created` and `expires` against the clock minus or plus the skew, so a time at the edge of the
+  representable range is refused, not thrown (CRY-14, CRY-57). `KemEncapsulation` and `DecodedJws`
+  are no longer records, since record equality over `ReadOnlyMemory<byte>` compares references.

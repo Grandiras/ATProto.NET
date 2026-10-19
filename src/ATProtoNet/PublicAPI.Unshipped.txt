@@ -1,1 +1,1008 @@
 #nullable enable
+ATProtoNet.AtAddress
+ATProtoNet.AtAddress.AtAddress() -> void
+ATProtoNet.AtAddress.AtAddress(ATProtoNet.AtUri! value) -> void
+ATProtoNet.AtAddress.AtAddress(ATProtoNet.SpaceRecordUri! value) -> void
+ATProtoNet.AtAddress.AtAddress(ATProtoNet.SpaceUri! value) -> void
+ATProtoNet.AtAddress.Value.get -> object?
+ATProtoNet.AtAddressJsonConverter
+ATProtoNet.AtAddressJsonConverter.AtAddressJsonConverter() -> void
+ATProtoNet.AtDatetime
+ATProtoNet.AtDatetime.CompareTo(ATProtoNet.AtDatetime? other) -> int
+ATProtoNet.AtDatetime.Equals(ATProtoNet.AtDatetime? other) -> bool
+ATProtoNet.AtDatetime.IsValid.get -> bool
+ATProtoNet.AtDatetime.TryGetInstant(out System.DateTimeOffset instant) -> bool
+ATProtoNet.AtDatetime.Value.get -> string!
+ATProtoNet.AtDatetimeJsonConverter
+ATProtoNet.AtDatetimeJsonConverter.AtDatetimeJsonConverter() -> void
+ATProtoNet.AtIdentifier
+ATProtoNet.AtIdentifier.CompareTo(ATProtoNet.AtIdentifier? other) -> int
+ATProtoNet.AtIdentifier.Did.get -> ATProtoNet.Did?
+ATProtoNet.AtIdentifier.Equals(ATProtoNet.AtIdentifier? other) -> bool
+ATProtoNet.AtIdentifier.Handle.get -> ATProtoNet.Handle?
+ATProtoNet.AtIdentifier.IsDid.get -> bool
+ATProtoNet.AtIdentifier.IsHandle.get -> bool
+ATProtoNet.AtIdentifier.Value.get -> string!
+ATProtoNet.AtUri
+ATProtoNet.AtUri.Authority.get -> ATProtoNet.AtIdentifier!
+ATProtoNet.AtUri.Collection.get -> ATProtoNet.Nsid?
+ATProtoNet.AtUri.CompareTo(ATProtoNet.AtUri? other) -> int
+ATProtoNet.AtUri.Equals(ATProtoNet.AtUri? other) -> bool
+ATProtoNet.AtUri.RecordKey.get -> ATProtoNet.RecordKey?
+ATProtoNet.AtUri.Value.get -> string!
+ATProtoNet.Cid
+ATProtoNet.Cid.Codec.get -> ATProtoNet.CidCodec
+ATProtoNet.Cid.CompareTo(ATProtoNet.Cid? other) -> int
+ATProtoNet.Cid.Digest.get -> System.ReadOnlySpan<byte>
+ATProtoNet.Cid.Equals(ATProtoNet.Cid? other) -> bool
+ATProtoNet.Cid.Matches(System.ReadOnlySpan<byte> data) -> bool
+ATProtoNet.Cid.ToByteArray() -> byte[]!
+ATProtoNet.Cid.Value.get -> string!
+ATProtoNet.Cid.WriteBytes(System.Span<byte> destination) -> void
+ATProtoNet.CidCodec
+ATProtoNet.CidCodec.DagCbor = 113 -> ATProtoNet.CidCodec
+ATProtoNet.CidCodec.Raw = 85 -> ATProtoNet.CidCodec
+ATProtoNet.Crypto.Blake3
+ATProtoNet.Crypto.Blake3Hasher
+ATProtoNet.Crypto.Blake3Hasher.AppendData(System.ReadOnlySpan<byte> data) -> void
+ATProtoNet.Crypto.Blake3Hasher.GetCurrentHash(System.Span<byte> destination) -> void
+ATProtoNet.Crypto.DidKey
+ATProtoNet.Crypto.DidKey.CompareTo(ATProtoNet.Crypto.DidKey? other) -> int
+ATProtoNet.Crypto.DidKey.CompressedPublicKey.get -> System.ReadOnlySpan<byte>
+ATProtoNet.Crypto.DidKey.Curve.get -> ATProtoNet.Crypto.KeyCurve
+ATProtoNet.Crypto.DidKey.Equals(ATProtoNet.Crypto.DidKey? other) -> bool
+ATProtoNet.Crypto.DidKey.Multikey.get -> string!
+ATProtoNet.Crypto.DidKey.ToVerificationKey() -> ATProtoNet.Crypto.VerificationKey!
+ATProtoNet.Crypto.DidKey.Value.get -> string!
+ATProtoNet.Crypto.HttpSignatures.BareItem
+ATProtoNet.Crypto.HttpSignatures.BareItem.BareItem() -> void
+ATProtoNet.Crypto.HttpSignatures.BareItem.BareItem(ATProtoNet.Crypto.HttpSignatures.StructuredToken value) -> void
+ATProtoNet.Crypto.HttpSignatures.BareItem.BareItem(System.ReadOnlyMemory<byte> value) -> void
+ATProtoNet.Crypto.HttpSignatures.BareItem.BareItem(bool value) -> void
+ATProtoNet.Crypto.HttpSignatures.BareItem.BareItem(decimal value) -> void
+ATProtoNet.Crypto.HttpSignatures.BareItem.BareItem(long value) -> void
+ATProtoNet.Crypto.HttpSignatures.BareItem.BareItem(string! value) -> void
+ATProtoNet.Crypto.HttpSignatures.BareItem.Value.get -> object?
+ATProtoNet.Crypto.HttpSignatures.HttpMessageSignatureVerifier
+ATProtoNet.Crypto.HttpSignatures.HttpMessageSigner
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.<Clone>$() -> ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.Deconstruct(out string! SignatureInput, out string! Signature) -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.Equals(ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields? other) -> bool
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.HttpSignatureFields(string! SignatureInput, string! Signature) -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.Signature.get -> string!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.Signature.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.SignatureInput.get -> string!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.SignatureInput.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.<Clone>$() -> ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Components.get -> System.Collections.Generic.IReadOnlyList<string!>!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Components.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Created.get -> System.DateTimeOffset?
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Created.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Equals(ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters? other) -> bool
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Expires.get -> System.DateTimeOffset?
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Expires.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.HttpSignatureParameters() -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.KeyId.get -> string?
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.KeyId.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Label.get -> string!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Label.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequest
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequest.GetField(string! name) -> string?
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequest.HttpSignatureRequest(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! fields) -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.<Clone>$() -> ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.ClockSkew.get -> System.TimeSpan
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.ClockSkew.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Components.get -> System.Collections.Generic.IReadOnlyList<string!>!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Components.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Equals(ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements? other) -> bool
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.HttpSignatureRequirements() -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Label.get -> string!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Label.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Time.get -> System.TimeProvider?
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Time.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.Accepted(ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters! Parameters, ATProtoNet.Crypto.VerificationKey! Key) -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.Deconstruct(out ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters! Parameters, out ATProtoNet.Crypto.VerificationKey! Key) -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.Equals(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted? other) -> bool
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.Key.get -> ATProtoNet.Crypto.VerificationKey!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.Key.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.Parameters.get -> ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.Parameters.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.HttpSignatureVerdict() -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.HttpSignatureVerdict(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict! original) -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.Deconstruct(out string! Reason) -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.Equals(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused? other) -> bool
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.Reason.get -> string!
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.Reason.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.Refused(string! Reason) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredDictionary
+ATProtoNet.Crypto.HttpSignatures.StructuredDictionary.IsDuplicated(string! key) -> bool
+ATProtoNet.Crypto.HttpSignatures.StructuredDictionary.Members.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Crypto.HttpSignatures.StructuredMember!>>!
+ATProtoNet.Crypto.HttpSignatures.StructuredDictionary.StructuredDictionary(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Crypto.HttpSignatures.StructuredMember!>>! members) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredDictionary.TryGetValue(string! key, out ATProtoNet.Crypto.HttpSignatures.StructuredMember? member) -> bool
+ATProtoNet.Crypto.HttpSignatures.StructuredFields
+ATProtoNet.Crypto.HttpSignatures.StructuredInnerList
+ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.Deconstruct(out System.Collections.Generic.IReadOnlyList<ATProtoNet.Crypto.HttpSignatures.StructuredItem!>! Items, out System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Crypto.HttpSignatures.BareItem>>! Parameters) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.Equals(ATProtoNet.Crypto.HttpSignatures.StructuredInnerList? other) -> bool
+ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.Items.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Crypto.HttpSignatures.StructuredItem!>!
+ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.Items.init -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.StructuredInnerList(System.Collections.Generic.IReadOnlyList<ATProtoNet.Crypto.HttpSignatures.StructuredItem!>! Items, System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Crypto.HttpSignatures.BareItem>>! Parameters) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredItem
+ATProtoNet.Crypto.HttpSignatures.StructuredItem.Deconstruct(out ATProtoNet.Crypto.HttpSignatures.BareItem Value, out System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Crypto.HttpSignatures.BareItem>>! Parameters) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredItem.Equals(ATProtoNet.Crypto.HttpSignatures.StructuredItem? other) -> bool
+ATProtoNet.Crypto.HttpSignatures.StructuredItem.StructuredItem(ATProtoNet.Crypto.HttpSignatures.BareItem Value, System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Crypto.HttpSignatures.BareItem>>! Parameters) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredItem.StructuredItem(ATProtoNet.Crypto.HttpSignatures.BareItem value) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredItem.Value.get -> ATProtoNet.Crypto.HttpSignatures.BareItem
+ATProtoNet.Crypto.HttpSignatures.StructuredItem.Value.init -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredMember
+ATProtoNet.Crypto.HttpSignatures.StructuredMember.Deconstruct(out System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Crypto.HttpSignatures.BareItem>>! Parameters) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredMember.Parameters.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Crypto.HttpSignatures.BareItem>>!
+ATProtoNet.Crypto.HttpSignatures.StructuredMember.Parameters.init -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredMember.StructuredMember(ATProtoNet.Crypto.HttpSignatures.StructuredMember! original) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredMember.StructuredMember(System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Crypto.HttpSignatures.BareItem>>! Parameters) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredToken
+ATProtoNet.Crypto.HttpSignatures.StructuredToken.Deconstruct(out string! Value) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredToken.Equals(ATProtoNet.Crypto.HttpSignatures.StructuredToken other) -> bool
+ATProtoNet.Crypto.HttpSignatures.StructuredToken.StructuredToken() -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredToken.StructuredToken(string! Value) -> void
+ATProtoNet.Crypto.HttpSignatures.StructuredToken.Value.get -> string!
+ATProtoNet.Crypto.HttpSignatures.StructuredToken.Value.init -> void
+ATProtoNet.Crypto.Jose.DecodedJws
+ATProtoNet.Crypto.Jose.DecodedJws.DecodedJws() -> void
+ATProtoNet.Crypto.Jose.DecodedJws.DecodedJws(ATProtoNet.Crypto.Jose.JwsHeader! header, System.Text.Json.JsonElement headerJson, System.Text.Json.JsonElement payload, System.ReadOnlyMemory<byte> signingInput, System.ReadOnlyMemory<byte> signature) -> void
+ATProtoNet.Crypto.Jose.DecodedJws.Header.get -> ATProtoNet.Crypto.Jose.JwsHeader!
+ATProtoNet.Crypto.Jose.DecodedJws.HeaderJson.get -> System.Text.Json.JsonElement
+ATProtoNet.Crypto.Jose.DecodedJws.Payload.get -> System.Text.Json.JsonElement
+ATProtoNet.Crypto.Jose.DecodedJws.Signature.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Crypto.Jose.DecodedJws.SigningInput.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Crypto.Jose.JsonWebKey
+ATProtoNet.Crypto.Jose.JsonWebKey.<Clone>$() -> ATProtoNet.Crypto.Jose.JsonWebKey!
+ATProtoNet.Crypto.Jose.JsonWebKey.Alg.get -> string?
+ATProtoNet.Crypto.Jose.JsonWebKey.Alg.init -> void
+ATProtoNet.Crypto.Jose.JsonWebKey.Crv.get -> string!
+ATProtoNet.Crypto.Jose.JsonWebKey.Crv.init -> void
+ATProtoNet.Crypto.Jose.JsonWebKey.D.get -> string?
+ATProtoNet.Crypto.Jose.JsonWebKey.D.init -> void
+ATProtoNet.Crypto.Jose.JsonWebKey.Equals(ATProtoNet.Crypto.Jose.JsonWebKey? other) -> bool
+ATProtoNet.Crypto.Jose.JsonWebKey.JsonWebKey() -> void
+ATProtoNet.Crypto.Jose.JsonWebKey.Kid.get -> string?
+ATProtoNet.Crypto.Jose.JsonWebKey.Kid.init -> void
+ATProtoNet.Crypto.Jose.JsonWebKey.Kty.get -> string!
+ATProtoNet.Crypto.Jose.JsonWebKey.Kty.init -> void
+ATProtoNet.Crypto.Jose.JsonWebKey.Thumbprint() -> string!
+ATProtoNet.Crypto.Jose.JsonWebKey.ToPublic() -> ATProtoNet.Crypto.Jose.JsonWebKey!
+ATProtoNet.Crypto.Jose.JsonWebKey.Use.get -> string?
+ATProtoNet.Crypto.Jose.JsonWebKey.Use.init -> void
+ATProtoNet.Crypto.Jose.JsonWebKey.X.get -> string!
+ATProtoNet.Crypto.Jose.JsonWebKey.X.init -> void
+ATProtoNet.Crypto.Jose.JsonWebKey.Y.get -> string!
+ATProtoNet.Crypto.Jose.JsonWebKey.Y.init -> void
+ATProtoNet.Crypto.Jose.JsonWebKeySet
+ATProtoNet.Crypto.Jose.JsonWebKeySet.<Clone>$() -> ATProtoNet.Crypto.Jose.JsonWebKeySet!
+ATProtoNet.Crypto.Jose.JsonWebKeySet.Deconstruct(out System.Collections.Generic.IReadOnlyList<ATProtoNet.Crypto.Jose.JsonWebKey!>! Keys) -> void
+ATProtoNet.Crypto.Jose.JsonWebKeySet.Equals(ATProtoNet.Crypto.Jose.JsonWebKeySet? other) -> bool
+ATProtoNet.Crypto.Jose.JsonWebKeySet.JsonWebKeySet(System.Collections.Generic.IReadOnlyList<ATProtoNet.Crypto.Jose.JsonWebKey!>! Keys) -> void
+ATProtoNet.Crypto.Jose.JsonWebKeySet.Keys.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Crypto.Jose.JsonWebKey!>!
+ATProtoNet.Crypto.Jose.Jws
+ATProtoNet.Crypto.Jose.JwsHeader
+ATProtoNet.Crypto.Jose.JwsHeader.<Clone>$() -> ATProtoNet.Crypto.Jose.JwsHeader!
+ATProtoNet.Crypto.Jose.JwsHeader.Algorithm.get -> string!
+ATProtoNet.Crypto.Jose.JwsHeader.Algorithm.init -> void
+ATProtoNet.Crypto.Jose.JwsHeader.Equals(ATProtoNet.Crypto.Jose.JwsHeader? other) -> bool
+ATProtoNet.Crypto.Jose.JwsHeader.Jwk.get -> ATProtoNet.Crypto.Jose.JsonWebKey?
+ATProtoNet.Crypto.Jose.JwsHeader.Jwk.init -> void
+ATProtoNet.Crypto.Jose.JwsHeader.JwsHeader() -> void
+ATProtoNet.Crypto.Jose.JwsHeader.KeyId.get -> string?
+ATProtoNet.Crypto.Jose.JwsHeader.KeyId.init -> void
+ATProtoNet.Crypto.Jose.JwsHeader.Type.get -> string?
+ATProtoNet.Crypto.Jose.JwsHeader.Type.init -> void
+ATProtoNet.Crypto.KemAlgorithm
+ATProtoNet.Crypto.KemAlgorithm.EcdhP256
+ATProtoNet.Crypto.KemAlgorithm.EcdhP256.EcdhP256() -> void
+ATProtoNet.Crypto.KemAlgorithm.EcdhP256.Equals(ATProtoNet.Crypto.KemAlgorithm.EcdhP256? other) -> bool
+ATProtoNet.Crypto.KemAlgorithm.KemAlgorithm() -> void
+ATProtoNet.Crypto.KemAlgorithm.KemAlgorithm(ATProtoNet.Crypto.KemAlgorithm! original) -> void
+ATProtoNet.Crypto.KemEncapsulation
+ATProtoNet.Crypto.KemEncapsulation.Ciphertext.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Crypto.KemEncapsulation.Deconstruct(out ATProtoNet.Crypto.SharedSecret! secret, out System.ReadOnlyMemory<byte> ciphertext) -> void
+ATProtoNet.Crypto.KemEncapsulation.KemEncapsulation(ATProtoNet.Crypto.SharedSecret! secret, System.ReadOnlyMemory<byte> ciphertext) -> void
+ATProtoNet.Crypto.KemEncapsulation.Secret.get -> ATProtoNet.Crypto.SharedSecret!
+ATProtoNet.Crypto.KemPrivateKey
+ATProtoNet.Crypto.KemPrivateKey.Decapsulate(System.ReadOnlySpan<byte> ciphertext) -> ATProtoNet.Crypto.SharedSecret!
+ATProtoNet.Crypto.KemPrivateKey.Dispose() -> void
+ATProtoNet.Crypto.KemPrivateKey.ExportPkcs8() -> byte[]!
+ATProtoNet.Crypto.KemPrivateKey.PublicKey.get -> ATProtoNet.Crypto.KemPublicKey!
+ATProtoNet.Crypto.KemPublicKey
+ATProtoNet.Crypto.KemPublicKey.Algorithm.get -> ATProtoNet.Crypto.KemAlgorithm!
+ATProtoNet.Crypto.KemPublicKey.Encapsulate() -> ATProtoNet.Crypto.KemEncapsulation!
+ATProtoNet.Crypto.KemPublicKey.Equals(ATProtoNet.Crypto.KemPublicKey? other) -> bool
+ATProtoNet.Crypto.KemPublicKey.Multikey.get -> string!
+ATProtoNet.Crypto.KeyCurve
+ATProtoNet.Crypto.KeyCurve.K256 = 1 -> ATProtoNet.Crypto.KeyCurve
+ATProtoNet.Crypto.KeyCurve.P256 = 0 -> ATProtoNet.Crypto.KeyCurve
+ATProtoNet.Crypto.SharedSecret
+ATProtoNet.Crypto.SharedSecret.DeriveKey(System.ReadOnlySpan<byte> info, System.Span<byte> destination) -> void
+ATProtoNet.Crypto.SharedSecret.Dispose() -> void
+ATProtoNet.Crypto.SignatureEncoding
+ATProtoNet.Crypto.SignatureEncoding.Base64Url = 1 -> ATProtoNet.Crypto.SignatureEncoding
+ATProtoNet.Crypto.SignatureEncoding.Bytes = 0 -> ATProtoNet.Crypto.SignatureEncoding
+ATProtoNet.Crypto.SignaturePolicy
+ATProtoNet.Crypto.SignaturePolicy.AcceptHighS = 1 -> ATProtoNet.Crypto.SignaturePolicy
+ATProtoNet.Crypto.SignaturePolicy.LowSOnly = 0 -> ATProtoNet.Crypto.SignaturePolicy
+ATProtoNet.Crypto.SignedObject
+ATProtoNet.Crypto.SigningKey
+ATProtoNet.Crypto.SigningKey.Curve.get -> ATProtoNet.Crypto.KeyCurve
+ATProtoNet.Crypto.SigningKey.Dispose() -> void
+ATProtoNet.Crypto.SigningKey.ExportPkcs8() -> byte[]!
+ATProtoNet.Crypto.SigningKey.PublicKey.get -> ATProtoNet.Crypto.VerificationKey!
+ATProtoNet.Crypto.SigningKey.Sign(System.ReadOnlySpan<byte> message) -> byte[]!
+ATProtoNet.Crypto.SigningKey.Sign(System.ReadOnlySpan<byte> message, System.Span<byte> destination) -> int
+ATProtoNet.Crypto.VerificationKey
+ATProtoNet.Crypto.VerificationKey.Curve.get -> ATProtoNet.Crypto.KeyCurve
+ATProtoNet.Crypto.VerificationKey.DidKey.get -> ATProtoNet.Crypto.DidKey!
+ATProtoNet.Crypto.VerificationKey.Equals(ATProtoNet.Crypto.VerificationKey? other) -> bool
+ATProtoNet.Crypto.VerificationKey.ToJsonWebKey() -> ATProtoNet.Crypto.Jose.JsonWebKey!
+ATProtoNet.Crypto.VerificationKey.Verify(System.ReadOnlySpan<byte> message, System.ReadOnlySpan<byte> signature, ATProtoNet.Crypto.SignaturePolicy policy = ATProtoNet.Crypto.SignaturePolicy.LowSOnly) -> bool
+ATProtoNet.Crypto.VerificationKeyCache
+ATProtoNet.Crypto.VerificationKeyCache.Count.get -> int
+ATProtoNet.Crypto.VerificationKeyCache.Get(ATProtoNet.Crypto.DidKey! key) -> ATProtoNet.Crypto.VerificationKey!
+ATProtoNet.Crypto.VerificationKeyCache.VerificationKeyCache(int capacity = 1024) -> void
+ATProtoNet.Crypto.VerificationKeyCache.Verify(ATProtoNet.Crypto.DidKey! key, System.ReadOnlySpan<byte> message, System.ReadOnlySpan<byte> signature, ATProtoNet.Crypto.SignaturePolicy policy = ATProtoNet.Crypto.SignaturePolicy.LowSOnly) -> bool
+ATProtoNet.Data.Base32
+ATProtoNet.Data.Base58Btc
+ATProtoNet.Data.BlobRef
+ATProtoNet.Data.BlobRef.<Clone>$() -> ATProtoNet.Data.BlobRef!
+ATProtoNet.Data.BlobRef.BlobRef() -> void
+ATProtoNet.Data.BlobRef.Equals(ATProtoNet.Data.BlobRef? other) -> bool
+ATProtoNet.Data.BlobRef.IsLegacy.get -> bool
+ATProtoNet.Data.BlobRef.MimeType.get -> string!
+ATProtoNet.Data.BlobRef.MimeType.init -> void
+ATProtoNet.Data.BlobRef.Ref.get -> ATProtoNet.Data.CidLink!
+ATProtoNet.Data.BlobRef.Ref.init -> void
+ATProtoNet.Data.BlobRef.Size.get -> long?
+ATProtoNet.Data.BlobRef.Size.init -> void
+ATProtoNet.Data.BlobRefJsonConverter
+ATProtoNet.Data.BlobRefJsonConverter.BlobRefJsonConverter() -> void
+ATProtoNet.Data.Car.CarBlock
+ATProtoNet.Data.Car.CarBlock.CarBlock(ATProtoNet.Cid! cid, System.ReadOnlyMemory<byte> data) -> void
+ATProtoNet.Data.Car.CarBlock.Cid.get -> ATProtoNet.Cid!
+ATProtoNet.Data.Car.CarBlock.Data.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Data.Car.CarFile
+ATProtoNet.Data.Car.CarFile.Blocks.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Data.Car.CarBlock!>!
+ATProtoNet.Data.Car.CarFile.Header.get -> ATProtoNet.Data.Car.CarHeader!
+ATProtoNet.Data.Car.CarFile.TryGetBlock(ATProtoNet.Cid! cid, out System.ReadOnlyMemory<byte> data) -> bool
+ATProtoNet.Data.Car.CarHeader
+ATProtoNet.Data.Car.CarHeader.Roots.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Cid!>!
+ATProtoNet.Data.Car.CarLimits
+ATProtoNet.Data.Car.CarReader
+ATProtoNet.Data.Car.CarReaderOptions
+ATProtoNet.Data.Car.CarReaderOptions.<Clone>$() -> ATProtoNet.Data.Car.CarReaderOptions!
+ATProtoNet.Data.Car.CarReaderOptions.CarReaderOptions() -> void
+ATProtoNet.Data.Car.CarReaderOptions.Equals(ATProtoNet.Data.Car.CarReaderOptions? other) -> bool
+ATProtoNet.Data.Car.CarReaderOptions.MaxBlockBytes.get -> int
+ATProtoNet.Data.Car.CarReaderOptions.MaxBlockBytes.init -> void
+ATProtoNet.Data.Car.CarReaderOptions.MaxBlocks.get -> int
+ATProtoNet.Data.Car.CarReaderOptions.MaxBlocks.init -> void
+ATProtoNet.Data.Car.CarReaderOptions.MaxHeaderBytes.get -> int
+ATProtoNet.Data.Car.CarReaderOptions.MaxHeaderBytes.init -> void
+ATProtoNet.Data.Car.CarReaderOptions.MaxTotalBytes.get -> long
+ATProtoNet.Data.Car.CarReaderOptions.MaxTotalBytes.init -> void
+ATProtoNet.Data.Car.CarReaderOptions.VerifyBlockCids.get -> bool
+ATProtoNet.Data.Car.CarReaderOptions.VerifyBlockCids.init -> void
+ATProtoNet.Data.Car.CarWriter
+ATProtoNet.Data.CidLink
+ATProtoNet.Data.CidLink.<Clone>$() -> ATProtoNet.Data.CidLink!
+ATProtoNet.Data.CidLink.Cid.get -> ATProtoNet.Cid!
+ATProtoNet.Data.CidLink.Cid.init -> void
+ATProtoNet.Data.CidLink.CidLink() -> void
+ATProtoNet.Data.CidLink.Equals(ATProtoNet.Data.CidLink? other) -> bool
+ATProtoNet.Data.CidLinkJsonConverter
+ATProtoNet.Data.CidLinkJsonConverter.CidLinkJsonConverter() -> void
+ATProtoNet.Data.DataLimitExceededException
+ATProtoNet.Data.DataLimitExceededException.DataLimitExceededException(string! limit, string! message) -> void
+ATProtoNet.Data.DataLimitExceededException.Limit.get -> string!
+ATProtoNet.Data.DataModelArray
+ATProtoNet.Data.DataModelArray.Count.get -> int
+ATProtoNet.Data.DataModelArray.DataModelArray(System.Collections.Generic.IEnumerable<ATProtoNet.Data.DataModelValue!>! items) -> void
+ATProtoNet.Data.DataModelArray.Equals(ATProtoNet.Data.DataModelArray? other) -> bool
+ATProtoNet.Data.DataModelArray.GetEnumerator() -> System.Collections.Generic.IEnumerator<ATProtoNet.Data.DataModelValue!>!
+ATProtoNet.Data.DataModelArray.this[int index].get -> ATProtoNet.Data.DataModelValue!
+ATProtoNet.Data.DataModelBoolean
+ATProtoNet.Data.DataModelBoolean.DataModelBoolean(bool Value) -> void
+ATProtoNet.Data.DataModelBoolean.Deconstruct(out bool Value) -> void
+ATProtoNet.Data.DataModelBoolean.Equals(ATProtoNet.Data.DataModelBoolean? other) -> bool
+ATProtoNet.Data.DataModelBoolean.Value.get -> bool
+ATProtoNet.Data.DataModelBoolean.Value.init -> void
+ATProtoNet.Data.DataModelBytes
+ATProtoNet.Data.DataModelBytes.DataModelBytes(System.ReadOnlyMemory<byte> Value) -> void
+ATProtoNet.Data.DataModelBytes.Deconstruct(out System.ReadOnlyMemory<byte> Value) -> void
+ATProtoNet.Data.DataModelBytes.Equals(ATProtoNet.Data.DataModelBytes? other) -> bool
+ATProtoNet.Data.DataModelBytes.Value.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Data.DataModelBytes.Value.init -> void
+ATProtoNet.Data.DataModelInteger
+ATProtoNet.Data.DataModelInteger.DataModelInteger(long Value) -> void
+ATProtoNet.Data.DataModelInteger.Deconstruct(out long Value) -> void
+ATProtoNet.Data.DataModelInteger.Equals(ATProtoNet.Data.DataModelInteger? other) -> bool
+ATProtoNet.Data.DataModelInteger.Value.get -> long
+ATProtoNet.Data.DataModelInteger.Value.init -> void
+ATProtoNet.Data.DataModelLink
+ATProtoNet.Data.DataModelLink.Cid.get -> ATProtoNet.Cid!
+ATProtoNet.Data.DataModelLink.DataModelLink(ATProtoNet.Cid! cid) -> void
+ATProtoNet.Data.DataModelLink.Equals(ATProtoNet.Data.DataModelLink? other) -> bool
+ATProtoNet.Data.DataModelMap
+ATProtoNet.Data.DataModelMap.ContainsKey(string! key) -> bool
+ATProtoNet.Data.DataModelMap.Count.get -> int
+ATProtoNet.Data.DataModelMap.DataModelMap(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Data.DataModelValue!>>! entries) -> void
+ATProtoNet.Data.DataModelMap.Entries.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Data.DataModelValue!>>!
+ATProtoNet.Data.DataModelMap.Equals(ATProtoNet.Data.DataModelMap? other) -> bool
+ATProtoNet.Data.DataModelMap.GetEnumerator() -> System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<string!, ATProtoNet.Data.DataModelValue!>>!
+ATProtoNet.Data.DataModelMap.Keys.get -> System.Collections.Generic.IEnumerable<string!>!
+ATProtoNet.Data.DataModelMap.TryGetValue(string! key, out ATProtoNet.Data.DataModelValue! value) -> bool
+ATProtoNet.Data.DataModelMap.Values.get -> System.Collections.Generic.IEnumerable<ATProtoNet.Data.DataModelValue!>!
+ATProtoNet.Data.DataModelMap.this[string! key].get -> ATProtoNet.Data.DataModelValue!
+ATProtoNet.Data.DataModelNull
+ATProtoNet.Data.DataModelNull.Equals(ATProtoNet.Data.DataModelNull? other) -> bool
+ATProtoNet.Data.DataModelString
+ATProtoNet.Data.DataModelString.DataModelString(string! value) -> void
+ATProtoNet.Data.DataModelString.Equals(ATProtoNet.Data.DataModelString? other) -> bool
+ATProtoNet.Data.DataModelString.Value.get -> string!
+ATProtoNet.Data.DataModelValue
+ATProtoNet.Data.DataModelValue.DataModelValue() -> void
+ATProtoNet.Data.DataModelValue.DataModelValue(ATProtoNet.Data.DataModelValue! original) -> void
+ATProtoNet.Data.DataModelValue.ToDrisl() -> byte[]!
+ATProtoNet.Data.DataModelValue.WriteJson(System.Text.Json.Utf8JsonWriter! writer) -> void
+ATProtoNet.Data.DataModelValueJsonConverter
+ATProtoNet.Data.DataModelValueJsonConverter.DataModelValueJsonConverter() -> void
+ATProtoNet.Data.DecimalString
+ATProtoNet.Data.DecimalString.CompareTo(ATProtoNet.Data.DecimalString? other) -> int
+ATProtoNet.Data.DecimalString.Equals(ATProtoNet.Data.DecimalString? other) -> bool
+ATProtoNet.Data.DecimalString.IsValid.get -> bool
+ATProtoNet.Data.DecimalString.TryGetDecimal(out decimal value) -> bool
+ATProtoNet.Data.DecimalString.TryGetDouble(out double value) -> bool
+ATProtoNet.Data.DecimalString.Value.get -> string!
+ATProtoNet.Data.DecimalStringJsonConverter
+ATProtoNet.Data.DecimalStringJsonConverter.DecimalStringJsonConverter() -> void
+ATProtoNet.Data.DrislJson
+ATProtoNet.Data.DrislLimits
+ATProtoNet.Data.DrislMode
+ATProtoNet.Data.DrislMode.Lenient = 1 -> ATProtoNet.Data.DrislMode
+ATProtoNet.Data.DrislMode.Strict = 0 -> ATProtoNet.Data.DrislMode
+ATProtoNet.Data.DrislReader
+ATProtoNet.Data.DrislReader.DrislReader(System.ReadOnlyMemory<byte> data, ATProtoNet.Data.DrislReaderOptions? options = null) -> void
+ATProtoNet.Data.DrislReader.PeekKind() -> ATProtoNet.Data.DrislValueKind
+ATProtoNet.Data.DrislReader.ReadBoolean() -> bool
+ATProtoNet.Data.DrislReader.ReadBytes() -> System.ReadOnlyMemory<byte>
+ATProtoNet.Data.DrislReader.ReadEnd() -> void
+ATProtoNet.Data.DrislReader.ReadEndArray() -> void
+ATProtoNet.Data.DrislReader.ReadEndMap() -> void
+ATProtoNet.Data.DrislReader.ReadInt64() -> long
+ATProtoNet.Data.DrislReader.ReadKey() -> string!
+ATProtoNet.Data.DrislReader.ReadLink() -> ATProtoNet.Cid!
+ATProtoNet.Data.DrislReader.ReadNull() -> void
+ATProtoNet.Data.DrislReader.ReadStartArray() -> int
+ATProtoNet.Data.DrislReader.ReadStartMap() -> int
+ATProtoNet.Data.DrislReader.ReadString() -> string!
+ATProtoNet.Data.DrislReader.SkipValue() -> void
+ATProtoNet.Data.DrislReaderOptions
+ATProtoNet.Data.DrislReaderOptions.<Clone>$() -> ATProtoNet.Data.DrislReaderOptions!
+ATProtoNet.Data.DrislReaderOptions.DrislReaderOptions() -> void
+ATProtoNet.Data.DrislReaderOptions.Equals(ATProtoNet.Data.DrislReaderOptions? other) -> bool
+ATProtoNet.Data.DrislReaderOptions.MaxDepth.get -> int
+ATProtoNet.Data.DrislReaderOptions.MaxDepth.init -> void
+ATProtoNet.Data.DrislReaderOptions.Mode.get -> ATProtoNet.Data.DrislMode
+ATProtoNet.Data.DrislReaderOptions.Mode.init -> void
+ATProtoNet.Data.DrislValueKind
+ATProtoNet.Data.DrislValueKind.Array = 7 -> ATProtoNet.Data.DrislValueKind
+ATProtoNet.Data.DrislValueKind.Boolean = 2 -> ATProtoNet.Data.DrislValueKind
+ATProtoNet.Data.DrislValueKind.Bytes = 5 -> ATProtoNet.Data.DrislValueKind
+ATProtoNet.Data.DrislValueKind.End = 0 -> ATProtoNet.Data.DrislValueKind
+ATProtoNet.Data.DrislValueKind.Integer = 3 -> ATProtoNet.Data.DrislValueKind
+ATProtoNet.Data.DrislValueKind.Link = 6 -> ATProtoNet.Data.DrislValueKind
+ATProtoNet.Data.DrislValueKind.Map = 8 -> ATProtoNet.Data.DrislValueKind
+ATProtoNet.Data.DrislValueKind.Null = 1 -> ATProtoNet.Data.DrislValueKind
+ATProtoNet.Data.DrislValueKind.String = 4 -> ATProtoNet.Data.DrislValueKind
+ATProtoNet.Data.DrislWriter
+ATProtoNet.Data.DrislWriter.DrislWriter(System.Buffers.IBufferWriter<byte>! output) -> void
+ATProtoNet.Data.DrislWriter.WriteBoolean(bool value) -> void
+ATProtoNet.Data.DrislWriter.WriteBytes(System.ReadOnlySpan<byte> value) -> void
+ATProtoNet.Data.DrislWriter.WriteEndArray() -> void
+ATProtoNet.Data.DrislWriter.WriteEndMap() -> void
+ATProtoNet.Data.DrislWriter.WriteInt64(long value) -> void
+ATProtoNet.Data.DrislWriter.WriteKey(string! key) -> void
+ATProtoNet.Data.DrislWriter.WriteLink(ATProtoNet.Cid! cid) -> void
+ATProtoNet.Data.DrislWriter.WriteNull() -> void
+ATProtoNet.Data.DrislWriter.WriteStartArray(int count) -> void
+ATProtoNet.Data.DrislWriter.WriteStartMap(int count) -> void
+ATProtoNet.Data.DrislWriter.WriteString(string! value) -> void
+ATProtoNet.Data.SignedDrisl
+ATProtoNet.Data.Star.StarEntry
+ATProtoNet.Data.Star.StarEntry.Cid.get -> ATProtoNet.Cid!
+ATProtoNet.Data.Star.StarEntry.Path.get -> string!
+ATProtoNet.Data.Star.StarEntry.Record.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Data.Star.StarHeader
+ATProtoNet.Data.Star.StarHeader.Drisl.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Data.Star.StarLimits
+ATProtoNet.Data.Star.StarReader
+ATProtoNet.Data.Star.StarReaderOptions
+ATProtoNet.Data.Star.StarReaderOptions.<Clone>$() -> ATProtoNet.Data.Star.StarReaderOptions!
+ATProtoNet.Data.Star.StarReaderOptions.Equals(ATProtoNet.Data.Star.StarReaderOptions? other) -> bool
+ATProtoNet.Data.Star.StarReaderOptions.MaxEntries.get -> int
+ATProtoNet.Data.Star.StarReaderOptions.MaxEntries.init -> void
+ATProtoNet.Data.Star.StarReaderOptions.MaxEntryBytes.get -> int
+ATProtoNet.Data.Star.StarReaderOptions.MaxEntryBytes.init -> void
+ATProtoNet.Data.Star.StarReaderOptions.MaxHeaderBytes.get -> int
+ATProtoNet.Data.Star.StarReaderOptions.MaxHeaderBytes.init -> void
+ATProtoNet.Data.Star.StarReaderOptions.MaxTotalBytes.get -> long
+ATProtoNet.Data.Star.StarReaderOptions.MaxTotalBytes.init -> void
+ATProtoNet.Data.Star.StarReaderOptions.StarReaderOptions() -> void
+ATProtoNet.Data.Star.StarWriter
+ATProtoNet.Data.UnsignedVarint
+ATProtoNet.Did
+ATProtoNet.Did.CompareTo(ATProtoNet.Did? other) -> int
+ATProtoNet.Did.Equals(ATProtoNet.Did? other) -> bool
+ATProtoNet.Did.Method.get -> string!
+ATProtoNet.Did.MethodSpecificId.get -> System.ReadOnlySpan<char>
+ATProtoNet.Did.Value.get -> string!
+ATProtoNet.Handle
+ATProtoNet.Handle.CompareTo(ATProtoNet.Handle? other) -> int
+ATProtoNet.Handle.Equals(ATProtoNet.Handle? other) -> bool
+ATProtoNet.Handle.IsInvalid.get -> bool
+ATProtoNet.Handle.Value.get -> string!
+ATProtoNet.IAtIdentifier<TSelf>
+ATProtoNet.IAtIdentifier<TSelf>.MaxLength.get -> int
+ATProtoNet.IAtIdentifier<TSelf>.Parse(System.ReadOnlySpan<byte> utf8Text) -> TSelf
+ATProtoNet.IAtIdentifier<TSelf>.Parse(System.ReadOnlySpan<char> s) -> TSelf
+ATProtoNet.IAtIdentifier<TSelf>.Parse(string! s) -> TSelf
+ATProtoNet.IAtIdentifier<TSelf>.TryParse(System.ReadOnlySpan<byte> utf8Text, out TSelf result) -> bool
+ATProtoNet.IAtIdentifier<TSelf>.TryParse(System.ReadOnlySpan<char> s, out TSelf result) -> bool
+ATProtoNet.IAtIdentifier<TSelf>.TryParse(string? s, out TSelf result) -> bool
+ATProtoNet.IAtIdentifier<TSelf>.Value.get -> string!
+ATProtoNet.IdentifierJsonConverter<T>
+ATProtoNet.IdentifierJsonConverter<T>.IdentifierJsonConverter() -> void
+ATProtoNet.Language
+ATProtoNet.Language.CompareTo(ATProtoNet.Language? other) -> int
+ATProtoNet.Language.Equals(ATProtoNet.Language? other) -> bool
+ATProtoNet.Language.Value.get -> string!
+ATProtoNet.Nsid
+ATProtoNet.Nsid.Authority.get -> string!
+ATProtoNet.Nsid.CompareTo(ATProtoNet.Nsid? other) -> int
+ATProtoNet.Nsid.Equals(ATProtoNet.Nsid? other) -> bool
+ATProtoNet.Nsid.Name.get -> string!
+ATProtoNet.Nsid.Value.get -> string!
+ATProtoNet.RecordKey
+ATProtoNet.RecordKey.CompareTo(ATProtoNet.RecordKey? other) -> int
+ATProtoNet.RecordKey.Equals(ATProtoNet.RecordKey? other) -> bool
+ATProtoNet.RecordKey.Value.get -> string!
+ATProtoNet.SpaceRecordUri
+ATProtoNet.SpaceRecordUri.Author.get -> ATProtoNet.Did!
+ATProtoNet.SpaceRecordUri.Collection.get -> ATProtoNet.Nsid!
+ATProtoNet.SpaceRecordUri.CompareTo(ATProtoNet.SpaceRecordUri? other) -> int
+ATProtoNet.SpaceRecordUri.Equals(ATProtoNet.SpaceRecordUri? other) -> bool
+ATProtoNet.SpaceRecordUri.Path.get -> string!
+ATProtoNet.SpaceRecordUri.Rkey.get -> ATProtoNet.RecordKey!
+ATProtoNet.SpaceRecordUri.Space.get -> ATProtoNet.SpaceUri!
+ATProtoNet.SpaceRecordUri.Value.get -> string!
+ATProtoNet.SpaceUri
+ATProtoNet.SpaceUri.Authority.get -> ATProtoNet.Did!
+ATProtoNet.SpaceUri.CompareTo(ATProtoNet.SpaceUri? other) -> int
+ATProtoNet.SpaceUri.Equals(ATProtoNet.SpaceUri? other) -> bool
+ATProtoNet.SpaceUri.Record(ATProtoNet.Did! author, ATProtoNet.Nsid! collection, ATProtoNet.RecordKey! rkey) -> ATProtoNet.SpaceRecordUri!
+ATProtoNet.SpaceUri.Skey.get -> ATProtoNet.RecordKey!
+ATProtoNet.SpaceUri.SpaceType.get -> ATProtoNet.Nsid!
+ATProtoNet.SpaceUri.Value.get -> string!
+ATProtoNet.Tid
+ATProtoNet.Tid.ClockId.get -> int
+ATProtoNet.Tid.CompareTo(ATProtoNet.Tid other) -> int
+ATProtoNet.Tid.Equals(ATProtoNet.Tid other) -> bool
+ATProtoNet.Tid.Tid() -> void
+ATProtoNet.Tid.TimestampMicroseconds.get -> long
+ATProtoNet.Tid.ToInt64() -> long
+ATProtoNet.Tid.Value.get -> string!
+ATProtoNet.TidGenerator
+ATProtoNet.TidGenerator.ClockId.get -> int
+ATProtoNet.TidGenerator.Next() -> ATProtoNet.Tid
+ATProtoNet.TidGenerator.TidGenerator(int? clockId = null, System.TimeProvider? timeProvider = null) -> void
+ATProtoNet.UriFormat
+abstract ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.<Clone>$() -> ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict!
+abstract ATProtoNet.Crypto.HttpSignatures.StructuredMember.<Clone>$() -> ATProtoNet.Crypto.HttpSignatures.StructuredMember!
+abstract ATProtoNet.Crypto.KemAlgorithm.<Clone>$() -> ATProtoNet.Crypto.KemAlgorithm!
+abstract ATProtoNet.Data.DataModelValue.<Clone>$() -> ATProtoNet.Data.DataModelValue!
+const ATProtoNet.AtDatetime.MaxFractionDigits = 20 -> int
+const ATProtoNet.AtDatetime.MaxLength = 64 -> int
+const ATProtoNet.AtIdentifier.MaxLength = 2048 -> int
+const ATProtoNet.AtUri.MaxLength = 8192 -> int
+const ATProtoNet.Cid.BinaryLength = 36 -> int
+const ATProtoNet.Cid.StringLength = 59 -> int
+const ATProtoNet.Crypto.Blake3.HashLength = 32 -> int
+const ATProtoNet.Crypto.Blake3.KeyLength = 32 -> int
+const ATProtoNet.Crypto.HttpSignatures.StructuredFields.MaxHeaderValueLength = 8192 -> int
+const ATProtoNet.Crypto.Jose.Jws.MaxTokenLength = 16384 -> int
+const ATProtoNet.Crypto.VerificationKey.CompressedPointLength = 33 -> int
+const ATProtoNet.Crypto.VerificationKey.SignatureLength = 64 -> int
+const ATProtoNet.Crypto.VerificationKey.UncompressedPointLength = 65 -> int
+const ATProtoNet.Crypto.VerificationKeyCache.DefaultCapacity = 1024 -> int
+const ATProtoNet.Data.Car.CarLimits.DefaultMaxBlockBytes = 2097152 -> int
+const ATProtoNet.Data.Car.CarLimits.DefaultMaxBlocks = 4194304 -> int
+const ATProtoNet.Data.Car.CarLimits.DefaultMaxHeaderBytes = 65536 -> int
+const ATProtoNet.Data.Car.CarLimits.DefaultMaxTotalBytes = 268435456 -> long
+const ATProtoNet.Data.DecimalString.MaxLength = 64 -> int
+const ATProtoNet.Data.DrislLimits.MaxDepth = 64 -> int
+const ATProtoNet.Data.Star.StarLimits.DefaultMaxEntries = 1048576 -> int
+const ATProtoNet.Data.Star.StarLimits.DefaultMaxEntryBytes = 1048576 -> int
+const ATProtoNet.Data.Star.StarLimits.DefaultMaxHeaderBytes = 65536 -> int
+const ATProtoNet.Data.Star.StarLimits.DefaultMaxTotalBytes = 268435456 -> long
+const ATProtoNet.Data.Star.StarLimits.MaxPathBytes = 830 -> int
+const ATProtoNet.Data.UnsignedVarint.MaxLength = 9 -> int
+const ATProtoNet.Data.UnsignedVarint.MaxValue = 9223372036854775807 -> ulong
+const ATProtoNet.Did.MaxLength = 2048 -> int
+const ATProtoNet.Did.MinLength = 7 -> int
+const ATProtoNet.Handle.MaxLabelLength = 63 -> int
+const ATProtoNet.Handle.MaxLength = 253 -> int
+const ATProtoNet.Language.MaxLength = 128 -> int
+const ATProtoNet.Nsid.MaxLength = 317 -> int
+const ATProtoNet.Nsid.MaxNameLength = 63 -> int
+const ATProtoNet.RecordKey.MaxLength = 512 -> int
+const ATProtoNet.SpaceRecordUri.MaxLength = 8192 -> int
+const ATProtoNet.SpaceUri.MaxLength = 8192 -> int
+const ATProtoNet.Tid.Length = 13 -> int
+const ATProtoNet.TidGenerator.MaxClockId = 1023 -> int
+const ATProtoNet.TidGenerator.MaxTimestamp = 9007199254740991 -> long
+const ATProtoNet.UriFormat.MaxLength = 8192 -> int
+override ATProtoNet.AtAddress.ToString() -> string!
+override ATProtoNet.AtAddressJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> ATProtoNet.AtAddress
+override ATProtoNet.AtAddressJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, ATProtoNet.AtAddress value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.AtDatetime.Equals(object? obj) -> bool
+override ATProtoNet.AtDatetime.GetHashCode() -> int
+override ATProtoNet.AtDatetime.ToString() -> string!
+override ATProtoNet.AtDatetimeJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> ATProtoNet.AtDatetime!
+override ATProtoNet.AtDatetimeJsonConverter.ReadAsPropertyName(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> ATProtoNet.AtDatetime!
+override ATProtoNet.AtDatetimeJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, ATProtoNet.AtDatetime! value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.AtDatetimeJsonConverter.WriteAsPropertyName(System.Text.Json.Utf8JsonWriter! writer, ATProtoNet.AtDatetime! value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.AtIdentifier.Equals(object? obj) -> bool
+override ATProtoNet.AtIdentifier.GetHashCode() -> int
+override ATProtoNet.AtIdentifier.ToString() -> string!
+override ATProtoNet.AtUri.Equals(object? obj) -> bool
+override ATProtoNet.AtUri.GetHashCode() -> int
+override ATProtoNet.AtUri.ToString() -> string!
+override ATProtoNet.Cid.Equals(object? obj) -> bool
+override ATProtoNet.Cid.GetHashCode() -> int
+override ATProtoNet.Cid.ToString() -> string!
+override ATProtoNet.Crypto.DidKey.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.DidKey.GetHashCode() -> int
+override ATProtoNet.Crypto.DidKey.ToString() -> string!
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.GetHashCode() -> int
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.ToString() -> string!
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.GetHashCode() -> int
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.ToString() -> string!
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.GetHashCode() -> int
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.ToString() -> string!
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.<Clone>$() -> ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted!
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.GetHashCode() -> int
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.ToString() -> string!
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.GetHashCode() -> int
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.<Clone>$() -> ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused!
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.GetHashCode() -> int
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.ToString() -> string!
+override ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.ToString() -> string!
+override ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.<Clone>$() -> ATProtoNet.Crypto.HttpSignatures.StructuredInnerList!
+override ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.GetHashCode() -> int
+override ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.ToString() -> string!
+override ATProtoNet.Crypto.HttpSignatures.StructuredItem.<Clone>$() -> ATProtoNet.Crypto.HttpSignatures.StructuredItem!
+override ATProtoNet.Crypto.HttpSignatures.StructuredItem.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.HttpSignatures.StructuredItem.GetHashCode() -> int
+override ATProtoNet.Crypto.HttpSignatures.StructuredItem.ToString() -> string!
+override ATProtoNet.Crypto.HttpSignatures.StructuredMember.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.HttpSignatures.StructuredMember.GetHashCode() -> int
+override ATProtoNet.Crypto.HttpSignatures.StructuredMember.ToString() -> string!
+override ATProtoNet.Crypto.HttpSignatures.StructuredToken.GetHashCode() -> int
+override ATProtoNet.Crypto.Jose.JsonWebKey.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.Jose.JsonWebKey.GetHashCode() -> int
+override ATProtoNet.Crypto.Jose.JsonWebKey.ToString() -> string!
+override ATProtoNet.Crypto.Jose.JsonWebKeySet.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.Jose.JsonWebKeySet.GetHashCode() -> int
+override ATProtoNet.Crypto.Jose.JsonWebKeySet.ToString() -> string!
+override ATProtoNet.Crypto.Jose.JwsHeader.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.Jose.JwsHeader.GetHashCode() -> int
+override ATProtoNet.Crypto.Jose.JwsHeader.ToString() -> string!
+override ATProtoNet.Crypto.KemAlgorithm.EcdhP256.<Clone>$() -> ATProtoNet.Crypto.KemAlgorithm.EcdhP256!
+override ATProtoNet.Crypto.KemAlgorithm.EcdhP256.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.KemAlgorithm.EcdhP256.GetHashCode() -> int
+override ATProtoNet.Crypto.KemAlgorithm.EcdhP256.ToString() -> string!
+override ATProtoNet.Crypto.KemAlgorithm.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.KemAlgorithm.GetHashCode() -> int
+override ATProtoNet.Crypto.KemAlgorithm.ToString() -> string!
+override ATProtoNet.Crypto.KemPrivateKey.ToString() -> string!
+override ATProtoNet.Crypto.KemPublicKey.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.KemPublicKey.GetHashCode() -> int
+override ATProtoNet.Crypto.KemPublicKey.ToString() -> string!
+override ATProtoNet.Crypto.SharedSecret.ToString() -> string!
+override ATProtoNet.Crypto.SigningKey.ToString() -> string!
+override ATProtoNet.Crypto.VerificationKey.Equals(object? obj) -> bool
+override ATProtoNet.Crypto.VerificationKey.GetHashCode() -> int
+override ATProtoNet.Crypto.VerificationKey.ToString() -> string!
+override ATProtoNet.Data.BlobRef.Equals(object? obj) -> bool
+override ATProtoNet.Data.BlobRef.GetHashCode() -> int
+override ATProtoNet.Data.BlobRef.ToString() -> string!
+override ATProtoNet.Data.BlobRefJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> ATProtoNet.Data.BlobRef!
+override ATProtoNet.Data.BlobRefJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, ATProtoNet.Data.BlobRef! value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.Data.Car.CarReaderOptions.Equals(object? obj) -> bool
+override ATProtoNet.Data.Car.CarReaderOptions.GetHashCode() -> int
+override ATProtoNet.Data.Car.CarReaderOptions.ToString() -> string!
+override ATProtoNet.Data.CidLink.Equals(object? obj) -> bool
+override ATProtoNet.Data.CidLink.GetHashCode() -> int
+override ATProtoNet.Data.CidLink.ToString() -> string!
+override ATProtoNet.Data.CidLinkJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> ATProtoNet.Data.CidLink!
+override ATProtoNet.Data.CidLinkJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, ATProtoNet.Data.CidLink! value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.Data.DataModelArray.<Clone>$() -> ATProtoNet.Data.DataModelArray!
+override ATProtoNet.Data.DataModelArray.Equals(object? obj) -> bool
+override ATProtoNet.Data.DataModelArray.GetHashCode() -> int
+override ATProtoNet.Data.DataModelBoolean.<Clone>$() -> ATProtoNet.Data.DataModelBoolean!
+override ATProtoNet.Data.DataModelBoolean.Equals(object? obj) -> bool
+override ATProtoNet.Data.DataModelBoolean.GetHashCode() -> int
+override ATProtoNet.Data.DataModelBytes.<Clone>$() -> ATProtoNet.Data.DataModelBytes!
+override ATProtoNet.Data.DataModelBytes.Equals(object? obj) -> bool
+override ATProtoNet.Data.DataModelBytes.GetHashCode() -> int
+override ATProtoNet.Data.DataModelInteger.<Clone>$() -> ATProtoNet.Data.DataModelInteger!
+override ATProtoNet.Data.DataModelInteger.Equals(object? obj) -> bool
+override ATProtoNet.Data.DataModelInteger.GetHashCode() -> int
+override ATProtoNet.Data.DataModelLink.<Clone>$() -> ATProtoNet.Data.DataModelLink!
+override ATProtoNet.Data.DataModelLink.Equals(object? obj) -> bool
+override ATProtoNet.Data.DataModelLink.GetHashCode() -> int
+override ATProtoNet.Data.DataModelMap.<Clone>$() -> ATProtoNet.Data.DataModelMap!
+override ATProtoNet.Data.DataModelMap.Equals(object? obj) -> bool
+override ATProtoNet.Data.DataModelMap.GetHashCode() -> int
+override ATProtoNet.Data.DataModelNull.<Clone>$() -> ATProtoNet.Data.DataModelNull!
+override ATProtoNet.Data.DataModelNull.Equals(object? obj) -> bool
+override ATProtoNet.Data.DataModelNull.GetHashCode() -> int
+override ATProtoNet.Data.DataModelString.<Clone>$() -> ATProtoNet.Data.DataModelString!
+override ATProtoNet.Data.DataModelString.Equals(object? obj) -> bool
+override ATProtoNet.Data.DataModelString.GetHashCode() -> int
+override ATProtoNet.Data.DataModelValue.Equals(object? obj) -> bool
+override ATProtoNet.Data.DataModelValue.GetHashCode() -> int
+override ATProtoNet.Data.DataModelValueJsonConverter.HandleNull.get -> bool
+override ATProtoNet.Data.DataModelValueJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> ATProtoNet.Data.DataModelValue!
+override ATProtoNet.Data.DataModelValueJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, ATProtoNet.Data.DataModelValue! value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.Data.DecimalString.Equals(object? obj) -> bool
+override ATProtoNet.Data.DecimalString.GetHashCode() -> int
+override ATProtoNet.Data.DecimalString.ToString() -> string!
+override ATProtoNet.Data.DecimalStringJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> ATProtoNet.Data.DecimalString!
+override ATProtoNet.Data.DecimalStringJsonConverter.ReadAsPropertyName(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> ATProtoNet.Data.DecimalString!
+override ATProtoNet.Data.DecimalStringJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, ATProtoNet.Data.DecimalString! value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.Data.DecimalStringJsonConverter.WriteAsPropertyName(System.Text.Json.Utf8JsonWriter! writer, ATProtoNet.Data.DecimalString! value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.Data.DrislReaderOptions.Equals(object? obj) -> bool
+override ATProtoNet.Data.DrislReaderOptions.GetHashCode() -> int
+override ATProtoNet.Data.DrislReaderOptions.ToString() -> string!
+override ATProtoNet.Data.Star.StarReaderOptions.Equals(object? obj) -> bool
+override ATProtoNet.Data.Star.StarReaderOptions.GetHashCode() -> int
+override ATProtoNet.Data.Star.StarReaderOptions.ToString() -> string!
+override ATProtoNet.Did.Equals(object? obj) -> bool
+override ATProtoNet.Did.GetHashCode() -> int
+override ATProtoNet.Did.ToString() -> string!
+override ATProtoNet.Handle.Equals(object? obj) -> bool
+override ATProtoNet.Handle.GetHashCode() -> int
+override ATProtoNet.Handle.ToString() -> string!
+override ATProtoNet.IdentifierJsonConverter<T>.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> T?
+override ATProtoNet.IdentifierJsonConverter<T>.ReadAsPropertyName(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> T
+override ATProtoNet.IdentifierJsonConverter<T>.Write(System.Text.Json.Utf8JsonWriter! writer, T value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.IdentifierJsonConverter<T>.WriteAsPropertyName(System.Text.Json.Utf8JsonWriter! writer, T value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.Language.Equals(object? obj) -> bool
+override ATProtoNet.Language.GetHashCode() -> int
+override ATProtoNet.Language.ToString() -> string!
+override ATProtoNet.Nsid.Equals(object? obj) -> bool
+override ATProtoNet.Nsid.GetHashCode() -> int
+override ATProtoNet.Nsid.ToString() -> string!
+override ATProtoNet.RecordKey.Equals(object? obj) -> bool
+override ATProtoNet.RecordKey.GetHashCode() -> int
+override ATProtoNet.RecordKey.ToString() -> string!
+override ATProtoNet.SpaceRecordUri.Equals(object? obj) -> bool
+override ATProtoNet.SpaceRecordUri.GetHashCode() -> int
+override ATProtoNet.SpaceRecordUri.ToString() -> string!
+override ATProtoNet.SpaceUri.Equals(object? obj) -> bool
+override ATProtoNet.SpaceUri.GetHashCode() -> int
+override ATProtoNet.SpaceUri.ToString() -> string!
+override ATProtoNet.Tid.Equals(object? obj) -> bool
+override ATProtoNet.Tid.GetHashCode() -> int
+override ATProtoNet.Tid.ToString() -> string!
+override sealed ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.Equals(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict? other) -> bool
+override sealed ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.Equals(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict? other) -> bool
+override sealed ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.Equals(ATProtoNet.Crypto.HttpSignatures.StructuredMember? other) -> bool
+override sealed ATProtoNet.Crypto.HttpSignatures.StructuredItem.Equals(ATProtoNet.Crypto.HttpSignatures.StructuredMember? other) -> bool
+override sealed ATProtoNet.Crypto.KemAlgorithm.EcdhP256.Equals(ATProtoNet.Crypto.KemAlgorithm? other) -> bool
+override sealed ATProtoNet.Data.DataModelArray.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
+override sealed ATProtoNet.Data.DataModelBoolean.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
+override sealed ATProtoNet.Data.DataModelBytes.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
+override sealed ATProtoNet.Data.DataModelInteger.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
+override sealed ATProtoNet.Data.DataModelLink.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
+override sealed ATProtoNet.Data.DataModelMap.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
+override sealed ATProtoNet.Data.DataModelNull.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
+override sealed ATProtoNet.Data.DataModelString.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
+override sealed ATProtoNet.Data.DataModelValue.ToString() -> string!
+static ATProtoNet.AtAddress.Parse(string! value) -> ATProtoNet.AtAddress
+static ATProtoNet.AtAddress.TryParse(string? value, out ATProtoNet.AtAddress address) -> bool
+static ATProtoNet.AtDatetime.From(System.DateTime value) -> ATProtoNet.AtDatetime!
+static ATProtoNet.AtDatetime.From(System.DateTimeOffset value) -> ATProtoNet.AtDatetime!
+static ATProtoNet.AtDatetime.Now(System.TimeProvider? timeProvider = null) -> ATProtoNet.AtDatetime!
+static ATProtoNet.AtDatetime.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.AtDatetime!
+static ATProtoNet.AtDatetime.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.AtDatetime!
+static ATProtoNet.AtDatetime.Parse(string! s) -> ATProtoNet.AtDatetime!
+static ATProtoNet.AtDatetime.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.AtDatetime? result) -> bool
+static ATProtoNet.AtDatetime.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.AtDatetime? result) -> bool
+static ATProtoNet.AtDatetime.TryParse(string? s, out ATProtoNet.AtDatetime? result) -> bool
+static ATProtoNet.AtDatetime.implicit operator string?(ATProtoNet.AtDatetime? value) -> string?
+static ATProtoNet.AtDatetime.operator !=(ATProtoNet.AtDatetime? left, ATProtoNet.AtDatetime? right) -> bool
+static ATProtoNet.AtDatetime.operator ==(ATProtoNet.AtDatetime? left, ATProtoNet.AtDatetime? right) -> bool
+static ATProtoNet.AtIdentifier.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.AtIdentifier!
+static ATProtoNet.AtIdentifier.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.AtIdentifier!
+static ATProtoNet.AtIdentifier.Parse(string! s) -> ATProtoNet.AtIdentifier!
+static ATProtoNet.AtIdentifier.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.AtIdentifier? result) -> bool
+static ATProtoNet.AtIdentifier.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.AtIdentifier? result) -> bool
+static ATProtoNet.AtIdentifier.TryParse(string? s, out ATProtoNet.AtIdentifier? result) -> bool
+static ATProtoNet.AtIdentifier.implicit operator string?(ATProtoNet.AtIdentifier? value) -> string?
+static ATProtoNet.AtIdentifier.operator !=(ATProtoNet.AtIdentifier? left, ATProtoNet.AtIdentifier? right) -> bool
+static ATProtoNet.AtIdentifier.operator ==(ATProtoNet.AtIdentifier? left, ATProtoNet.AtIdentifier? right) -> bool
+static ATProtoNet.AtUri.Create(ATProtoNet.AtIdentifier! authority, ATProtoNet.Nsid? collection = null, ATProtoNet.RecordKey? recordKey = null) -> ATProtoNet.AtUri!
+static ATProtoNet.AtUri.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.AtUri!
+static ATProtoNet.AtUri.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.AtUri!
+static ATProtoNet.AtUri.Parse(string! s) -> ATProtoNet.AtUri!
+static ATProtoNet.AtUri.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.AtUri? result) -> bool
+static ATProtoNet.AtUri.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.AtUri? result) -> bool
+static ATProtoNet.AtUri.TryParse(string? s, out ATProtoNet.AtUri? result) -> bool
+static ATProtoNet.AtUri.implicit operator string?(ATProtoNet.AtUri? value) -> string?
+static ATProtoNet.AtUri.operator !=(ATProtoNet.AtUri? left, ATProtoNet.AtUri? right) -> bool
+static ATProtoNet.AtUri.operator ==(ATProtoNet.AtUri? left, ATProtoNet.AtUri? right) -> bool
+static ATProtoNet.Cid.Compute(ATProtoNet.CidCodec codec, System.ReadOnlySpan<byte> data) -> ATProtoNet.Cid!
+static ATProtoNet.Cid.FromBytes(System.ReadOnlySpan<byte> binary) -> ATProtoNet.Cid!
+static ATProtoNet.Cid.MaxLength.get -> int
+static ATProtoNet.Cid.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.Cid!
+static ATProtoNet.Cid.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.Cid!
+static ATProtoNet.Cid.Parse(string! s) -> ATProtoNet.Cid!
+static ATProtoNet.Cid.TryFromBytes(System.ReadOnlySpan<byte> binary, out ATProtoNet.Cid? cid) -> bool
+static ATProtoNet.Cid.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.Cid? result) -> bool
+static ATProtoNet.Cid.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.Cid? result) -> bool
+static ATProtoNet.Cid.TryParse(string? s, out ATProtoNet.Cid? result) -> bool
+static ATProtoNet.Cid.implicit operator string?(ATProtoNet.Cid? cid) -> string?
+static ATProtoNet.Cid.operator !=(ATProtoNet.Cid? left, ATProtoNet.Cid? right) -> bool
+static ATProtoNet.Cid.operator ==(ATProtoNet.Cid? left, ATProtoNet.Cid? right) -> bool
+static ATProtoNet.Crypto.Blake3.CreateHasher() -> ATProtoNet.Crypto.Blake3Hasher!
+static ATProtoNet.Crypto.Blake3.CreateKeyedHasher(System.ReadOnlySpan<byte> key) -> ATProtoNet.Crypto.Blake3Hasher!
+static ATProtoNet.Crypto.Blake3.Hash(System.ReadOnlySpan<byte> input, System.Span<byte> output) -> void
+static ATProtoNet.Crypto.Blake3.HashKeyed(System.ReadOnlySpan<byte> key, System.ReadOnlySpan<byte> input, System.Span<byte> output) -> void
+static ATProtoNet.Crypto.DidKey.FromMultikey(string! multikey) -> ATProtoNet.Crypto.DidKey!
+static ATProtoNet.Crypto.DidKey.MaxLength.get -> int
+static ATProtoNet.Crypto.DidKey.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.Crypto.DidKey!
+static ATProtoNet.Crypto.DidKey.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.Crypto.DidKey!
+static ATProtoNet.Crypto.DidKey.Parse(string! s) -> ATProtoNet.Crypto.DidKey!
+static ATProtoNet.Crypto.DidKey.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.Crypto.DidKey? result) -> bool
+static ATProtoNet.Crypto.DidKey.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.Crypto.DidKey? result) -> bool
+static ATProtoNet.Crypto.DidKey.TryParse(string? s, out ATProtoNet.Crypto.DidKey? result) -> bool
+static ATProtoNet.Crypto.DidKey.implicit operator string?(ATProtoNet.Crypto.DidKey? key) -> string?
+static ATProtoNet.Crypto.DidKey.operator !=(ATProtoNet.Crypto.DidKey? left, ATProtoNet.Crypto.DidKey? right) -> bool
+static ATProtoNet.Crypto.DidKey.operator ==(ATProtoNet.Crypto.DidKey? left, ATProtoNet.Crypto.DidKey? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpMessageSignatureVerifier.Verify(ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequest! request, ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements! requirements, ATProtoNet.Crypto.VerificationKey! key) -> ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict!
+static ATProtoNet.Crypto.HttpSignatures.HttpMessageSignatureVerifier.Verify(ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequest! request, ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements! requirements, System.Func<string?, ATProtoNet.Crypto.VerificationKey?>! keyForId) -> ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict!
+static ATProtoNet.Crypto.HttpSignatures.HttpMessageSigner.Sign(ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequest! request, ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters! parameters, ATProtoNet.Crypto.SigningKey! key) -> ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields!
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.operator !=(ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields.operator ==(ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureFields? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.operator !=(ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.operator ==(ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.operator !=(ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.operator ==(ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.operator !=(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.operator ==(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.operator !=(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.operator ==(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.operator !=(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.operator ==(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict? left, ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.StructuredFields.ParseDictionary(string! field) -> ATProtoNet.Crypto.HttpSignatures.StructuredDictionary!
+static ATProtoNet.Crypto.HttpSignatures.StructuredFields.ParseItem(string! field) -> ATProtoNet.Crypto.HttpSignatures.StructuredItem!
+static ATProtoNet.Crypto.HttpSignatures.StructuredFields.ParseList(string! field) -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Crypto.HttpSignatures.StructuredMember!>!
+static ATProtoNet.Crypto.HttpSignatures.StructuredFields.Serialize(ATProtoNet.Crypto.HttpSignatures.BareItem item) -> string!
+static ATProtoNet.Crypto.HttpSignatures.StructuredFields.Serialize(ATProtoNet.Crypto.HttpSignatures.StructuredDictionary! dictionary) -> string!
+static ATProtoNet.Crypto.HttpSignatures.StructuredFields.Serialize(ATProtoNet.Crypto.HttpSignatures.StructuredMember! member) -> string!
+static ATProtoNet.Crypto.HttpSignatures.StructuredFields.SerializeList(System.Collections.Generic.IEnumerable<ATProtoNet.Crypto.HttpSignatures.StructuredMember!>! members) -> string!
+static ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.operator !=(ATProtoNet.Crypto.HttpSignatures.StructuredInnerList? left, ATProtoNet.Crypto.HttpSignatures.StructuredInnerList? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.operator ==(ATProtoNet.Crypto.HttpSignatures.StructuredInnerList? left, ATProtoNet.Crypto.HttpSignatures.StructuredInnerList? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.StructuredItem.operator !=(ATProtoNet.Crypto.HttpSignatures.StructuredItem? left, ATProtoNet.Crypto.HttpSignatures.StructuredItem? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.StructuredItem.operator ==(ATProtoNet.Crypto.HttpSignatures.StructuredItem? left, ATProtoNet.Crypto.HttpSignatures.StructuredItem? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.StructuredMember.operator !=(ATProtoNet.Crypto.HttpSignatures.StructuredMember? left, ATProtoNet.Crypto.HttpSignatures.StructuredMember? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.StructuredMember.operator ==(ATProtoNet.Crypto.HttpSignatures.StructuredMember? left, ATProtoNet.Crypto.HttpSignatures.StructuredMember? right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.StructuredToken.operator !=(ATProtoNet.Crypto.HttpSignatures.StructuredToken left, ATProtoNet.Crypto.HttpSignatures.StructuredToken right) -> bool
+static ATProtoNet.Crypto.HttpSignatures.StructuredToken.operator ==(ATProtoNet.Crypto.HttpSignatures.StructuredToken left, ATProtoNet.Crypto.HttpSignatures.StructuredToken right) -> bool
+static ATProtoNet.Crypto.Jose.JsonWebKey.operator !=(ATProtoNet.Crypto.Jose.JsonWebKey? left, ATProtoNet.Crypto.Jose.JsonWebKey? right) -> bool
+static ATProtoNet.Crypto.Jose.JsonWebKey.operator ==(ATProtoNet.Crypto.Jose.JsonWebKey? left, ATProtoNet.Crypto.Jose.JsonWebKey? right) -> bool
+static ATProtoNet.Crypto.Jose.JsonWebKeySet.operator !=(ATProtoNet.Crypto.Jose.JsonWebKeySet? left, ATProtoNet.Crypto.Jose.JsonWebKeySet? right) -> bool
+static ATProtoNet.Crypto.Jose.JsonWebKeySet.operator ==(ATProtoNet.Crypto.Jose.JsonWebKeySet? left, ATProtoNet.Crypto.Jose.JsonWebKeySet? right) -> bool
+static ATProtoNet.Crypto.Jose.Jws.AlgorithmFor(ATProtoNet.Crypto.KeyCurve curve) -> string!
+static ATProtoNet.Crypto.Jose.Jws.Sign(ATProtoNet.Crypto.Jose.JwsHeader! header, System.ReadOnlySpan<byte> payloadJson, ATProtoNet.Crypto.SigningKey! key) -> string!
+static ATProtoNet.Crypto.Jose.Jws.TryDecode(string! token, out ATProtoNet.Crypto.Jose.DecodedJws jws, out string? error) -> bool
+static ATProtoNet.Crypto.Jose.Jws.Verify(in ATProtoNet.Crypto.Jose.DecodedJws jws, ATProtoNet.Crypto.VerificationKey! key) -> bool
+static ATProtoNet.Crypto.Jose.JwsHeader.operator !=(ATProtoNet.Crypto.Jose.JwsHeader? left, ATProtoNet.Crypto.Jose.JwsHeader? right) -> bool
+static ATProtoNet.Crypto.Jose.JwsHeader.operator ==(ATProtoNet.Crypto.Jose.JwsHeader? left, ATProtoNet.Crypto.Jose.JwsHeader? right) -> bool
+static ATProtoNet.Crypto.KemAlgorithm.Default.get -> ATProtoNet.Crypto.KemAlgorithm!
+static ATProtoNet.Crypto.KemAlgorithm.EcdhP256.operator !=(ATProtoNet.Crypto.KemAlgorithm.EcdhP256? left, ATProtoNet.Crypto.KemAlgorithm.EcdhP256? right) -> bool
+static ATProtoNet.Crypto.KemAlgorithm.EcdhP256.operator ==(ATProtoNet.Crypto.KemAlgorithm.EcdhP256? left, ATProtoNet.Crypto.KemAlgorithm.EcdhP256? right) -> bool
+static ATProtoNet.Crypto.KemAlgorithm.operator !=(ATProtoNet.Crypto.KemAlgorithm? left, ATProtoNet.Crypto.KemAlgorithm? right) -> bool
+static ATProtoNet.Crypto.KemAlgorithm.operator ==(ATProtoNet.Crypto.KemAlgorithm? left, ATProtoNet.Crypto.KemAlgorithm? right) -> bool
+static ATProtoNet.Crypto.KemPrivateKey.Generate(ATProtoNet.Crypto.KemAlgorithm! algorithm) -> ATProtoNet.Crypto.KemPrivateKey!
+static ATProtoNet.Crypto.KemPrivateKey.ImportPkcs8(System.ReadOnlySpan<byte> pkcs8, ATProtoNet.Crypto.KemAlgorithm! algorithm) -> ATProtoNet.Crypto.KemPrivateKey!
+static ATProtoNet.Crypto.KemPublicKey.FromMultikey(string! multikey) -> ATProtoNet.Crypto.KemPublicKey!
+static ATProtoNet.Crypto.SignedObject.Sign(ATProtoNet.Data.DataModelMap! unsigned, ATProtoNet.Crypto.SigningKey! key, ATProtoNet.Crypto.SignatureEncoding encoding = ATProtoNet.Crypto.SignatureEncoding.Bytes, string! signatureKey = "sig") -> byte[]!
+static ATProtoNet.Crypto.SignedObject.Verify(System.ReadOnlyMemory<byte> signedDrisl, ATProtoNet.Crypto.VerificationKey! key, ATProtoNet.Crypto.SignatureEncoding encoding = ATProtoNet.Crypto.SignatureEncoding.Bytes, string! signatureKey = "sig") -> bool
+static ATProtoNet.Crypto.SigningKey.Generate(ATProtoNet.Crypto.KeyCurve curve) -> ATProtoNet.Crypto.SigningKey!
+static ATProtoNet.Crypto.SigningKey.ImportPkcs8(System.ReadOnlySpan<byte> pkcs8, ATProtoNet.Crypto.KeyCurve curve) -> ATProtoNet.Crypto.SigningKey!
+static ATProtoNet.Crypto.SigningKey.ImportRawPrivateScalar(System.ReadOnlySpan<byte> scalar, ATProtoNet.Crypto.KeyCurve curve) -> ATProtoNet.Crypto.SigningKey!
+static ATProtoNet.Crypto.VerificationKey.FromCompressedPoint(ATProtoNet.Crypto.KeyCurve curve, System.ReadOnlySpan<byte> point) -> ATProtoNet.Crypto.VerificationKey!
+static ATProtoNet.Crypto.VerificationKey.FromJsonWebKey(ATProtoNet.Crypto.Jose.JsonWebKey! jwk) -> ATProtoNet.Crypto.VerificationKey!
+static ATProtoNet.Crypto.VerificationKey.FromUncompressedPoint(ATProtoNet.Crypto.KeyCurve curve, System.ReadOnlySpan<byte> point) -> ATProtoNet.Crypto.VerificationKey!
+static ATProtoNet.Data.Base32.Decode(System.ReadOnlySpan<char> text) -> byte[]!
+static ATProtoNet.Data.Base32.Encode(System.ReadOnlySpan<byte> data) -> string!
+static ATProtoNet.Data.Base32.TryDecode(System.ReadOnlySpan<char> text, System.Span<byte> destination, out int bytesWritten) -> bool
+static ATProtoNet.Data.Base58Btc.Decode(System.ReadOnlySpan<char> text) -> byte[]!
+static ATProtoNet.Data.Base58Btc.Encode(System.ReadOnlySpan<byte> data) -> string!
+static ATProtoNet.Data.Base58Btc.TryDecode(System.ReadOnlySpan<char> text, System.Span<byte> destination, out int bytesWritten) -> bool
+static ATProtoNet.Data.BlobRef.operator !=(ATProtoNet.Data.BlobRef? left, ATProtoNet.Data.BlobRef? right) -> bool
+static ATProtoNet.Data.BlobRef.operator ==(ATProtoNet.Data.BlobRef? left, ATProtoNet.Data.BlobRef? right) -> bool
+static ATProtoNet.Data.Car.CarReader.Read(System.ReadOnlyMemory<byte> car, ATProtoNet.Data.Car.CarReaderOptions? options = null) -> ATProtoNet.Data.Car.CarFile!
+static ATProtoNet.Data.Car.CarReader.ReadBlocksAsync(System.IO.Stream! car, ATProtoNet.Data.Car.CarReaderOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<ATProtoNet.Data.Car.CarBlock!>!
+static ATProtoNet.Data.Car.CarReader.ReadHeaderAsync(System.IO.Stream! car, ATProtoNet.Data.Car.CarReaderOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ATProtoNet.Data.Car.CarHeader!>
+static ATProtoNet.Data.Car.CarReaderOptions.operator !=(ATProtoNet.Data.Car.CarReaderOptions? left, ATProtoNet.Data.Car.CarReaderOptions? right) -> bool
+static ATProtoNet.Data.Car.CarReaderOptions.operator ==(ATProtoNet.Data.Car.CarReaderOptions? left, ATProtoNet.Data.Car.CarReaderOptions? right) -> bool
+static ATProtoNet.Data.Car.CarWriter.Write(System.Buffers.IBufferWriter<byte>! output, System.Collections.Generic.IEnumerable<ATProtoNet.Cid!>! roots, System.Collections.Generic.IEnumerable<ATProtoNet.Data.Car.CarBlock!>! blocks) -> void
+static ATProtoNet.Data.Car.CarWriter.WriteAsync(System.IO.Stream! output, System.Collections.Generic.IEnumerable<ATProtoNet.Cid!>! roots, System.Collections.Generic.IAsyncEnumerable<ATProtoNet.Data.Car.CarBlock!>! blocks, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+static ATProtoNet.Data.CidLink.operator !=(ATProtoNet.Data.CidLink? left, ATProtoNet.Data.CidLink? right) -> bool
+static ATProtoNet.Data.CidLink.operator ==(ATProtoNet.Data.CidLink? left, ATProtoNet.Data.CidLink? right) -> bool
+static ATProtoNet.Data.DataModelArray.operator !=(ATProtoNet.Data.DataModelArray? left, ATProtoNet.Data.DataModelArray? right) -> bool
+static ATProtoNet.Data.DataModelArray.operator ==(ATProtoNet.Data.DataModelArray? left, ATProtoNet.Data.DataModelArray? right) -> bool
+static ATProtoNet.Data.DataModelBoolean.operator !=(ATProtoNet.Data.DataModelBoolean? left, ATProtoNet.Data.DataModelBoolean? right) -> bool
+static ATProtoNet.Data.DataModelBoolean.operator ==(ATProtoNet.Data.DataModelBoolean? left, ATProtoNet.Data.DataModelBoolean? right) -> bool
+static ATProtoNet.Data.DataModelBytes.operator !=(ATProtoNet.Data.DataModelBytes? left, ATProtoNet.Data.DataModelBytes? right) -> bool
+static ATProtoNet.Data.DataModelBytes.operator ==(ATProtoNet.Data.DataModelBytes? left, ATProtoNet.Data.DataModelBytes? right) -> bool
+static ATProtoNet.Data.DataModelInteger.operator !=(ATProtoNet.Data.DataModelInteger? left, ATProtoNet.Data.DataModelInteger? right) -> bool
+static ATProtoNet.Data.DataModelInteger.operator ==(ATProtoNet.Data.DataModelInteger? left, ATProtoNet.Data.DataModelInteger? right) -> bool
+static ATProtoNet.Data.DataModelLink.operator !=(ATProtoNet.Data.DataModelLink? left, ATProtoNet.Data.DataModelLink? right) -> bool
+static ATProtoNet.Data.DataModelLink.operator ==(ATProtoNet.Data.DataModelLink? left, ATProtoNet.Data.DataModelLink? right) -> bool
+static ATProtoNet.Data.DataModelMap.operator !=(ATProtoNet.Data.DataModelMap? left, ATProtoNet.Data.DataModelMap? right) -> bool
+static ATProtoNet.Data.DataModelMap.operator ==(ATProtoNet.Data.DataModelMap? left, ATProtoNet.Data.DataModelMap? right) -> bool
+static ATProtoNet.Data.DataModelNull.Instance.get -> ATProtoNet.Data.DataModelNull!
+static ATProtoNet.Data.DataModelNull.operator !=(ATProtoNet.Data.DataModelNull? left, ATProtoNet.Data.DataModelNull? right) -> bool
+static ATProtoNet.Data.DataModelNull.operator ==(ATProtoNet.Data.DataModelNull? left, ATProtoNet.Data.DataModelNull? right) -> bool
+static ATProtoNet.Data.DataModelString.operator !=(ATProtoNet.Data.DataModelString? left, ATProtoNet.Data.DataModelString? right) -> bool
+static ATProtoNet.Data.DataModelString.operator ==(ATProtoNet.Data.DataModelString? left, ATProtoNet.Data.DataModelString? right) -> bool
+static ATProtoNet.Data.DataModelValue.FromDrisl(System.ReadOnlyMemory<byte> cbor, ATProtoNet.Data.DrislReaderOptions? options = null) -> ATProtoNet.Data.DataModelValue!
+static ATProtoNet.Data.DataModelValue.FromJson(System.ReadOnlySpan<byte> utf8Json) -> ATProtoNet.Data.DataModelValue!
+static ATProtoNet.Data.DataModelValue.operator !=(ATProtoNet.Data.DataModelValue? left, ATProtoNet.Data.DataModelValue? right) -> bool
+static ATProtoNet.Data.DataModelValue.operator ==(ATProtoNet.Data.DataModelValue? left, ATProtoNet.Data.DataModelValue? right) -> bool
+static ATProtoNet.Data.DecimalString.From(decimal value) -> ATProtoNet.Data.DecimalString!
+static ATProtoNet.Data.DecimalString.From(double value) -> ATProtoNet.Data.DecimalString!
+static ATProtoNet.Data.DecimalString.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.Data.DecimalString!
+static ATProtoNet.Data.DecimalString.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.Data.DecimalString!
+static ATProtoNet.Data.DecimalString.Parse(string! s) -> ATProtoNet.Data.DecimalString!
+static ATProtoNet.Data.DecimalString.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.Data.DecimalString? result) -> bool
+static ATProtoNet.Data.DecimalString.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.Data.DecimalString? result) -> bool
+static ATProtoNet.Data.DecimalString.TryParse(string? s, out ATProtoNet.Data.DecimalString? result) -> bool
+static ATProtoNet.Data.DecimalString.implicit operator string?(ATProtoNet.Data.DecimalString? value) -> string?
+static ATProtoNet.Data.DecimalString.operator !=(ATProtoNet.Data.DecimalString? left, ATProtoNet.Data.DecimalString? right) -> bool
+static ATProtoNet.Data.DecimalString.operator ==(ATProtoNet.Data.DecimalString? left, ATProtoNet.Data.DecimalString? right) -> bool
+static ATProtoNet.Data.DrislJson.ToDrisl(System.ReadOnlySpan<byte> utf8Json) -> byte[]!
+static ATProtoNet.Data.DrislJson.WriteJson(System.ReadOnlyMemory<byte> drisl, System.Text.Json.Utf8JsonWriter! writer, ATProtoNet.Data.DrislReaderOptions? options = null) -> void
+static ATProtoNet.Data.DrislReaderOptions.operator !=(ATProtoNet.Data.DrislReaderOptions? left, ATProtoNet.Data.DrislReaderOptions? right) -> bool
+static ATProtoNet.Data.DrislReaderOptions.operator ==(ATProtoNet.Data.DrislReaderOptions? left, ATProtoNet.Data.DrislReaderOptions? right) -> bool
+static ATProtoNet.Data.SignedDrisl.AddSignature(System.ReadOnlyMemory<byte> unsignedDrisl, ATProtoNet.Data.DataModelValue! signature, string! signatureKey = "sig") -> byte[]!
+static ATProtoNet.Data.SignedDrisl.GetUnsignedBytes(System.ReadOnlyMemory<byte> signedDrisl, out ATProtoNet.Data.DataModelValue? signature, string! signatureKey = "sig") -> byte[]!
+static ATProtoNet.Data.Star.StarReader.ReadEntriesAsync(System.IO.Stream! star, ATProtoNet.Data.Star.StarReaderOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<ATProtoNet.Data.Star.StarEntry!>!
+static ATProtoNet.Data.Star.StarReader.ReadHeaderAsync(System.IO.Stream! star, ATProtoNet.Data.Star.StarReaderOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ATProtoNet.Data.Star.StarHeader!>
+static ATProtoNet.Data.Star.StarReaderOptions.operator !=(ATProtoNet.Data.Star.StarReaderOptions? left, ATProtoNet.Data.Star.StarReaderOptions? right) -> bool
+static ATProtoNet.Data.Star.StarReaderOptions.operator ==(ATProtoNet.Data.Star.StarReaderOptions? left, ATProtoNet.Data.Star.StarReaderOptions? right) -> bool
+static ATProtoNet.Data.Star.StarWriter.WriteAsync(System.IO.Stream! output, System.ReadOnlyMemory<byte> header, System.Collections.Generic.IAsyncEnumerable<(string! Path, System.ReadOnlyMemory<byte> Record)>! entries, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+static ATProtoNet.Data.UnsignedVarint.GetLength(ulong value) -> int
+static ATProtoNet.Data.UnsignedVarint.Read(System.ReadOnlySpan<byte> source, out int bytesRead) -> ulong
+static ATProtoNet.Data.UnsignedVarint.TryRead(System.ReadOnlySpan<byte> source, out ulong value, out int bytesRead) -> System.Buffers.OperationStatus
+static ATProtoNet.Data.UnsignedVarint.Write(ulong value, System.Span<byte> destination) -> int
+static ATProtoNet.Did.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.Did!
+static ATProtoNet.Did.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.Did!
+static ATProtoNet.Did.Parse(string! s) -> ATProtoNet.Did!
+static ATProtoNet.Did.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.Did? result) -> bool
+static ATProtoNet.Did.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.Did? result) -> bool
+static ATProtoNet.Did.TryParse(string? s, out ATProtoNet.Did? result) -> bool
+static ATProtoNet.Did.implicit operator ATProtoNet.AtIdentifier?(ATProtoNet.Did? did) -> ATProtoNet.AtIdentifier?
+static ATProtoNet.Did.implicit operator string?(ATProtoNet.Did? value) -> string?
+static ATProtoNet.Did.operator !=(ATProtoNet.Did? left, ATProtoNet.Did? right) -> bool
+static ATProtoNet.Did.operator ==(ATProtoNet.Did? left, ATProtoNet.Did? right) -> bool
+static ATProtoNet.Handle.Invalid.get -> ATProtoNet.Handle!
+static ATProtoNet.Handle.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.Handle!
+static ATProtoNet.Handle.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.Handle!
+static ATProtoNet.Handle.Parse(string! s) -> ATProtoNet.Handle!
+static ATProtoNet.Handle.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.Handle? result) -> bool
+static ATProtoNet.Handle.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.Handle? result) -> bool
+static ATProtoNet.Handle.TryParse(string? s, out ATProtoNet.Handle? result) -> bool
+static ATProtoNet.Handle.implicit operator ATProtoNet.AtIdentifier?(ATProtoNet.Handle? handle) -> ATProtoNet.AtIdentifier?
+static ATProtoNet.Handle.implicit operator string?(ATProtoNet.Handle? value) -> string?
+static ATProtoNet.Handle.operator !=(ATProtoNet.Handle? left, ATProtoNet.Handle? right) -> bool
+static ATProtoNet.Handle.operator ==(ATProtoNet.Handle? left, ATProtoNet.Handle? right) -> bool
+static ATProtoNet.Language.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.Language!
+static ATProtoNet.Language.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.Language!
+static ATProtoNet.Language.Parse(string! s) -> ATProtoNet.Language!
+static ATProtoNet.Language.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.Language? result) -> bool
+static ATProtoNet.Language.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.Language? result) -> bool
+static ATProtoNet.Language.TryParse(string? s, out ATProtoNet.Language? result) -> bool
+static ATProtoNet.Language.implicit operator string?(ATProtoNet.Language? value) -> string?
+static ATProtoNet.Language.operator !=(ATProtoNet.Language? left, ATProtoNet.Language? right) -> bool
+static ATProtoNet.Language.operator ==(ATProtoNet.Language? left, ATProtoNet.Language? right) -> bool
+static ATProtoNet.Nsid.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.Nsid!
+static ATProtoNet.Nsid.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.Nsid!
+static ATProtoNet.Nsid.Parse(string! s) -> ATProtoNet.Nsid!
+static ATProtoNet.Nsid.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.Nsid? result) -> bool
+static ATProtoNet.Nsid.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.Nsid? result) -> bool
+static ATProtoNet.Nsid.TryParse(string? s, out ATProtoNet.Nsid? result) -> bool
+static ATProtoNet.Nsid.implicit operator string?(ATProtoNet.Nsid? value) -> string?
+static ATProtoNet.Nsid.operator !=(ATProtoNet.Nsid? left, ATProtoNet.Nsid? right) -> bool
+static ATProtoNet.Nsid.operator ==(ATProtoNet.Nsid? left, ATProtoNet.Nsid? right) -> bool
+static ATProtoNet.RecordKey.From(ATProtoNet.Tid tid) -> ATProtoNet.RecordKey!
+static ATProtoNet.RecordKey.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.RecordKey!
+static ATProtoNet.RecordKey.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.RecordKey!
+static ATProtoNet.RecordKey.Parse(string! s) -> ATProtoNet.RecordKey!
+static ATProtoNet.RecordKey.Self.get -> ATProtoNet.RecordKey!
+static ATProtoNet.RecordKey.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.RecordKey? result) -> bool
+static ATProtoNet.RecordKey.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.RecordKey? result) -> bool
+static ATProtoNet.RecordKey.TryParse(string? s, out ATProtoNet.RecordKey? result) -> bool
+static ATProtoNet.RecordKey.implicit operator string?(ATProtoNet.RecordKey? value) -> string?
+static ATProtoNet.RecordKey.operator !=(ATProtoNet.RecordKey? left, ATProtoNet.RecordKey? right) -> bool
+static ATProtoNet.RecordKey.operator ==(ATProtoNet.RecordKey? left, ATProtoNet.RecordKey? right) -> bool
+static ATProtoNet.SpaceRecordUri.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.SpaceRecordUri!
+static ATProtoNet.SpaceRecordUri.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.SpaceRecordUri!
+static ATProtoNet.SpaceRecordUri.Parse(string! s) -> ATProtoNet.SpaceRecordUri!
+static ATProtoNet.SpaceRecordUri.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.SpaceRecordUri? result) -> bool
+static ATProtoNet.SpaceRecordUri.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.SpaceRecordUri? result) -> bool
+static ATProtoNet.SpaceRecordUri.TryParse(string? s, out ATProtoNet.SpaceRecordUri? result) -> bool
+static ATProtoNet.SpaceRecordUri.implicit operator string?(ATProtoNet.SpaceRecordUri? value) -> string?
+static ATProtoNet.SpaceRecordUri.operator !=(ATProtoNet.SpaceRecordUri? left, ATProtoNet.SpaceRecordUri? right) -> bool
+static ATProtoNet.SpaceRecordUri.operator ==(ATProtoNet.SpaceRecordUri? left, ATProtoNet.SpaceRecordUri? right) -> bool
+static ATProtoNet.SpaceUri.Create(ATProtoNet.Did! authority, ATProtoNet.Nsid! spaceType, ATProtoNet.RecordKey! skey) -> ATProtoNet.SpaceUri!
+static ATProtoNet.SpaceUri.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.SpaceUri!
+static ATProtoNet.SpaceUri.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.SpaceUri!
+static ATProtoNet.SpaceUri.Parse(string! s) -> ATProtoNet.SpaceUri!
+static ATProtoNet.SpaceUri.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.SpaceUri? result) -> bool
+static ATProtoNet.SpaceUri.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.SpaceUri? result) -> bool
+static ATProtoNet.SpaceUri.TryParse(string? s, out ATProtoNet.SpaceUri? result) -> bool
+static ATProtoNet.SpaceUri.implicit operator string?(ATProtoNet.SpaceUri? value) -> string?
+static ATProtoNet.SpaceUri.operator !=(ATProtoNet.SpaceUri? left, ATProtoNet.SpaceUri? right) -> bool
+static ATProtoNet.SpaceUri.operator ==(ATProtoNet.SpaceUri? left, ATProtoNet.SpaceUri? right) -> bool
+static ATProtoNet.Tid.FromInt64(long value) -> ATProtoNet.Tid
+static ATProtoNet.Tid.Next() -> ATProtoNet.Tid
+static ATProtoNet.Tid.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.Tid
+static ATProtoNet.Tid.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.Tid
+static ATProtoNet.Tid.Parse(string! s) -> ATProtoNet.Tid
+static ATProtoNet.Tid.TryParse(System.ReadOnlySpan<byte> utf8Text, out ATProtoNet.Tid result) -> bool
+static ATProtoNet.Tid.TryParse(System.ReadOnlySpan<char> s, out ATProtoNet.Tid result) -> bool
+static ATProtoNet.Tid.TryParse(string? s, out ATProtoNet.Tid result) -> bool
+static ATProtoNet.Tid.implicit operator string!(ATProtoNet.Tid value) -> string!
+static ATProtoNet.Tid.operator !=(ATProtoNet.Tid left, ATProtoNet.Tid right) -> bool
+static ATProtoNet.Tid.operator ==(ATProtoNet.Tid left, ATProtoNet.Tid right) -> bool
+static ATProtoNet.TidGenerator.Default.get -> ATProtoNet.TidGenerator!
+static ATProtoNet.UriFormat.IsValid(System.ReadOnlySpan<char> value) -> bool
+virtual ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.EqualityContract.get -> System.Type!
+virtual ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Equals(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict? other) -> bool
+virtual ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual ATProtoNet.Crypto.HttpSignatures.StructuredMember.EqualityContract.get -> System.Type!
+virtual ATProtoNet.Crypto.HttpSignatures.StructuredMember.Equals(ATProtoNet.Crypto.HttpSignatures.StructuredMember? other) -> bool
+virtual ATProtoNet.Crypto.HttpSignatures.StructuredMember.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual ATProtoNet.Crypto.KemAlgorithm.EqualityContract.get -> System.Type!
+virtual ATProtoNet.Crypto.KemAlgorithm.Equals(ATProtoNet.Crypto.KemAlgorithm? other) -> bool
+virtual ATProtoNet.Crypto.KemAlgorithm.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual ATProtoNet.Data.DataModelValue.EqualityContract.get -> System.Type!
+virtual ATProtoNet.Data.DataModelValue.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
+virtual ATProtoNet.Data.DataModelValue.PrintMembers(System.Text.StringBuilder! builder) -> bool
+~override ATProtoNet.Crypto.HttpSignatures.StructuredToken.Equals(object obj) -> bool
+~override ATProtoNet.Crypto.HttpSignatures.StructuredToken.ToString() -> string
