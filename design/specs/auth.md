@@ -555,11 +555,12 @@ spec's model; the token formats, covered components and authority policy are in
 
 - **AUT-75** (MUST) Space credentials plug into the session model as handlers. A
   `SpaceRequestHandler` (an `IXrpcHandler`) composes over the account's session: the
-  `SpaceCredentialProvider` uses the session to fetch a delegation token from the account's PDS,
-  exchanges it at the space authority for a space credential bound to a fresh in-memory key, and
+  `SpaceCredentialProvider` uses the session to fetch a delegation token from the account's PDS
+  when the space requires one, requests a space credential from the space authority for a fresh
+  in-memory key (`credentialKid` and the token in the request body), and
   the handler attaches the credential with an RFC 9421 signature for one explicit audience.
   `XrpcInvoker`, `AtProtoSession` and `SessionData` have no space-credential slot.
-  *Source:* **Decision** (Spaces is core; maintainer review 2026-10-17) · [SPC-23…SPC-29](spaces.md#credential-provider) ·
+  *Source:* **Decision** (Spaces is core; maintainer review 2026-10-17) · [SPC-24…SPC-29](spaces.md#credential-provider), [SPC-74](spaces.md#server-roles-space-authority-repo-host-simplespace) ·
   0.8 `XrpcClient.cs:132-138,690-697` (Spaces signing inside the transport)
 - **AUT-76** (MUST) Credential renewal follows the refresh rules of this spec: one mint in flight
   per space (single-flight, as AUT-7), a mint that has started is not cancelled by a caller giving
@@ -583,8 +584,8 @@ spec's model; the token formats, covered components and authority policy are in
   provider option combined with an `AnonymousHandler`, never a fallback taken when a session is
   missing; a client attestation is sent only when the authority asks for one or the caller
   configures it.
-  *Source:* forum "Post-alpha plans" (2026-10-08: delegation token and client attestation both
-  optional) · [SPC-28](spaces.md#credential-provider), [SPC-62](spaces.md#credential-provider)
+  *Source:* proposal 0016, *Access control* (proposals #120: "a space authority may require either
+  assertion, both, or neither") · [SPC-28](spaces.md#credential-provider), [SPC-62](spaces.md#credential-provider)
 - **AUT-80** (MUST) Writes to the account's own space repo go through the account session under a
   covering `space:` scope ([SPC-66](spaces.md#space-scoped-client)); they need no space
   credential. A session whose `GrantedScope` does not permit the write fails before sending, with

@@ -408,8 +408,8 @@ Strict mode enforces every DRISL rule. It is the default (`DrislReaderOptions.Mo
 ### STAR (space repositories)
 
 Space repositories have no MST; their state is a set of records committed to by a set hash
-([spaces.md](spaces.md)). Upstream ships their serialization as STAR rather than CAR (forum
-"Post-alpha plans", 2026-10-08: "expect to ship with STAR files not CAR files").
+([spaces.md](spaces.md)). Upstream serializes them as STAR-lite v1 with the `atproto-space-repo`
+profile (proposal 0016, *Repo serialization*, proposals #114, alpha release 2026-10-22).
 
 - **DAT-72** (MUST) Space repositories are read and written as STAR; public repositories stay CAR
   (DAT-55…DAT-62). The format is chosen by the endpoint and its declared response encoding, never
@@ -432,14 +432,15 @@ Space repositories have no MST; their state is a set of records committed to by 
   canonical DRISL records, and two writers given the same header and records produce identical
   bytes.
   *Source:* **Decision** (determinism, DAT-74)
-- **DAT-77** (MUST) Paths are validated as space record paths (`{author}/{collection}/{rkey}` or
-  the variant's form, per spaces.md) before a record is handed to the caller.
+- **DAT-77** (MUST) Paths are validated as space record paths (`{collection}/{rkey}`; the author is
+  the metadata's `repo`, per spaces.md) before a record is handed to the caller.
   *Source:* **Decision** (mirrors DAT-61's role for CAR consumers)
 - **DAT-78** (MUST) The STAR variant, framing and header contents implemented are the ones the
   pinned reference implementation produces ([spaces.md](spaces.md)); vectors generated from it
   pin the behaviour. A change in the GA specification is absorbed here and in its vectors.
-  *Source:* forum "Post-alpha plans" · "Space commitment changes" (2026-10-12/13: the commit and
-  its MAC move, which affects what the header carries)
+  *Source:* proposal 0016, *Repo serialization* (proposals #114) · reference
+  `packages/space/src/star.ts` (canonical metadata re-encoding, minimal varints, EOF only at a
+  pair boundary)
 - **DAT-79** (SHOULD) STAR reading shares the varint, CID-computation and limit machinery of CAR
   reading; there is no second varint or CID implementation.
   *Source:* G1 (one home per mechanism)
@@ -567,6 +568,15 @@ records the outcome here in the same PR.
    to the end of the input. Keys are record paths `{collection}/{rkey}` (the archive is one author's,
    the DID is in the metadata), strictly increasing by bytes; values are strict DRISL maps of at
    most 1 MiB. No CID is on the wire. Proposal PR #114 may change this; the change lands here.
+
+   *Settled upstream (alpha release 2026-10-22, proposals #114 merged):* GA is exactly this
+   STAR-lite v1 profile. The metadata is canonical DRISL holding `$type: "atproto-space-repo"` and
+   the commit's fields (`ver`, `repo`, `space`, `rev`, `data`); the commit MAC travels in a response
+   header, not in the archive. No multi-repository bundle is defined. Phase 1's reader already
+   matches it (minimal varints, strict metadata, strictly increasing byte-order keys, 1 MiB
+   records), so no code changes; interpreting the metadata as a commit is phase 2 (SPC-59/60). The
+   reference now ships STAR tests (`packages/space/src/star.test.ts`), so the DAT-78 waiver below
+   ends with the re-pin (SPC-2).
 5. **Floating point numbers** (added 2026-10-18). Upstream still has
    [no float](https://atproto.com/specs/data-model#why-no-floats): the IETF ATP working group heard a
    binary64 proposal at IETF 126 but decided nothing

@@ -50,16 +50,20 @@ its layer ([D-08](06-decisions.md#d-08-spaces-is-a-first-class-part-of-the-proto
 | 1 Primitives | `AtUri`, CAR, signing keys | `SpaceUri`, STAR, key-agreement keys, BLAKE3, HTTP message signatures |
 | 2 Repositories and spaces | MST, signed commits, proofs | LtHash state, commitments and MACs, token formats |
 | 3 Lexicon | `com.atproto.repo/sync/…` | `com.atproto.space.*`, `com.atproto.simplespace.*` |
-| 4 Identity | PDS entry, signing key | space host entry, key-agreement key |
+| 4 Identity | PDS entry, signing key | `#atproto_kem` key (authorities use the PDS entry and signing key) |
 | 5 Client core | records API on repos | records API on spaces (`client.Space(uri)`), signed space requests |
 | 6 Auth | password, OAuth, service auth | space credentials (consume and issue), revocation |
 | 7 Streaming and sync | firehose, Sync 1.1, Jetstream, Tap | space syncer, write notifications, checkpoints |
 | 9 Hosting | XRPC server, OAuth login, labeler | space authority, repo host, `simplespace`, notification forwarding, stores |
 | 10 End-to-end | flows against the reference PDS | flows against the GA Spaces reference PDS |
 
-The upstream Spaces protocol reaches general availability in November 2026 (D-08), while phases
-0–1 run. Phase 0 pins the specification as it stands and re-validates
-[specs/spaces.md](specs/spaces.md) against the GA text as soon as it is published.
+Upstream ships breaking Spaces alpha releases on Thursdays. The 2026-10-22 release landed every
+draft the specs tracked (STAR, the KEM shared-secret commitment, public spaces, plain DID
+document keys, reliable deletion), and [specs/spaces.md](specs/spaces.md) follows it. One more
+smaller breaking release is planned for 2026-10-29, hoped to be the last; upstream then plans a
+November shakeout and **beta at the end of November 2026**, with no GA date yet (D-08). Phase 0
+pinned the text as it stood; each release that changes it is absorbed by one re-pin change set
+(SPC-2), and phase 10 re-validates against GA.
 
 ## Phases
 
@@ -174,6 +178,15 @@ Specs: [repo](specs/repo.md), [spaces](specs/spaces.md) (space repositories). On
 `IBlockStore`; space repository state (LtHash), the KEM-based commitment and MACs, space token
 formats and their verification. **~4k lines.**
 
+**First: the Spaces re-pin** (SPC-1/2), before any Spaces work of this phase, taken after the
+2026-10-29 release so it covers both. It moves the pin to that text and reference commit
+(at least proposal `b89d0b04`, reference `3a0b8c66`), re-vendors the Spaces Lexicons and
+regenerates the vectors (HTTP signatures for the `atproto-space-credential` label and `tag`; new
+STAR, KEM and MAC vectors from the reference's tests). It also adjusts what phase 1 built against
+the drafts: `SharedSecret.DeriveKey` becomes `ComputeMac` (CRY-52), the HTTP signature API gains
+`tag` (CRY-54/55), and the conformance adapter's space-signature checks follow SPC-22…24. The KEM
+derivation, BLAKE3 and the STAR reader already match the release.
+
 **Gate.** MST, commits, proofs and Spaces-structure conformance areas are green. The MST
 build/diff benchmark is at or better than baseline.
 
@@ -196,8 +209,8 @@ against stubs until phase 5).
 
 ### Phase 4 — Identity (`ATProtoNet.Identity`)
 
-Spec: [identity](specs/identity.md). The untrusted-fetch layer, DNS TXT, DID documents (PDS and
-space host entries, signing and key-agreement keys), resolvers, handle verification, caching, PLC
+Spec: [identity](specs/identity.md). The untrusted-fetch layer, DNS TXT, DID documents (the PDS
+entry, signing keys and the `#atproto_kem` key-agreement key), resolvers, handle verification, caching, PLC
 client and typed operations. **~4k lines.**
 
 **Gate.** Identity hardening scenarios ported and green. A pinned PLC genesis vector added and
@@ -371,7 +384,8 @@ migration guide.
 | Risk | Impact | Mitigation |
 |---|---|---|
 | The rewrite stalls halfway, leaving two codebases | High | Bottom-up phases that each leave a usable, tested layer. A preview can ship as soon as phase 8 passes, with hosting following. |
-| The Spaces GA specification differs from the draft the specs track | Medium | Upstream's agreed changes (STAR, KEM commitment, optional credential proofs) are already in the spec; phase 0 and phase 10 re-validate against the published text; open points name what is still in flux (URI scheme, DID document identifiers). |
+| The Spaces GA specification differs from the text the specs track | Medium | The 2026-10-22 alpha release (STAR, KEM commitment, public spaces, DID document keys) is in the spec; each later release is one re-pin change set (SPC-2), and phase 10 re-validates against GA. Open points name what is still in flux (URI scheme, updatable policy). |
+| Spaces reaches only beta, not GA, before 0.9.0 ships | Medium | Upstream plans beta for the end of November 2026 with no GA date. D-08's fallback applies: the Spaces APIs ship with `[Experimental("ATPROTO001")]` until the 0.9.x release after GA. |
 | Behaviour lost in translation | High | Conformance suite green on 0.8 *before* phase 1. Requirement IDs on tests. Regression corpus in [04 — Testing](04-testing.md#regression-corpus). |
 | The generator cannot match hand-written quality | Medium | Phase 3's gate requires generating and compiling all vendored Lexicons, plus golden output review, before anything depends on it. |
 | Roslyn analyzer packaging problems (System.Text.Json in the compiler) | Medium | Spike first in phase 3, with an MSBuild-task fallback. First-party code is checked in, so the SDK never depends on the analyzer. |

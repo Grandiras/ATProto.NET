@@ -41,8 +41,8 @@ If you have ten minutes: read 00, the package map in 02, and the decision record
   Lexicons. Namespaces are mechanical (`ATProtoNet.Lexicons.App.Bsky.Feed`), type names are
   friendly (`PostView`, `ThreadViewPost`). Unions become C# 15 `union` types, known values open
   structs, and XRPC methods typed descriptors that take one parameters record.
-- **Two data protocols, both first class.** Public repositories and Spaces (targeting the
-  November 2026 GA protocol) sit side by side in every layer: addressing, storage structures,
+- **Two data protocols, both first class.** Public repositories and Spaces (targeting the GA
+  protocol; upstream plans beta for the end of November 2026) sit side by side in every layer: addressing, storage structures,
   credentials beside OAuth, one records API for both, space sync beside the firehose, and space
   server roles in `ATProtoNet.AspNetCore`. Spaces is not a separate phase.
 - **A session is the authenticated transport.** `new AtProtoClient(session)`. Password, OAuth,

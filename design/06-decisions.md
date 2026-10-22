@@ -231,6 +231,12 @@ out of code that has no reason to know it: the core XRPC invoker signs nothing S
 (signed requests are an `IXrpcHandler`), and hosting knows Spaces only through its own feature
 registration.
 
+**Update (2026-10-22, alpha release).** The drafts listed above landed upstream (proposals #125)
+and the specs follow them; DID documents gain only `#atproto_kem`, since authorities now use
+`#atproto_pds` and `#atproto`. The timeline moved: one more breaking alpha release on
+2026-10-29, a November shakeout and **beta at the end of November 2026**, with no GA date. The
+decision stands; the experimental fallback is now the likely path if 0.9.0 ships before GA.
+
 ## D-09 Blazor components
 
 **Status: Accepted** (maintainer, 2026-10-17; Q-1).

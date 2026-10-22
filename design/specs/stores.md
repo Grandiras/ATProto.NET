@@ -27,7 +27,7 @@ implementations ship, how they encrypt, and the contract test suites every imple
 | `ISpaceAuthorityStore` | `ATProtoNet` (`ATProtoNet.Spaces.Access`) | space authority (spaces, writer set, space revisions, notification registrations) | yes | no | no | yes |
 | `ISimpleSpaceStore` | `ATProtoNet` (`ATProtoNet.Spaces.Access`) | `simplespace` policy (spaces, policies, members) | yes | no | no | yes |
 | `ISpaceCredentialRevocationStore` | `ATProtoNet` (`ATProtoNet.Spaces.Access`) | repo host credential verification | yes | no | no | yes |
-| `ISpaceNotifyRetryStore` | `ATProtoNet` (`ATProtoNet.Spaces.Access`) | repo host write notifications to the authority | yes | no | no | yes |
+| `ISpaceNotifyRetryStore` | `ATProtoNet` (`ATProtoNet.Spaces.Access`) | repo host write notifications to the authority; authority space-deletion notifications to syncers | yes | no | no | yes |
 
 The Spaces stores are regular stores of the stable API: [spaces.md](spaces.md) defines what they
 hold and when the protocol reads and writes them, this spec defines their storage contract
@@ -292,8 +292,11 @@ modelBuilder.ConfigureAtProtoSessions();      // also ConfigureAtProtoOAuthState
 - **STO-41** (MUST) `ISpaceNotifyRetryStore` makes pending notifications durable: an entry
   survives a restart, entries coalesce per `(space, repo)` to the latest revision, and an entry
   whose retry window (`NotifyRetryWindow`, SPC-47) has ended is removed. Two instances never
-  deliver the same pending entry concurrently (claim with a lease).
-  *Source:* **Decision** (SPC-47: 0.8 kept retry state in memory, `SpaceWriteNotifier.cs:18-26`)
+  deliver the same pending entry concurrently (claim with a lease). It also holds the authority's
+  pending `notifySpaceDeleted` deliveries, one per `(space, syncer)`, kept until delivered, refused
+  permanently, or the syncer's registration has expired (SPC-73).
+  *Source:* **Decision** (SPC-47: 0.8 kept retry state in memory, `SpaceWriteNotifier.cs:18-26`) ·
+  proposal 0016, *Space deletion* (proposals #124: reliable deletion notices)
 - **STO-42** (MUST) `ISpaceRepoStore` implementations apply `PutAsync`, `DeleteAsync`,
   `ReplaceAllAsync` and `DeleteSpaceAsync` atomically per call, so a recovery that replaces a repo
   is never seen half applied. The SDK ships only the in-memory implementation; the application's

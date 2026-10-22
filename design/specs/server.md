@@ -384,10 +384,11 @@ their protocol behaviour in [spaces.md](spaces.md).
   `InMemoryDefaultsWarning.cs:42-66`)
 - **SRV-67** (MUST) `AddAtProtoSpaceCredentials` registers an authentication scheme on
   `AuthenticationBuilder`, parallel to the service-auth scheme. It verifies
-  `Authorization: Atproto-Space …` with the RFC 9421 signature and `Atproto-Space-Audience` per
-  [spaces.md](spaces.md) (SPC-24, SPC-44, revocation per SPC-48), using one verifier built at
-  startup. It follows SRV-37 (verifies only where authorization requires it) and SRV-39
-  (challenges are 401 envelopes, here with `WWW-Authenticate: Atproto-Space`).
+  `Authorization: Atproto-Space-Credential …` (scheme matched case-insensitively) with the RFC 9421
+  signature and `Atproto-Space-Audience` per [spaces.md](spaces.md) (SPC-24, SPC-44, revocation
+  per SPC-48), using one verifier built at startup. It follows SRV-37 (verifies only where
+  authorization requires it) and SRV-39 (challenges are 401 envelopes, here with
+  `WWW-Authenticate: Atproto-Space-Credential`).
   *Source:* **Decision** (space credentials are a first-class mechanism, [auth.md](auth.md) AUT-75) ·
   0.8 `SpaceCredentialVerifier.cs` (verification inside the repo-host endpoints only)
 - **SRV-68** (MUST) A verified credential produces a principal with authentication type
@@ -534,7 +535,7 @@ their protocol behaviour in [spaces.md](spaces.md).
 | Protocol errors on XRPC routes | envelope per SRV-8 |
 | Errors after a subscription upgrade | `{op:-1}` error frame, then close (SRV-32) |
 | Service-auth verification failure | 401 envelope with the verifier's error name; `jti` unspent if the signature did not verify (AUT) |
-| Space-credential verification failure | 401 envelope with `WWW-Authenticate: Atproto-Space` and the verifier's reason (SRV-67) |
+| Space-credential verification failure | 401 envelope with `WWW-Authenticate: Atproto-Space-Credential` and the verifier's reason (SRV-67) |
 | Login/callback failures | redirect with `?error=<code>` (SRV-50) |
 | Logout and client-metadata request failures | envelope |
 | Tap webhook failures | 401 / 413 / 500 envelopes (SRV-61–64) |

@@ -145,7 +145,7 @@ public static class Blake3
 }
 
 // Key encapsulation (KEM): never the same key material as a SigningKey (CRY-50).
-public closed record KemAlgorithm { /* pinned by the GA space commitment scheme: ECDH-based today, ML-KEM later */ }
+public closed record KemAlgorithm { /* the space commitment scheme's: DHKEM(P-256, HKDF-SHA256) today, ML-KEM later */ }
 public sealed class KemPublicKey : IEquatable<KemPublicKey>
 {
     public KemAlgorithm Algorithm { get; }
@@ -160,16 +160,17 @@ public sealed class KemPrivateKey : IDisposable                             // T
     public KemPublicKey PublicKey { get; }
     public SharedSecret Decapsulate(ReadOnlySpan<byte> ciphertext);
 }
-public sealed class SharedSecret : IDisposable { /* zeroed on disposal; only HKDF reads it (CRY-52) */ }
+public sealed class SharedSecret : IDisposable { /* zeroed on disposal; read only as an HMAC-SHA256 key (CRY-52) */ }
 public sealed record KemEncapsulation(SharedSecret Secret, ReadOnlyMemory<byte> Ciphertext);
 
 namespace ATProtoNet.Crypto.HttpSignatures;
 
 public sealed record HttpSignatureParameters
 {
-    public required string Label { get; init; }                             // e.g. "atproto-space"
+    public required string Label { get; init; }                             // e.g. "atproto-space-credential"
     public required IReadOnlyList<string> Components { get; init; }         // e.g. ["authorization", "atproto-space-audience"]
     public string? KeyId { get; init; }
+    public string? Tag { get; init; }                                       // RFC 9421 `tag`, e.g. "atproto-space-credential"
     public DateTimeOffset? Created { get; init; }
 }
 public static class HttpMessageSigner
@@ -392,14 +393,21 @@ public static class StructuredFields { /* RFC 8941 parse and serialize: items, l
 - **CRY-51** (MUST) The API is a key-encapsulation mechanism (encapsulate to a public key, the
   holder decapsulates), so an elliptic-curve construction (an ephemeral key and ECDH) and ML-KEM
   (FIPS 203) fit behind the same types. The algorithms offered are exactly those the pinned space
-  commitment scheme names; nothing else is accepted.
-  *Source:* forum "Space commitment changes" (KEM framing for post-quantum agility) ·
-  **Decision** (closed algorithm set)
-- **CRY-52** (MUST) Shared secrets are never used directly as MAC keys; consumers derive keys
-  with HKDF (`System.Security.Cryptography.HKDF`) bound to a context string their spec defines.
-  Secrets and private keys are redacted in `ToString()` and zeroed on disposal where the platform
-  allows.
-  *Source:* RFC 5869 · 0.8 `SpaceCommit` (HKDF-Expand over a context) · CRY-46 by analogy
+  commitment scheme names; nothing else is accepted. That set is DHKEM(P-256, HKDF-SHA256) as
+  proposal 0016 *Shared secret* defines it: RFC 9180 §4.1 `ExtractAndExpand` over the ECDH
+  x-coordinate, with an empty salt and the uncompressed ephemeral and recipient points in the
+  `kem_context`. The ciphertext is the uncompressed ephemeral point; the scheme's wire form (a
+  `did:key` in `key_share`, compressed) is the consumer's conversion ([spaces.md](spaces.md),
+  SPC-55).
+  *Source:* proposal 0016, *KEM key*, *Shared secret* (proposals #122) · forum "Space commitment
+  changes" (KEM framing for post-quantum agility) · **Decision** (closed algorithm set)
+- **CRY-52** (MUST) A `SharedSecret` never leaves its object as bytes. Its one use is as the key
+  of HMAC-SHA256 over a message its consumer frames (`SharedSecret.ComputeMac`), which is how the
+  space commitment scheme uses it: the KEM output is already an HKDF result, and the scheme binds
+  its context into the MAC input, not into a second derivation. Secrets and private keys are
+  redacted in `ToString()` and zeroed on disposal where the platform allows.
+  *Source:* proposal 0016, *Commit MAC*, *Record MAC* (`mac = HMAC-SHA256(shared_secret, context ||
+  message)`) · CRY-46 by analogy
 - **CRY-53** (MUST) A `KemPublicKey` round-trips through its DID-document encoding
   (multikey) exactly; a key of an algorithm not in CRY-51's set is a `FormatException`.
   *Source:* **Decision** · DID-document publication per [identity.md](identity.md)
@@ -408,14 +416,15 @@ public static class StructuredFields { /* RFC 8941 parse and serialize: items, l
 
 - **CRY-54** (MUST) `HttpMessageSigner` builds the RFC 9421 signature base from exactly the
   components and parameters given, in the given order, and writes `Signature-Input` and
-  `Signature` as RFC 8941 dictionaries under the given label. Which components a protocol signs
-  is that protocol's decision ([spaces.md](spaces.md)), not this layer's.
+  `Signature` as RFC 8941 dictionaries under the given label. Which components and `tag` a
+  protocol signs is that protocol's decision ([spaces.md](spaces.md)), not this layer's.
   *Source:* RFC 9421 §2.5, §4 · 0.8 `Spaces/SpaceHttpSignature.cs` · tests `SpaceHttpSignatureTests`
   (vectors from atproto@679724ad)
 - **CRY-55** (MUST) Signatures are ES256 or ES256K as 64-byte `r‖s`. `HttpMessageSignatureVerifier` rejects DER,
   accepts high-S (`SignaturePolicy.AcceptHighS`), refuses a label that appears more than once,
-  refuses a signature whose covered components do not include every required component, and
-  refuses a `keyid` parameter that does not name the expected key.
+  refuses a signature whose covered components do not include every required component,
+  refuses a `keyid` parameter that does not name the expected key, and, when the requirements
+  name a `tag`, refuses a signature without exactly that `tag` (RFC 9421 §2.3).
   *Source:* RFC 9421 §3.2 · 0.8 `SpaceHttpSignature.cs` · tests `SpaceHttpSignatureTests`
 - **CRY-56** (MUST) `StructuredFields` parses and serialises RFC 8941 items, lists and
   dictionaries strictly (the RFC's failure rules; no lenient recovery) and passes the HTTP WG
@@ -526,6 +535,19 @@ records the outcome here in the same PR.
   key is published as a P-256 multikey (codec `0x1200`). `SharedSecret.DeriveKey` is
   HKDF-Expand (SHA-256) over the consumer's context. Re-validated against GA in phase 10; ML-KEM
   is a new case when GA names it.
+
+  *Spaces alpha release 2026-10-22 (proposals #122 merged):* the derivation is upstream's exactly
+  (same RFC 9180 labels, empty salt, `syncer || author` uncompressed points), so `KemAlgorithm`,
+  `KemPublicKey` and `KemPrivateKey` stand. Two phase 1 changes follow, made in the re-pin change
+  set (SPC-2) before phase 2 builds the MACs on them:
+  - `SharedSecret.DeriveKey` is replaced by `SharedSecret.ComputeMac(message, destination)`
+    (HMAC-SHA256 keyed by the secret, CRY-52). Upstream keys the MAC with the secret itself, and
+    nothing else consumed `DeriveKey`.
+  - `HttpSignatureParameters` and `HttpSignatureRequirements` gain `Tag` (CRY-54/55): space
+    credential signatures carry and require `tag="atproto-space-credential"`.
+
+  The wire form of an encapsulation is a P-256 `did:key` (compressed); converting it to and from
+  the 65-byte ciphertext is Spaces code (SPC-55), not a KEM API change.
 - *Deviations from the sketch.* Layer 0 may not use `System.Net.Http` (architecture tests), so
   `HttpMessageSigner.Sign` takes an `HttpSignatureRequest` (the message's field lines, independent
   of any HTTP stack) and returns the two field values (`HttpSignatureFields`); the layer-2

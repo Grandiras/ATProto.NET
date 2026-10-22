@@ -2,23 +2,24 @@
 
 | | |
 |---|---|
-| **Status** | Accepted (maintainer, 2026-10-17) · **stable surface**, targeting the November 2026 general-availability (GA) protocol. Fallback only: if the GA spec is not published when 0.9.0 ships, the Spaces APIs ship with `[Experimental("ATPROTO001")]` and lose it in the 0.9.x release that follows GA ([D-08](../06-decisions.md#d-08-spaces-is-a-first-class-part-of-the-protocol)). |
-| **Packages and namespaces** | `ATProtoNet`, across the layers ([02 — Architecture](../02-architecture.md#layers-inside-atprotonet)): **layer 0:** `SpaceUri`/`SpaceRecordUri` (root namespace), `ATProtoNet.Data.Star` (STAR reader/writer), `ATProtoNet.Crypto` (BLAKE3, key-encapsulation keys) and `ATProtoNet.Crypto.HttpSignatures` (RFC 9421 and RFC 8941), `ATProtoNet.Spaces` (LtHash, space repo state, MAC computation, token formats and verification). **Layer 1:** `ATProtoNet.Identity` (space host, space signing key and key-encapsulation key entries of DID documents). **Layer 2:** `ATProtoNet.Spaces.Access` (credential provider and issuer, signed-request handler, space-scoped client), generated `ATProtoNet.Lexicons.Com.AtProto.Space.*` and `…SimpleSpace.*`. **Layer 3:** `ATProtoNet.Spaces.Sync` (syncer, notification handling, checkpoints). **Layer 4:** `ATProtoNet.Hosting` (`AddSpaces(…)` on the builder). `ATProtoNet.AspNetCore` (namespace `ATProtoNet.AspNetCore.Spaces`): space authority, repo host, `simplespace` and notification-receiver endpoints. `ATProtoNet.EntityFrameworkCore`: the Spaces stores. |
+| **Status** | Accepted (maintainer, 2026-10-17) · **stable surface**, targeting the general-availability (GA) protocol (upstream plans beta for the end of November 2026; see *Protocol status*). Fallback only: if the GA spec is not published when 0.9.0 ships, the Spaces APIs ship with `[Experimental("ATPROTO001")]` and lose it in the 0.9.x release that follows GA ([D-08](../06-decisions.md#d-08-spaces-is-a-first-class-part-of-the-protocol)). |
+| **Packages and namespaces** | `ATProtoNet`, across the layers ([02 — Architecture](../02-architecture.md#layers-inside-atprotonet)): **layer 0:** `SpaceUri`/`SpaceRecordUri` (root namespace), `ATProtoNet.Data.Star` (STAR reader/writer), `ATProtoNet.Crypto` (BLAKE3, key-encapsulation keys) and `ATProtoNet.Crypto.HttpSignatures` (RFC 9421 and RFC 8941), `ATProtoNet.Spaces` (LtHash, space repo state, MAC computation, token formats and verification). **Layer 1:** `ATProtoNet.Identity` (the key-encapsulation key entry of DID documents). **Layer 2:** `ATProtoNet.Spaces.Access` (credential provider and issuer, signed-request handler, space-scoped client), generated `ATProtoNet.Lexicons.Com.AtProto.Space.*` and `…SimpleSpace.*`. **Layer 3:** `ATProtoNet.Spaces.Sync` (syncer, notification handling, checkpoints). **Layer 4:** `ATProtoNet.Hosting` (`AddSpaces(…)` on the builder). `ATProtoNet.AspNetCore` (namespace `ATProtoNet.AspNetCore.Spaces`): space authority, repo host, `simplespace` and notification-receiver endpoints. `ATProtoNet.EntityFrameworkCore`: the Spaces stores. |
 | **Phases** | 1 primitives (`SpaceUri`, STAR, BLAKE3, KEM keys, HTTP signatures) · 2 space repos (LtHash state, MAC) · 3 generated Lexicons · 4 DID document entries · 5–6 client, credentials, signed requests · 7 sync · 9 server roles and stores · 10 end-to-end and interop against the GA reference PDS |
 | **Depends on** | [syntax](syntax.md), [data-model](data-model.md) (`DrislReader`, `Cid`, bounded readers), [crypto](crypto.md) (`SigningKey`, `VerificationKey`, `DidKey`, JOSE), [identity](identity.md) (`IIdentityResolver`, DID document lookups), [xrpc-client](xrpc-client.md) (`AtProtoClient`, `IXrpcHandler`, `XrpcInvoker`, records API), [auth](auth.md) (`ScopeSet`, `ServiceAuthVerifier`, `IReplayStore`), [streaming](streaming.md) (`#account`/`#identity` events), [server](server.md), [stores](stores.md), [hosting](hosting.md) |
-| **Normative references** | [Proposal 0016 *Atproto Spaces*](https://github.com/bluesky-social/proposals/tree/main/0016-permissioned-data) (pinned to a commit in phase 0, then to the GA specification) · open proposal PRs [#119](https://github.com/bluesky-social/proposals/pull/119) (updatable space policy) and [#122](https://github.com/bluesky-social/proposals/pull/122) (shared-secret commitment) · [AT Protocol Spaces alpha](https://atproto.com/blog/atproto-spaces-alpha) (2026-08-20) · [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures · [RFC 8941](https://www.rfc-editor.org/rfc/rfc8941) Structured Field Values · [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869) HKDF · [RFC 2104](https://www.rfc-editor.org/rfc/rfc2104) HMAC · BLAKE3 specification. Informative: Atmosphere community forum, Private Data WG threads "Permissioned Data Spaces Protocol Timeline", "Post-alpha plans", "Space commitment changes", "Atproto spaces alpha updates", "Bringing back at://" |
+| **Normative references** | [Proposal 0016 *Atproto Spaces*](https://github.com/bluesky-social/proposals/tree/main/0016-permissioned-data) (pinned to a commit in phase 0, then to the GA specification; the 2026-10-22 release text is [`b89d0b04`](https://github.com/bluesky-social/proposals/blob/b89d0b04495a62e0e22f1ab04c665a9c4e1c655d/0016-permissioned-data/README.md), [proposals#125](https://github.com/bluesky-social/proposals/pull/125)) · open proposal PR [#119](https://github.com/bluesky-social/proposals/pull/119) (updatable space policy) · [AT Protocol Spaces alpha](https://atproto.com/blog/atproto-spaces-alpha) (2026-08-20) · [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures · [RFC 8941](https://www.rfc-editor.org/rfc/rfc8941)/[RFC 9651](https://www.rfc-editor.org/rfc/rfc9651) Structured Field Values · [RFC 9180](https://www.rfc-editor.org/rfc/rfc9180) §4.1 DHKEM · [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869) HKDF · [RFC 2104](https://www.rfc-editor.org/rfc/rfc2104) HMAC · BLAKE3 specification · [STAR-lite v1](https://tangled.org/microcosm.blue/star/tree/main/v1-star). Informative: Atmosphere community forum, Private Data WG threads "Permissioned Data Spaces Protocol Timeline", "Post-alpha plans", "Space commitment changes", "Atproto spaces alpha updates", "Bringing back at://" |
 
 > **Protocol status.** Spaces is AT Protocol's second data protocol: access-controlled data
 > stored in per-space repos, sharing DIDs, OAuth, Lexicon and the rest of the framework with the
 > public protocol. It is expected to become the basis for most Atmosphere apps. The alpha opened
-> on 2026-08-20. The Bluesky protocol team plans to batch the remaining breaking changes into a
-> draft specification in October and coordinate general availability (reviewed specs, stable
-> SDKs, reference PDS rollout) in November 2026. This spec tracks the proposal and the agreed
-> post-alpha changes. Requirements marked **(in flux)** follow a change that is agreed but not yet
-> specified in final form, or still under debate. They are re-validated against the then-current
-> text in phase 0 and against the GA specification in phase 10. 0.8 implemented the 2026-10-01
-> alpha (proposal `0c9c2e88`, reference implementation `679724ad`). Where GA departs from that
-> alpha, this spec follows GA.
+> on 2026-08-20 and ships breaking releases on Thursdays. The 2026-10-22 release, the largest,
+> landed the shared-secret commitment, STAR exports, public spaces, plain DID document keys and
+> reliable space deletion (proposals #125). Upstream plans one more smaller breaking release on
+> 2026-10-29, hoped to be the last; November is for shakeout, and **beta** is planned for the end
+> of November 2026. No GA date is announced. Requirements marked **(in flux)** follow a change
+> that is agreed but not yet specified in final form, or still under debate. They are
+> re-validated against each new pin (SPC-2) and against the GA specification in phase 10. 0.8
+> implemented the 2026-10-01 alpha (proposal `0c9c2e88`, reference implementation `679724ad`).
+> Where GA departs from that alpha, this spec follows GA.
 
 ## Scope
 
@@ -29,7 +30,7 @@
 - space repos, their lifecycle and their STAR serialization;
 - the shared-secret commitment and its header MACs;
 - blobs;
-- the three token types, consumed and issued;
+- the three token types, consumed and issued, and public spaces (credentials without them);
 - credential revocation;
 - RFC 9421 request signing with an explicit audience;
 - `space:` OAuth scopes;
@@ -90,15 +91,22 @@ public sealed class LtHash                                       // mutable accu
     public byte[] Digest();                                      // SHA-256 of the 2,048-byte state
     public LtHash Clone();
 }
-public sealed class SpaceRepoState { public Tid Rev { get; }  public ReadOnlyMemory<byte> Hash { get; }  /* index */ }
-public readonly record struct SpaceMacContext(SpaceUri Space, Did Author, Tid Rev);
-public static class SpaceMac                                     // in flux (SPC-54…58)
+public sealed class SpaceRepoState { public Tid Rev { get; }  public ReadOnlyMemory<byte> Data { get; }  /* index */ }
+public sealed class SpaceCommit                                  // com.atproto.space.defs#commit (SPC-77)
 {
-    public static SpaceMacRequest CreateRequest(KemPublicKey hostKey, out SharedSecret secret);   // syncer side
-    public static SharedSecret Decapsulate(KemPrivateKey hostKey, SpaceMacRequest request);       // host side
-    public static byte[] Compute(SharedSecret secret, SpaceMacContext context, ReadOnlySpan<byte> message);
-    public static bool Verify(SharedSecret secret, SpaceMacContext context, ReadOnlySpan<byte> message, ReadOnlySpan<byte> mac);
+    public int Ver { get; }  public Did Repo { get; }  public SpaceUri Space { get; }  public Tid Rev { get; }
+    public ReadOnlyMemory<byte> Data { get; }                    // SHA-256 of the LtHash state
 }
+public static class SpaceMac                                     // SPC-54…57
+{
+    public static SpaceMacRequest Request(KemPublicKey authorKey, SpaceMacType type, out SharedSecret secret);   // syncer: Atproto-Space-Want-Mac
+    public static SharedSecret Accept(KemPrivateKey authorKey, SpaceMacRequest request);                         // host
+    public static byte[] ComputeCommit(SharedSecret secret, SpaceCommit commit);
+    public static byte[] ComputeRecord(SharedSecret secret, SpaceRecordUri uri, Cid cid);
+    public static bool VerifyCommit(SharedSecret secret, SpaceCommit commit, ReadOnlySpan<byte> mac);           // constant time
+    public static bool VerifyRecord(SharedSecret secret, SpaceRecordUri uri, Cid cid, ReadOnlySpan<byte> mac);
+}
+public enum SpaceMacType { Repo, Record }                        // "atproto-space-repo", "atproto-space-record"
 public enum SpaceTokenType { Delegation, Credential, ClientAttestation }   // the protocol's three
 public sealed class SpaceToken
 {
@@ -192,6 +200,18 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   (SPC-59) and tokenless credentials (SPC-62; the pinned text still requires the delegation
   token). Neither the reference nor the proposal has STAR or KEM-commitment vectors yet. The
   pin moves to the GA specification when it is published (SPC-2).
+
+  *Next pin (alpha release 2026-10-22):* proposal 0016 at
+  [`b89d0b04`](https://github.com/bluesky-social/proposals/blob/b89d0b04495a62e0e22f1ab04c665a9c4e1c655d/0016-permissioned-data/README.md)
+  (proposals #125: #114 STAR, #120 public access, #122 shared secret, #123 DID document keys, #124
+  deletion) and the reference `permissioned-data` at `3a0b8c66`, whose `packages/space` now has
+  KEM, MAC and STAR tests. This spec already follows that text; the pin itself, the vendored
+  Lexicons and the vectors move in one change set (SPC-2) before phase 2 builds on them, and
+  again with the 2026-10-29 release. That change set also adjusts phase 1 code, which was built
+  against the drafts: `SharedSecret.DeriveKey` becomes `ComputeMac` and the HTTP signature API
+  gains `tag` ([crypto.md](crypto.md#open-points)), and the conformance adapter's space-signature
+  label, components and vectors change (SPC-22…24). The KEM derivation, BLAKE3, the RFC
+  9421/8941 core and the STAR reader stand unchanged.
 - **SPC-2** (MUST) Moving to a new protocol revision is one change set. It updates the pin, the
   vendored Spaces Lexicons, the reference vectors (regenerated from the reference
   implementation) and the affected requirements of this spec.
@@ -274,43 +294,60 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
 - **SPC-14** ~~(MUST) Commit verification checks `ver`, `rev`, MAC, signature in that order.~~
   **Superseded** by SPC-57; deniability is SPC-58.
 
-### Commitment: shared secret and header MACs (in flux)
+### Commitment: shared secret and header MACs
 
-- **SPC-54** (MUST, in flux) A repo host that offers authenticated space data publishes a
-  key-encapsulation public key in the account's DID document as the verification method
-  `#atproto_kem`. The KEM is ECDH-based at GA, and a post-quantum KEM (ML-KEM) is expected
-  later. `KemPublicKey` and `KemPrivateKey` carry a `KemAlgorithm`, and the implementation is
-  algorithm-agile: adding ML-KEM is a new case, not a new API. Signing keys are never used for
-  key agreement.
-  *Source:* PR #122 (open) · forum "Space commitment changes" (dholms, bnewbold, 2026-10-12/13)
-- **SPC-55** (MUST, in flux) A syncer that wants authenticated data generates a fresh shared
-  secret per request and encapsulates it to the author's `#atproto_kem` key. It sends the
-  encapsulation in a request header holding an RFC 8941 dictionary with at least `type`, `ver`
-  and the encapsulated secret. The header name is not settled: `Atproto-Content-Mac` in PR #122,
-  `Atproto-Want-Mac` in review. The header name and fields are constants in one place.
-  *Source:* PR #122 and its review
-- **SPC-56** (MUST, in flux) The host decapsulates the secret and answers with the MAC in a
-  response header (`Atproto-Mac` or the GA name). The MAC is HMAC-SHA256 over the message.
-  - **Key:** derived from the shared secret with HKDF over a context that binds the space URI,
-    the author DID and the repo revision, length-prefixed as in 0.8, unless the GA text says
-    otherwise.
-  - **Message:** the repo hash (for `getRepo`, `getLatestCommit` and the head of `listRepoOps`)
-    or the record bytes (for `getRecord`).
-  *Source:* PR #122 ("MAC in HTTP headers", "MACs on individual record requests") · forum "Space
-  commitment changes"
-- **SPC-57** (MUST) The MAC is optional on the wire: a request without the header gets none.
-  - **Requesting.** The SDK's syncer and space client request a MAC whenever the author's DID
-    document publishes `#atproto_kem`.
-  - **Failing closed.** A requested MAC that is missing or wrong fails verification
-    (`SpaceVerificationException`). It never silently degrades to unauthenticated data.
-  - **Turning it off.** Callers may disable MACs explicitly for hosts that do not publish a KEM
-    key. The SDK then records the data as transport-authenticated only.
-  *Source:* PR #122 ("optional, depending on whether the client sets the header") · **Decision**
-  (fail closed once requested)
+- **SPC-77** (MUST) A space commit (`com.atproto.space.defs#commit`) is `{ver, repo, space, rev,
+  data}`: format version (`1`), author DID, space URI, revision (TID) and `data`, the SHA-256 of
+  the LtHash state. It carries no signature and no MAC. A syncer checks that `repo` and `space`
+  match the repo it requested before anything else. Write notifications and `listRepos` carry the
+  same digest as `data` (formerly `hash`).
+  *Source:* proposal 0016, *Space repos* (proposals #122)
+- **SPC-54** (MUST) Every account with space repos publishes a KEM public key as the DID document
+  verification method `#atproto_kem` (`Multikey`, P-256, `controller` the account's DID;
+  [identity.md](identity.md) IDN-58). The repo host holds the private key, a dedicated keypair
+  that is never the `#atproto` signing key. The KEM is DHKEM(P-256, HKDF-SHA256)
+  ([crypto.md](crypto.md) CRY-51); a post-quantum KEM (ML-KEM) is a later `KemAlgorithm` case,
+  not a new API.
+  *Source:* proposal 0016, *KEM key* (proposals #122) · alpha release 2026-10-22
+- **SPC-55** (MUST) A syncer requests a MAC with a request header holding an RFC 9651 dictionary:
+  `Atproto-Space-Want-Mac: type="atproto-space-repo", ver=1, key_share="did:key:zDna…"`.
+  `key_share` is a fresh ephemeral P-256 public key as a `did:key`, generated for **every**
+  request, including retries and each page of `listRepoOps`; the shared secret comes from it and
+  the author's `#atproto_kem` key. Header names, `type` values and versions are constants in one
+  place.
+  *Source:* proposal 0016, *Shared secret*, *Authenticity headers*
+- **SPC-56** (MUST) The host decapsulates, then answers with `Atproto-Space-Mac: type=…, ver=…,
+  mac=:…:` (the 32-byte MAC as a byte sequence) and `Vary: Atproto-Space-Want-Mac`. The response's
+  `type` and `ver` match the request's; missing or malformed headers, unsupported types or
+  versions and invalid keys are errors. Each MAC is HMAC-SHA256 keyed by the shared secret over a
+  context and a message, every string field prefixed with its UTF-8 length as a big-endian
+  `uint16`:
+  - **Commit** (`type="atproto-space-repo"`, `ver` = the commit's `ver`; `getLatestCommit`,
+    `getRepo`, and the `listRepoOps` page that carries the commit):
+    `"atproto-space-repo-v1" ‖ len‖space ‖ len‖repo ‖ len‖rev`, then `data`.
+  - **Record** (`type="atproto-space-record"`, `ver=1`; `getRecord`):
+    `"atproto-space-record-v1" ‖ len‖uri`, then the record's binary CID. The syncer checks the URI,
+    the MAC (constant time) and then the record bytes against the CID.
+
+  A `listRepoOps` page without a commit has no MAC; its operations are checked by the final
+  page's commit (SPC-34).
+  *Source:* proposal 0016, *Commit MAC*, *Record MAC* · reference `packages/space/src/mac.ts`
+- **SPC-57** (MUST) A MAC is required on every read made with a space credential: the host answers
+  a credentialed `getLatestCommit`, `getRepo`, `listRepoOps` or `getRecord` without a valid
+  `Atproto-Space-Want-Mac` with `BadSpaceMac`. Reads of the caller's own data through OAuth carry
+  none.
+  - **Requesting.** The syncer and the space client always request one on credentialed reads.
+    An author whose DID document has no `#atproto_kem` cannot be synced; that fails with
+    `SpaceVerificationException` naming the missing key, never as unauthenticated data.
+  - **Failing closed.** A missing or wrong MAC fails verification. Before failing, the syncer
+    refreshes the author's DID document once (the key may have rotated, SPC-76) and retries with
+    a new key share.
+  *Source:* proposal 0016, *Authenticity headers* · Lexicons at `3a0b8c66` (`BadSpaceMac`) · alpha
+  release 2026-10-22 ("until an account's key is published, its space repos can't be synced")
 - **SPC-58** (MUST) A MAC proves authenticity to the requester only. Space data is deniable and
   cannot be rebroadcast with proof, including from public spaces. The docs say so.
-  *Source:* Proposal 0016 · forum "Post-alpha plans" (no redistributable commitments for public
-  spaces) · 0.8 `docs/spaces.md` ("Commits: why they prove nothing")
+  *Source:* proposal 0016, *Commit authenticity* · forum "Post-alpha plans" (no redistributable
+  commitments for public spaces) · 0.8 `docs/spaces.md` ("Commits: why they prove nothing")
 
 ### Serialization
 
@@ -319,26 +356,33 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   2026-10-08).
 - **SPC-16** ~~(MUST) `SpaceRepoCar.VerifyAsync` verifies commit, index hash and blocks in order.~~
   **Superseded** by SPC-60.
-- **SPC-59** (MUST, in flux) A full space repo export (`getRepo`) is a STAR file.
-  - `StarReader` and `StarWriter` live in `ATProtoNet.Data.Star`.
-  - The reader is streaming and bounded: total bytes, record count and record size are named
-    limits in [data-model](data-model.md) style. Failures are `FormatException`s from our own
-    checks, never library exceptions.
-  - The GA format details (layout, framing, ordering, how the repo state and its revision are
-    carried) are recorded here when published (open point 1). Until then phase 1 implements STAR
-    v1 with its `atproto-space-repo` profile, as [data-model open point 4](data-model.md#open-points)
-    records.
-  *Source:* forum "Post-alpha plans" (bnewbold, 2026-10-08: "expect to ship with STAR files not CAR
-  files")
-- **SPC-60** (MUST) Verifying an export checks, in order:
-  1. the record index's LtHash equals the repo hash;
-  2. the repo hash is authenticated by the MAC (SPC-56/57) when one was requested;
-  3. every record matches its CID and is strict record CBOR (SPC-17).
+- **SPC-59** (MUST) A full space repo export (`getRepo`, `application/octet-stream`) is a
+  STAR-lite v1 archive with the `atproto-space-repo` profile ([data-model](data-model.md)
+  DAT-72…79):
+  - the metadata is canonical DRISL: `$type: "atproto-space-repo"` plus the commit's fields
+    (SPC-77); the commit MAC is in the response header, not the archive;
+  - each key is a record path `{collection}/{rkey}` and each value the record's canonical DRISL,
+    at most 1 MiB, in strictly increasing byte order of the keys with no duplicates, until EOF;
+  - `StarReader` and `StarWriter` live in `ATProtoNet.Data.Star`; failures are `FormatException`s
+    from our own checks, never library exceptions.
 
-  The first failure decides the verdict. Verification reads at most `MaxSpaceRepoBytes` and fails
-  with `SpaceVerificationException`.
-  *Source:* 0.8 `SpaceRepoCar.cs` · #133 · test `SpaceRepoCarTests.Verify_MalformedIndexBlock_…`
-  (a `CborContentException` used to leak)
+  `getRepo` no longer has `excludeValues`; a metadata-only listing is `listRecords` with
+  `excludeValues`.
+  *Source:* proposal 0016, *Repo serialization* (proposals #114) · Lexicon `getRepo` at `3a0b8c66`
+- **SPC-60** (MUST) Verifying an export, as a stream:
+  1. validate the metadata (`$type`, `ver`, and `repo` and `space` equal to the request) and the
+     commit MAC (SPC-56); the commit's `data` is then trusted;
+  2. fold each record into an LtHash from empty, checking the path, the strict record encoding
+     (SPC-17) and computing its CID;
+  3. at the end, compare the state's SHA-256 with `data`. Only a match establishes that the whole
+     repo arrived.
+
+  Any parse error, non-canonical metadata, exceeded limit, duplicate or out-of-order key, MAC
+  mismatch or digest mismatch rejects the whole archive with `SpaceVerificationException`.
+  Verification reads at most `MaxSpaceRepoBytes`. Records streamed before the verdict are not
+  committed to the application's store until it is in (SPC-34).
+  *Source:* proposal 0016, *Repo serialization* · 0.8 `SpaceRepoCar.cs` · #133 · test
+  `SpaceRepoCarTests.Verify_MalformedIndexBlock_…` (a `CborContentException` used to leak)
 - **SPC-17** (MUST) A space record is a DRISL-CBOR map in canonical encoding with text keys only,
   no floats and no tag other than 42. Anything else fails verification. The check is a thin rule
   over the strict `DrislReader` of [data-model](data-model.md), not a second strictness
@@ -365,13 +409,16 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   *Source:* Proposal 0016 · 0.8 `SpaceTokens.cs:127-133` · tests `SpaceTokensTests`
 - **SPC-19** (MUST) Claims:
   - **Every token** has `iss`, `sub`, `exp` and `jti` (128-bit, hex).
-  - **Delegation tokens and attestations** also have `aud`.
+  - **Delegation tokens and attestations** also have `aud`: the authority's host,
+    `{authority}#atproto_pds`.
   - **An attestation** has `iss` = `sub` = the client ID, and no `kid`.
-  - **The other types** default `kid` to the issuer's space signing key (SPC-31).
+  - **Delegation tokens and credentials** have `kid` exactly `#atproto`, the issuer's signing
+    key (SPC-31).
   - **A credential** has `cnf.kid` set to a P-256 `did:key` (the key the credential is bound to)
     and has `iat`, with `0 < exp − iat ≤ MaxSpaceCredentialLifetime` and
     `iat ≤ now + SpaceTokenClockSkew`.
-  *Source:* Proposal 0016, *Access control* · 0.8 `SpaceTokens.cs:136-145,195-222` · tests
+  *Source:* Proposal 0016, *Access control*, *Space credential* (proposals #123) · 0.8
+  `SpaceTokens.cs:136-145,195-222` · tests
   `SpaceTokensTests.Parse_TimeClaimOutsideTheRepresentableRange_Throws`, `SpaceTokenKeyIdTests`
 - **SPC-20** (MUST) Default lifetimes are `DefaultSpaceCredentialLifetime` (10 min) for
   credentials and `DefaultShortTokenLifetime` (60 s) for delegation tokens and attestations.
@@ -387,24 +434,25 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
 
 ### HTTP message signatures
 
-- **SPC-22** (MUST) Requests are signed per RFC 9421 with signature label `atproto-space` and
-  algorithm `ecdsa-p256-sha256`, as a 64-byte `r‖s` signature. Verification refuses
+- **SPC-22** (MUST) Requests are signed per RFC 9421 with signature label
+  `atproto-space-credential`, parameter `tag="atproto-space-credential"` and algorithm
+  `ecdsa-p256-sha256`, as a 64-byte `r‖s` signature. Verification requires that `tag`, refuses
   DER-encoded signatures and accepts high-S. `Signature-Input` and `Signature` are RFC 8941
   structured fields, parsed strictly, and a repeated label is refused. The RFC 9421 and RFC 8941
   code lives in `ATProtoNet.Crypto.HttpSignatures` (layer 0).
-  *Source:* Proposal 0016 · #212 · 0.8 `SpaceHttpSignature.cs:33-45` · tests
-  `SpaceHttpSignatureTests`, `StructuredFieldsTests`
-- **SPC-23** (MUST) The credential exchange (`com.atproto.space.getSpaceCredential` at the
-  authority) carries the delegation token as `Authorization: Bearer …` when one is presented,
-  and signs exactly the covered components `("authorization")`, with `keyid` set to the `did:key`
-  the credential will be bound to. **(in flux:** GA is expected to make the delegation token
-  optional too (SPC-62). The covered components for a tokenless exchange follow the GA text.**)**
-  *Source:* Proposal 0016, *Credential flow*
-- **SPC-24** (MUST) Every other credentialed request carries `Authorization: Atproto-Space
+  *Source:* Proposal 0016, *Presenting a space credential* (proposals #120) · #212 · 0.8
+  `SpaceHttpSignature.cs:33-45` · tests `SpaceHttpSignatureTests`, `StructuredFieldsTests`
+- **SPC-23** ~~(MUST) The credential exchange carries the delegation token as `Authorization:
+  Bearer …` and signs `("authorization")` with `keyid` the key to bind.~~ **Superseded**
+  (proposals #120): `getSpaceCredential` is unsigned and takes its inputs in the body (SPC-28,
+  SPC-74). Possession of the bound key is proven on every later request (SPC-24).
+- **SPC-24** (MUST) Every credentialed request carries `Authorization: Atproto-Space-Credential
   {credential}` and `Atproto-Space-Audience: {did}`, and signs
-  `("authorization" "atproto-space-audience")` in exactly that order. `keyid`, when present, must
-  equal the credential's `cnf.kid`.
-  *Source:* Proposal 0016 · 0.8 `SpaceHttpSignature.cs` · tests `SpaceHttpSignatureTests`
+  `("authorization" "atproto-space-audience")` in exactly that order. Receivers match the scheme
+  name case-insensitively but compute the signature base over the field value exactly as
+  received. `keyid`, when present, must equal the credential's `cnf.kid`.
+  *Source:* Proposal 0016, *Presenting a space credential* · 0.8 `SpaceHttpSignature.cs` · tests
+  `SpaceHttpSignatureTests`
 - **SPC-25** (MUST) The audience is **explicit**. `SpaceClient.ForRepo(author)` signs for the
   author's DID (repo operations at the author's host), and `SpaceClient.ForAuthority()` signs for
   the authority's bare DID. The handler never derives the audience from request parameters.
@@ -434,12 +482,17 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
 - **SPC-27** (MUST) Each credential is bound to a fresh P-256 key generated for it, held only in
   memory, and disposed when the credential is replaced and no request still uses it.
   *Source:* 0.8 `SpaceCredentialProvider.cs` (`SpaceCredential.Key`)
-- **SPC-28** (MUST) Minting fetches a single-use delegation token from the account's PDS
-  (`com.atproto.space.getDelegationToken`) immediately before the exchange (SPC-23). It first
-  exchanges **without** a client attestation. Only if the authority answers `AppNotAuthorized` and
-  a `ClientAttestationFactory` is set does it retry once with an attestation for the authority's
-  host audience.
-  *Source:* Proposal 0016 (attestation only when the space gates on client identity) · 0.8
+- **SPC-28** (MUST) Minting calls `com.atproto.space.getSpaceCredential` at the authority's host
+  with `{space, credentialKid, delegationToken?, clientAttestation?}` in the body, `credentialKid`
+  being the fresh key's `did:key`.
+  - **Delegation token.** With an account session, the provider fetches a single-use token from
+    the account's PDS (`com.atproto.space.getDelegationToken`) immediately before the request and
+    always includes it: an authority must not reject a valid assertion it does not require.
+    Without a session, see SPC-62.
+  - **Client attestation.** The first request has none. Only if the authority answers
+    `AppNotAuthorized` and a `ClientAttestationFactory` is set does the provider retry once with
+    an attestation addressed to `{authority}#atproto_pds`.
+  *Source:* Proposal 0016, *Access control*, *Requesting a space credential* (proposals #120) · 0.8
   `SpaceCredentialProvider.cs:364-430` · tests `SpaceCredentialMintTests`
 - **SPC-29** (MUST) An issued credential is accepted only if its `cnf.kid` is the minted key's
   `did:key` and its `sub` is the requested space URI. Otherwise the provider throws
@@ -449,22 +502,22 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   (default window 1 min), measured on the injected `TimeProvider`. Concurrent callers for one space
   share one mint. A replaced credential stays usable by requests that hold it until it expires.
   *Source:* 0.8 `SpaceCredentialProvider.cs:83,245` · tests `SpaceCredentialProviderTests`
-- **SPC-31** (MUST, in flux) An authority's host is its `#atproto_space_host` service (type
-  `AtprotoSpaceHost`, absolute `https` endpoint), and its credential signing key is its
-  `#atproto_space` verification method. Only an **absent** entry falls back (to `#atproto_pds` and
-  `#atproto` respectively); a published but malformed entry is an error. The lookups live in
-  `ATProtoNet.Identity`. Whether dedicated entries stay, and what they mean, is still debated
-  (open point 3).
-  *Source:* Proposal 0016 · #133 · 0.8 `SpaceAuthority.cs:3-31` · tests `SpaceAuthorityTests` ·
-  forum "Post-alpha plans" (DID docs)
+- **SPC-31** (MUST) A space authority resolves like any other account: its host is its
+  `#atproto_pds` endpoint and its credentials are signed by its `#atproto` key, with `kid`
+  exactly `#atproto`. The dedicated `#atproto_space_host`/`#atproto_space` entries are gone; the
+  SDK neither reads nor falls back to them. The lookups are the ordinary ones of
+  `ATProtoNet.Identity`.
+  *Source:* Proposal 0016, *Space authority* (proposals #123) · alpha release 2026-10-22 ("space
+  authorities resolve like any other account")
 - **SPC-32** (MUST) The provider implements `IAsyncDisposable`: disposal releases its keys and
   cancels the in-flight mints it owns. Disposing a client releases nothing it does not own.
   *Source:* audit (0.8's `SpaceReader.Dispose` did nothing) · AG-26
-- **SPC-62** (MUST, in flux) If the authority allows it, the provider can mint a credential with
-  no delegation token and no attestation. This is how public spaces are read without an atproto
-  account. It is exposed as an explicit option, never as a silent fallback.
-  *Source:* forum "Post-alpha plans" (bnewbold, 2026-10-08: delegation token and client attestation
-  both optional)
+- **SPC-62** (MUST) A space may require a delegation token, a client attestation, both or neither;
+  one that requires neither is public. The provider can request a credential with no delegation
+  token (and no attestation unless configured), which is how public spaces are read without an
+  atproto account. It is an explicit option, never a silent fallback. A syncer still needs a
+  credential to read a public space.
+  *Source:* Proposal 0016, *Access control* (proposals #120)
 - **SPC-65** (MUST) A `SpaceDeleted` error from `getSpaceCredential` stops renewal for that space.
   It surfaces as `SpaceCredentialException` with `Reason = SpaceDeleted`, and the syncer maps it to
   `SpaceSyncOutcome.SpaceDeleted`. Other renewal failures do not imply deletion.
@@ -494,8 +547,8 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   each op to the application's `ISpaceRepoStore` and to a running `LtHash` seeded from the
   cursor's state.
   *Source:* Proposal 0016, *Incremental sync* · 0.8 `SpaceSyncer.cs:238-302` · tests `SpaceSyncerTests`
-- **SPC-34** (MUST) At the head of the log, the syncer compares the running digest with the
-  repo hash and authenticates it with the MAC (SPC-56/57).
+- **SPC-34** (MUST) At the head of the log, the syncer verifies the commit's MAC (SPC-56/57) and
+  compares the running digest with the commit's `data`.
   - **Equal:** `UpToDate`.
   - **Different, or MAC verification failed:** `RecoverAsync` downloads the export, verifies it
     per SPC-60, calls `ReplaceAllAsync` and returns `Recovered`.
@@ -516,7 +569,7 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   (declared or actual) fails without reading further.
   *Source:* 0.8 `SpaceSyncer.cs:363-369` · tests `SpaceSyncerTests`
 - **SPC-38** (MUST) `ListChangedReposAsync` pages `com.atproto.space.listRepos` (the writer set,
-  with each repo's `rev` and `hash`, served by the authority) by an exclusive space-revision
+  with each repo's `repoRev` and `data`, served by the authority) by an exclusive space-revision
   checkpoint, in ascending order, stopping on a null, empty or repeated cursor. The writer set is
   not authoritative: each listed repo is confirmed by syncing it from its host.
   `NeedsCatchUp(checkpoint, n)` is true when `n`'s space revision is after the checkpoint and its
@@ -535,9 +588,10 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   credential) and renews the registration before the expiry time the response returns. It
   withdraws with `unregisterNotify` when the application stops following a space.
   *Source:* Proposal 0016, *Write notifications*
-- **SPC-70** (MUST) On a verified `notifySpaceDeleted` or a `SpaceDeleted` credential error
-  (SPC-65), the syncer calls `ISpaceRepoStore.DeleteSpaceAsync` and stops following the space.
-  *Source:* Proposal 0016, *Space deletion*
+- **SPC-70** (MUST) On a verified `notifySpaceDeleted`, a `SpaceDeleted` credential error
+  (SPC-65) or the deletion of the authority's account (SPC-76), the syncer calls
+  `ISpaceRepoStore.DeleteSpaceAsync` and stops following the space.
+  *Source:* Proposal 0016, *Space deletion* (proposals #124)
 
 ### Notification receiver
 
@@ -554,7 +608,7 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   - `iss` must be the space's authority DID;
   - the `jti` is consumed in an `IReplayStore` only after the signature verifies.
   *Source:* 0.8 `SpaceWriteNotifier.cs:27-37,405-410` · [auth](auth.md) service-auth verification rules
-- **SPC-42** (MUST) The receiver validates the input (`space`, `repo`, `rev`, `hash`, current and
+- **SPC-42** (MUST) The receiver validates the input (`space`, `repo`, `repoRev`, `data`, current and
   previous space revision) before any authentication work that costs a DID resolution. It
   answers malformed input with `400 InvalidRequest`. A handler failure answers `500`: delivery is
   best-effort, and correctness comes from catch-up (SPC-38, SPC-68).
@@ -567,12 +621,10 @@ in `ATProtoNet.AspNetCore.Spaces` with stores in `ATProtoNet.EntityFrameworkCore
 through the standard builder ([hosting](hosting.md)), and use only public XRPC server APIs.
 
 - **SPC-43** (MUST) The authority accepts a delegation token only if its `aud` is
-  `{authority}#atproto_space_host` (or the GA equivalent, SPC-31) for the authority named in its
-  `sub`.
+  `{authority}#atproto_pds` (SPC-31) for the authority named in its `sub`.
   *Source:* Proposal 0016 · 0.8 `SpaceTokenVerifier` · tests `SpaceTokenVerifierTests`
-- **SPC-44** (MUST) A repo host accepts a credential only if its `iss` is the space's authority
-  and it verifies against exactly the key named by `kid` in the authority's DID document, with no
-  fallback to another verification method. The request signature is checked per SPC-24 against
+- **SPC-44** (MUST) A repo host accepts a credential only if its `iss` is the space's authority,
+  its `kid` is `#atproto` and it verifies against that key of the authority's DID document. The request signature is checked per SPC-24 against
   `cnf.kid`, and the credential's `jti` must not be revoked (SPC-48).
   *Source:* 0.8 `SpaceCredentialVerifier.cs` · tests `SpaceServerEndpointTests`
 - **SPC-45** (MUST) Single-use tokens (delegation, attestation) are tracked by `(iss, jti, exp)`
@@ -587,7 +639,7 @@ through the standard builder ([hosting](hosting.md)), and use only public XRPC s
     rejected. No app perimeter applies to writes.
   - `rev` must increase monotonically per repo; a stale `rev` is ignored, and one more than
     `MaxFutureRepoRev` ahead is refused with `FutureRev`.
-  - The `hash` is not verified.
+  - The `data` is not verified.
   - Each accepted write gets a strictly increasing space revision (a TID) and is forwarded,
     best-effort, with the current and previous space revision to registered syncers, skipping
     the authority's own registration.
@@ -639,25 +691,35 @@ through the standard builder ([hosting](hosting.md)), and use only public XRPC s
 - **SPC-73** (MUST) Deleting a space (authority side):
   - credential issuance stops, and `getSpaceCredential` answers `SpaceDeleted`;
   - the authority deletes its own repo's records in the space;
-  - it sends `notifySpaceDeleted` to registered syncers, best-effort.
+  - it delivers `notifySpaceDeleted` to every syncer registered at the time **reliably**, with the
+    retry policy and durable retry state of SPC-47, until delivered, a permanent error, or the
+    registration expires;
+  - it keeps a record of the deletion until every such syncer was notified or its registration
+    expired, so a syncer that missed the notification learns of it on renewal.
 
-  Members' repo hosts are not notified; member records remain the member's data.
-  *Source:* Proposal 0016, *Space deletion*
-- **SPC-74** (MUST) Issuing a credential (`SpaceCredentialIssuer`):
-  1. validate the delegation token when one is presented (SPC-18…20, SPC-43, single-use per SPC-45);
-  2. verify the `atproto-space` signature (keyid a P-256 `did:key`, covered components exactly
-     `("authorization")`, `alg` if present `ecdsa-p256-sha256`);
-  3. if an attestation is present, resolve its `iss` to client metadata and verify it against the
-     client's JWKS by `kid`;
-  4. ask the space's `ISpacePolicy` for a decision (the delegation token asserts no membership);
-  5. issue a credential bound to the keyid, with the default lifetime and within the maximum.
-
-  Tokenless issuance for public spaces follows SPC-62.
+  Members' repo hosts are not notified; member records remain the member's data. An authority may
+  recreate a deleted space with the same type and `skey`; members' remaining records become
+  readable again under the new policy.
+  *Source:* Proposal 0016, *Space deletion* (proposals #124)
+- **SPC-74** (MUST) Issuing a credential (`SpaceCredentialIssuer`, `getSpaceCredential`, no
+  request authentication):
+  1. require `credentialKid` to be a P-256 `did:key`;
+  2. validate the delegation token when one is present (SPC-18…20, SPC-43, single-use per SPC-45);
+  3. validate the client attestation when one is present (resolve its `iss` to client metadata,
+     verify against the client's JWKS by `kid`);
+  4. ask the space's `ISpacePolicy` for a decision, giving it the verified assertions; a missing
+     required assertion fails with the error that names it, and a valid assertion the space does
+     not require never causes a refusal;
+  5. issue a credential with `cnf.kid` = `credentialKid`, `kid` = `#atproto`, the default lifetime
+     and within the maximum.
   *Source:* Proposal 0016, *Credential flow*
 - **SPC-75** (MUST) Repo host role. Over an application-provided `ISpaceRepoHostStorage`, the
   host serves:
   - `getRepo` (STAR, SPC-59), `listRepoOps`, `getLatestCommit` and `getRecord`, each with
-    credential verification (SPC-44) and the optional MAC (SPC-56);
+    credential verification (SPC-44) and, on credentialed calls, the required MAC (SPC-56/57,
+    `BadSpaceMac`);
+  - MAC computation with the account's `#atproto_kem` private key, which the storage provides
+    (the host generates one per account and publishes it, IDN-59);
   - `getBlob` and `listBlobs` (SPC-61);
   - the repo lifecycle rules of SPC-53.
 
@@ -671,12 +733,17 @@ through the standard builder ([hosting](hosting.md)), and use only public XRPC s
   - **Events.** `#account` and `#identity` events from `com.atproto.sync.subscribeRepos` apply
     to space repos too. When a deactivated, suspended, taken-down or deleted status arrives
     through the firehose integration ([streaming](streaming.md)), the syncer stops syncing that
-    author's space repos, and on deletion removes them from the application's store.
+    author's space repos, and on deletion removes them from the application's store. Deleting an
+    authority's account deletes all its spaces (SPC-70).
+  - **Keys.** An `#identity` event invalidates the cached `#atproto_kem` key with the rest of the
+    DID document. KEM key rotation changes no repo hash or revision; requests in flight may fail
+    their MAC and retry per SPC-57.
   - **Migration.** An account moves its space repos with `listSpaces` and its blobs with
-    `listBlobs`. Migration resets the operation log, so the syncer treats a revision that moved
-    backwards, or a missing history, as a reason for recovery (SPC-36).
+    `listBlobs`; the new host publishes its own `#atproto_kem`. Migration resets the operation
+    log, so the syncer treats a revision that moved backwards, or a missing history, as a reason
+    for recovery (SPC-36).
   - **Account status of authorities** is open (open point 4).
-  *Source:* Proposal 0016, *Account lifecycle*
+  *Source:* Proposal 0016, *Account lifecycle* (proposals #122, #124)
 
 ### Addressing implementation
 
@@ -703,7 +770,7 @@ through the standard builder ([hosting](hosting.md)), and use only public XRPC s
 | `DefaultShortTokenLifetime` | 60 s | delegation tokens, attestations |
 | `SpaceTokenClockSkew` | 5 s | `iat` in the future, expiry tolerance |
 | `DefaultRenewalWindow` | 1 min | credential renewal (capped at half the lifetime) |
-| `MaxSpaceContextFieldBytes` | 65,535 | MAC context field (u16 prefix) |
+| `MaxSpaceContextFieldBytes` | 65,535 | MAC context string field (u16 prefix) |
 | `MaxSingleUseTokenLifetime` | 5 min | delegation and attestation lifetime ceiling at the authority |
 | `VerifiedCredentialCacheCapacity` | 10,000 (¼ per authority) | repo host credential cache |
 | `NotifyRegistrationLifetime` | 7 days (default) | `registerNotify` |
@@ -711,7 +778,7 @@ through the standard builder ([hosting](hosting.md)), and use only public XRPC s
 | `NotifyRetryWindow` / base delay | 1 h / 5 s | repo host → authority retries |
 | `RevocationRetention` | ≥ 60 min (3,610 s) | revoked credential ids |
 | revocation ids per call | 1–100 | `notifyCredentialRevoked` |
-| STAR limits (total, records, record size) | per GA (open point 1) | `StarReader` |
+| STAR record size | 1 MiB | one `atproto-space-repo` value (`StarReaderOptions.MaxEntryBytes`) |
 
 DRISL bounds come from [data-model](data-model.md).
 
@@ -723,6 +790,8 @@ DRISL bounds come from [data-model](data-model.md).
 | Token malformed, wrong `typ`, claims invalid | `SpaceTokenException : AtProtoException` (parse); verdicts for verification |
 | Credential minting refused, credential not bound to the key or space, space deleted | `SpaceCredentialException : AtProtoException` with a `Reason` (`Refused`, `NotBound`, `SpaceDeleted`, …), wrapping the `XrpcException` when there is one |
 | Host refusals during sync (401, 403, 429, 5xx) | `XrpcException`, propagated |
+| Host answers `BadSpaceMac` | `SpaceVerificationException` (the SDK sent a header the host rejects; not retried) |
+| Author publishes no `#atproto_kem` | `SpaceVerificationException` naming the missing key (SPC-57) |
 | Receiver or server authentication failure | `401`/`403` with the XRPC error envelope ([server](server.md)) |
 
 0.8 has five Spaces exception types; the rewrite keeps three.
@@ -734,8 +803,11 @@ the GA reference implementation and regenerated on every pin bump (SPC-2):
 
 - **Carried over** (still valid; re-verified against GA): BLAKE3 official vectors, LtHash
   reference vectors, HTTP message signature vectors and structured-field cases, token vectors.
-- **New:** STAR export files, KEM encapsulation and decapsulation, header MACs for `getRepo` and
-  `getRecord`.
+- **New:** STAR export files, KEM encapsulation and decapsulation, commit and record MACs and
+  their headers, from the reference's `star.test.ts`, `kem.test.ts` and `mac.test.ts` (present
+  from `3a0b8c66`).
+- **Regenerated:** HTTP message signature vectors, for the `atproto-space-credential` label and
+  `tag`; the exchange cases are dropped with SPC-23.
 - **Not carried:** 0.8's signed-commit and space-repo CAR vectors (superseded by SPC-54…60).
 
 **0.8 test classes whose scenarios must be ported:** `SpaceUriTests`, `Blake3Tests`,
@@ -750,12 +822,13 @@ are replaced by tests for SPC-54…60.
 
 **New tests:**
 - the space-scoped records API (own repo through the session, others through credentials);
-- the MAC flow (requested, missing, wrong, disabled);
+- the MAC flow (requested, missing, wrong, no `#atproto_kem`, refresh-and-retry after rotation,
+  a fresh key share per page);
 - STAR bounds and hostile input;
 - the notification receiver (audience with fragment, `iss` binding, replay consumed only after
   the signature verifies, malformed input before authentication);
 - registration renewal;
-- space deletion end to end;
+- space deletion end to end, including reliable `notifySpaceDeleted` delivery and recreation;
 - the `simplespace` policy matrix (read and write policies × member flags × app access);
 - durable retry state across a restart;
 - account-status handling;
@@ -771,7 +844,7 @@ members, notification, sync, recovery, revocation and deletion.
 
 | Change | Reason |
 |---|---|
-| Spaces is part of the stable surface, spread across the protocol layers, not an experimental leaf | Spaces is core to the protocol and expected to underpin most apps; GA is targeted for November 2026 |
+| Spaces is part of the stable surface, spread across the protocol layers, not an experimental leaf | Spaces is core to the protocol and expected to underpin most apps; upstream plans beta for the end of November 2026 |
 | Full scope, including all server roles, `simplespace` and durable retries | nothing deferred; server roles are needed for apps that act as authorities or hosts |
 | Signed-HMAC commit (`ikm`/`sig`/`mac`) replaced by a KEM shared secret and header MACs, also on `getRecord` | the old construction added no authenticity beyond TLS (forum "Space commitment changes", PR #122) |
 | CAR export replaced by STAR | upstream ships STAR files at GA |
@@ -781,7 +854,9 @@ members, notification, sync, recovery, revocation and deletion.
 | Signing is an `IXrpcHandler` | no Spaces code in the core pipeline |
 | Generated `com.atproto.space.*`/`simplespace.*` | 0.8 hand-wrote them |
 | Notification receiver, registration renewal, space-deletion handling | 0.8 could register but not receive |
-| Tokenless credentials for public spaces (opt-in) | upstream makes delegation token and attestation optional |
+| Tokenless credentials for public spaces (opt-in); `getSpaceCredential` takes its inputs in the body, unsigned | upstream makes delegation token and attestation optional (proposals #120) |
+| Space authorities use `#atproto_pds` and `#atproto`; only `#atproto_kem` is new in DID documents | upstream dropped the dedicated entries (proposals #123) |
+| `Atproto-Space-Credential` scheme and `tag`ged `atproto-space-credential` signatures | upstream rename (proposals #120) |
 | `simplespace` with independent read/write policies, open write, app access, pluggable `ISpacePolicy` | upstream policy model (PR #105, PR #119) |
 | `LtHash` drops value equality; settable limits become options; three exception types instead of five | correctness and AG-7 |
 
@@ -808,6 +883,16 @@ records the outcome here in the same PR.
    exchange and `("authorization" "atproto-space-audience")` otherwise, SPC-23/24) over the public
    API, and every `http-signatures.json` and `structured-fields.json` vector passes. LtHash
    (phase 2) and space tokens (phase 6) remain.
+
+   *Settled upstream (alpha release 2026-10-22, proposals #114 and #122 merged):* STAR-lite v1
+   with the `atproto-space-repo` profile (SPC-59); DHKEM(P-256, HKDF-SHA256) behind a P-256
+   `Multikey` `#atproto_kem` (SPC-54); `Atproto-Space-Want-Mac` with `key_share` and
+   `Atproto-Space-Mac` (SPC-55/56); no HKDF context step: the shared secret keys HMAC-SHA256 over
+   a length-prefixed context and the message, and the commit fields live in the commit and the
+   STAR metadata, the MAC only in the header (SPC-56, SPC-77). Phase 1 code to adjust in the
+   re-pin change set: `SharedSecret.DeriveKey` → `ComputeMac`, a `tag` on the HTTP signature
+   API, and the adapter's label and components (SPC-1). The KEM derivation and the STAR reader
+   already match. Re-validated again at the 2026-10-29 release and in phase 10.
 2. **URI scheme.** `at://…/space/…` (one scheme, proposed) or `ats://` (debated).
    - The scheme stays a single implementation point (SPC-51), so either outcome is contained.
    - If GA keeps `at://`, Lexicon `at-uri` fields can carry space addresses. Syntax and Lexicon
@@ -823,9 +908,14 @@ records the outcome here in the same PR.
    entries stay, whether a credential may be signed with `#atproto` when `#atproto_space` exists,
    and whether the space host is simply the account host. *Default:* the current
    proposal with fallbacks only for absent entries (SPC-31); re-validate at GA.
+
+   *Settled upstream (proposals #123):* the dedicated entries are gone; an authority's host is
+   its `#atproto_pds` and its credential key `#atproto` (SPC-31). Nothing was built yet.
 4. **Account status of space authorities.** Whether an authority without a PDS account has an
-   account status, and whether `#atproto_pds` and `#atproto_space_host` statuses can differ.
-   *Default:* an authority has no account status unless it also has a PDS account.
+   account status. *Default:* an authority has no account status unless it also has a PDS
+   account. Since proposals #123 an authority's host is its `#atproto_pds`, so the question of
+   differing host statuses is gone, and deleting the authority's account deletes its spaces
+   (SPC-70, SPC-76).
 5. **Receiver `iss`.** *Default:* only the space authority (SPC-41). Revisit if the
    protocol defines host-signed forwards.
 6. **Space discovery for recovering services.** A "which spaces will you give me access to"

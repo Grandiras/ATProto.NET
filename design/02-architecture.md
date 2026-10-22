@@ -69,7 +69,7 @@ flowchart BT
     end
     subgraph L1["Layer 1 — network foundations"]
         NET["ATProtoNet.Net<br/>untrusted fetch (SSRF policy)"]
-        IDN["ATProtoNet.Identity · .Identity.Plc<br/>DID documents (PDS and space host entries, keys)<br/>resolution · handles · PLC"]
+        IDN["ATProtoNet.Identity · .Identity.Plc<br/>DID documents (PDS entry, signing and KEM keys)<br/>resolution · handles · PLC"]
     end
     subgraph L2["Layer 2 — client"]
         XRPC["ATProtoNet.Xrpc + AtProtoClient<br/>pipeline · errors · pagination"]

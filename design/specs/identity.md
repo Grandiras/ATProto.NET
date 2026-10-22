@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Accepted (maintainer, 2026-10-17) |
 | **Package** | `ATProtoNet` (namespaces `ATProtoNet.Net`, `ATProtoNet.Identity`, `ATProtoNet.Identity.Plc`; network layer, above the foundation namespaces) |
-| **Phase** | 4 (space host and KEM key lookups included) |
+| **Phase** | 4 (the KEM key lookup included) |
 | **Depends on** | [syntax](syntax.md), [data-model](data-model.md) (DRISL for PLC operations), [crypto](crypto.md) (`DidKey`, `VerificationKey`, `SigningKey`, `SignedObject`) |
 | **Normative references** | [DID](https://atproto.com/specs/did) · [Handle](https://atproto.com/specs/handle) · [Cryptography](https://atproto.com/specs/cryptography) · [did:plc](https://web.plc.directory/spec/v0.1/did-plc) · [did:web method](https://w3c-ccg.github.io/did-method-web/) · reference `@atproto/identity` (cache semantics) · DID-document entries for Spaces per [spaces.md](spaces.md) (proposal 0016 at its pin) |
 
@@ -13,9 +13,9 @@
 **In:** the untrusted-fetch layer every component uses to reach attacker-chosen hosts
 ([D-21](../06-decisions.md#d-21-one-untrusted-fetch-layer)); DNS TXT lookups; DID documents;
 `did:plc` and `did:web` resolution; handle resolution and bidirectional verification; caching;
-verify-with-refresh; the PLC directory client and typed PLC operations; the DID-document entries
-Spaces adds (the space host service, the space signing key and the KEM key used by the space
-commitment scheme), read with the same typed, strict lookups as every other entry.
+verify-with-refresh; the PLC directory client and typed PLC operations; the DID-document entry
+Spaces adds (the KEM key of the space commitment scheme), read with the same typed, strict lookups
+as every other entry.
 
 **Out:** the PLC export *stream* (a WebSocket event stream; [streaming](streaming.md) owns it on
 the shared stream runtime, reusing this spec's `PlcOperation` types); OAuth discovery
@@ -82,10 +82,8 @@ public sealed class DidDocument
     public DidDocumentEntry<Uri> TryGetServiceEndpoint(string fragment, string? type = null);
     public Uri? GetPdsEndpoint();                                   // #atproto_pds, AtprotoPersonalDataServer
 
-    // Spaces entries (IDN-55…IDN-59); identifiers pinned with the spaces spec
-    public DidDocumentEntry<Uri> TryGetSpaceHostEndpoint();          // #atproto_space_host, AtprotoSpaceHost
-    public Uri? GetSpaceHostEndpoint();                              // the entry, else the PDS (IDN-56)
-    public DidDocumentEntry<DidKey> TryGetSpaceSigningKey();         // #atproto_space, else #atproto (IDN-57)
+    // Spaces entry (IDN-55, IDN-58); a space authority's host and credential key are
+    // GetPdsEndpoint() and GetSigningKey() like any other account's (IDN-56, IDN-57)
     public DidDocumentEntry<KemPublicKey> TryGetKemKey();             // #atproto_kem (IDN-58)
 }
 public readonly record struct DidDocumentEntry<T>(DidDocumentEntryStatus Status, T? Value);   // Found, Absent, Malformed
@@ -283,32 +281,33 @@ public sealed class PlcOperationRejectedException : AtProtoException { public st
 Spaces are part of the protocol, so resolving where an account's spaces live and which keys
 they use is ordinary identity resolution, not Spaces-specific code.
 
-- **IDN-55** (MUST) The well-known constants (IDN-18) include the space host service
-  (`#atproto_space_host`, type `AtprotoSpaceHost`), the space signing key (`#atproto_space`) and
-  the KEM key of the space commitment scheme (`#atproto_kem`), with the identifiers and types of
-  the pinned protocol revision ([spaces.md](spaces.md)). They live in one place, so an identifier change
-  upstream is a one-line change.
-  *Source:* 0.8 `Spaces/SpaceAuthority.cs:25-31` · forum "Post-alpha plans" (DID docs) ·
-  "Space commitment changes" (new key in DID documents)
-- **IDN-56** (MUST) `GetSpaceHostEndpoint` returns the `#atproto_space_host` endpoint when the
-  entry is present and usable, and the PDS endpoint when the document has no such entry. A
-  present but malformed entry (wrong type, non-HTTPS or non-absolute endpoint) is an error, not
-  a fallback to the PDS.
-  *Source:* 0.8 `SpaceCredentialProvider.cs:311-320`, `SpaceAuthority.cs:16-18` (#133) · test
-  `SpaceUriTests.HostAudience_NamesTheAuthoritysSpaceHostServiceEntry`
-- **IDN-57** (MUST) `TryGetSpaceSigningKey` returns the `#atproto_space` key when present; when
-  the document has no such entry it falls back to `#atproto`. A present but malformed
-  `#atproto_space` entry is `Malformed`, never a silent fallback.
-  *Source:* 0.8 `Spaces/SpaceAuthority.cs:8-18`, `SpaceTokens.cs:176`
+- **IDN-55** (MUST) The well-known constants (IDN-18) include the KEM key of the space
+  commitment scheme (`#atproto_kem`), with the identifier of the pinned protocol revision
+  ([spaces.md](spaces.md)). It lives with the other constants, so an identifier change upstream is a
+  one-line change. The space-specific entries `#atproto_space_host` and `#atproto_space` are gone
+  upstream and are not constants.
+  *Source:* proposal 0016 (proposals #123, #122; alpha release 2026-10-22) · "Space commitment
+  changes" (new key in DID documents)
+- **IDN-56** ~~(MUST) `GetSpaceHostEndpoint` returns the `#atproto_space_host` endpoint, else the
+  PDS.~~ **Superseded** (proposals #123): a space authority resolves like any other account, so
+  its space host is `GetPdsEndpoint()` (`#atproto_pds`). There is no separate lookup.
+- **IDN-57** ~~(MUST) `TryGetSpaceSigningKey` returns `#atproto_space`, else `#atproto`.~~
+  **Superseded** (proposals #123): credentials are signed with the authority's `#atproto` key and
+  carry `kid: "#atproto"`, so the lookup is `GetSigningKey()`.
 - **IDN-58** (MUST) `TryGetKemKey` reads the `#atproto_kem` verification method into a
-  `KemPublicKey` ([crypto.md](crypto.md), CRY-53). It never returns a signing key: an absent KEM
-  key is `Absent` (the host offers no MACs), not a fallback to `#atproto`.
-  *Source:* forum "Space commitment changes" (2026-10-12/13) · CRY-50 · [SPC-54](spaces.md#commitment-shared-secret-and-header-macs-in-flux)
-- **IDN-59** (MUST) The fallback semantics of IDN-56 and IDN-57 follow the pinned proposal.
-  Upstream is still discussing whether dedicated entries are required, whether the space host is
-  always the account host, and the account status of a space authority; the GA answer replaces
-  these defaults in one place.
-  *Source:* forum "Post-alpha plans" (DID docs, account status; 2026-10-01/08)
+  `KemPublicKey` ([crypto.md](crypto.md), CRY-53). The entry must have `id`
+  `{did}#atproto_kem`, `controller` the document's DID, `type` `Multikey` and a P-256
+  `publicKeyMultibase`; anything else is `Malformed`. It never returns a signing key: an absent
+  KEM key is `Absent`, not a fallback to `#atproto`, and the account's space repos cannot be synced
+  with credentials until it is published (SPC-57).
+  *Source:* proposal 0016, *KEM key* (proposals #122) · CRY-50 · [SPC-54](spaces.md#commitment-shared-secret-and-header-macs)
+- **IDN-59** (MUST) Account and identity tooling carries `#atproto_kem` through:
+  `getRecommendedDidCredentials` returns it, `submitPlcOperation` checks it, and a migration
+  (IDN-50…54) keeps the key the new host recommends. The typed PLC operation builders
+  treat it as an ordinary verification method, so no Spaces-specific code is needed beyond the
+  constant.
+  *Source:* alpha release 2026-10-22 ("account migration tools also need to carry atproto_kem
+  through") · proposal 0016, *Account lifecycle* (the new host publishes its own KEM key)
 
 ### DID resolution
 
@@ -567,7 +566,7 @@ served through the real resolvers instead of resolver substitutes ([04 — Testi
 | PLC export stream moves to the streaming namespaces (`ATProtoNet.Streaming.Plc`) | one stream runtime (D-07); 0.8's export stream ended silently on a dropped connection |
 | Reserved TLDs apply to `did:web` hosts | DID spec |
 | `IsEnforced` reports when the address policy cannot run | 0.8 skipped it silently on WASM |
-| Space host, space signing key and KEM key are typed `DidDocument` lookups | Spaces is core protocol; 0.8 resolved them inside `Spaces/SpaceAuthority` and the credential provider |
+| The KEM key is a typed `DidDocument` lookup; a space authority's host and key are its `#atproto_pds` and `#atproto` | Spaces is core protocol; 0.8 resolved dedicated space entries inside `Spaces/SpaceAuthority`, which upstream dropped (proposals #123) |
 
 ## Open points
 
@@ -590,5 +589,10 @@ records the outcome here in the same PR.
    caller opts in? Default: no (browser apps cannot do otherwise); log and expose the flag.
 5. **Spaces DID-document identifiers.** Dedicated `#atproto_space_host` / `#atproto_space`
    entries versus reusing `#atproto_pds` / `#atproto`, the `#atproto_kem` key type, and a
-   space authority's account status are open upstream (IDN-59). Default: implement the pinned
+   space authority's account status were open upstream. Default: implement the pinned
    proposal and switch to the GA identifiers before 0.9.0; cover both in identity vectors.
+
+   *Settled upstream (alpha release 2026-10-22, proposals #122/#123):* the dedicated entries are
+   gone; an authority is its `#atproto_pds` and `#atproto`, and `#atproto_kem` is a P-256
+   `Multikey` (IDN-55…59). The authority's account status stays open in
+   [spaces.md](spaces.md#open-points) (open point 4). Nothing was built yet (phase 4).
