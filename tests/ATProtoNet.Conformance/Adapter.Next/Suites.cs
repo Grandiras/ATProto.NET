@@ -20,4 +20,6 @@ public sealed class Mst : MstConformance<NextAdapter>;
 
 public sealed class Repo : RepoConformance<NextAdapter>;
 
+public sealed class Identity : IdentityConformance<NextAdapter>;
+
 public sealed class Lexicon : LexiconConformance<NextAdapter>;

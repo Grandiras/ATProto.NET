@@ -24,3 +24,4 @@ public sealed class Labels : LabelsConformance<LegacyAdapter>;
 public sealed class Tokens : TokensConformance<LegacyAdapter>;
 public sealed class Lexicon : LexiconConformance<LegacyAdapter>;
 public sealed class Spaces : SpacesConformance<LegacyAdapter>;
+public sealed class Identity : IdentityConformance<LegacyAdapter>;

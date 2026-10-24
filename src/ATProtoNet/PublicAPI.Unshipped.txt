@@ -2087,3 +2087,428 @@ virtual ATProtoNet.Lexicon.LexUserType.Equals(ATProtoNet.Lexicon.LexUserType? ot
 ~override ATProtoNet.Lexicon.LexRefTarget.Equals(object obj) -> bool
 ~override ATProtoNet.Lexicon.Runtime.Optional<T>.Equals(object obj) -> bool
 ~override ATProtoNet.Repo.MstKey.Equals(object obj) -> bool
+ATProtoNet.Net.DnsOverHttpsTxtResolver
+ATProtoNet.Net.DnsOverHttpsTxtResolver.DnsOverHttpsTxtResolver(ATProtoNet.Net.UntrustedHttp! http, System.Uri? endpoint = null) -> void
+ATProtoNet.Net.DnsOverHttpsTxtResolver.QueryAsync(string! name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>?>!
+ATProtoNet.Net.IDnsTxtResolver
+ATProtoNet.Net.IDnsTxtResolver.QueryAsync(string! name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>?>!
+ATProtoNet.Net.UntrustedFetchError
+ATProtoNet.Net.UntrustedFetchError.Blocked = 0 -> ATProtoNet.Net.UntrustedFetchError
+ATProtoNet.Net.UntrustedFetchError.HttpStatus = 3 -> ATProtoNet.Net.UntrustedFetchError
+ATProtoNet.Net.UntrustedFetchError.Malformed = 6 -> ATProtoNet.Net.UntrustedFetchError
+ATProtoNet.Net.UntrustedFetchError.Network = 4 -> ATProtoNet.Net.UntrustedFetchError
+ATProtoNet.Net.UntrustedFetchError.RedirectRefused = 5 -> ATProtoNet.Net.UntrustedFetchError
+ATProtoNet.Net.UntrustedFetchError.ResponseTooLarge = 2 -> ATProtoNet.Net.UntrustedFetchError
+ATProtoNet.Net.UntrustedFetchError.Timeout = 1 -> ATProtoNet.Net.UntrustedFetchError
+ATProtoNet.Net.UntrustedFetchException
+ATProtoNet.Net.UntrustedFetchException.Error.get -> ATProtoNet.Net.UntrustedFetchError
+ATProtoNet.Net.UntrustedFetchException.Status.get -> System.Net.HttpStatusCode?
+ATProtoNet.Net.UntrustedFetchException.UntrustedFetchException(ATProtoNet.Net.UntrustedFetchError error, System.Uri! url, string! message, System.Net.HttpStatusCode? status = null, System.Exception? innerException = null) -> void
+ATProtoNet.Net.UntrustedFetchException.Url.get -> System.Uri!
+ATProtoNet.Net.UntrustedFetchPolicy
+ATProtoNet.Net.UntrustedFetchPolicy.AllowPrivateNetworks.get -> bool
+ATProtoNet.Net.UntrustedFetchPolicy.AllowPrivateNetworks.init -> void
+ATProtoNet.Net.UntrustedFetchPolicy.<Clone>$() -> ATProtoNet.Net.UntrustedFetchPolicy!
+ATProtoNet.Net.UntrustedFetchPolicy.ConnectTimeout.get -> System.TimeSpan
+ATProtoNet.Net.UntrustedFetchPolicy.ConnectTimeout.init -> void
+ATProtoNet.Net.UntrustedFetchPolicy.Equals(ATProtoNet.Net.UntrustedFetchPolicy? other) -> bool
+ATProtoNet.Net.UntrustedFetchPolicy.MaxConcurrentFetches.get -> int
+ATProtoNet.Net.UntrustedFetchPolicy.MaxConcurrentFetches.init -> void
+ATProtoNet.Net.UntrustedFetchPolicy.MaxResponseHeadersBytes.get -> int
+ATProtoNet.Net.UntrustedFetchPolicy.MaxResponseHeadersBytes.init -> void
+ATProtoNet.Net.UntrustedFetchPolicy.RequestTimeout.get -> System.TimeSpan
+ATProtoNet.Net.UntrustedFetchPolicy.RequestTimeout.init -> void
+ATProtoNet.Net.UntrustedFetchPolicy.UntrustedFetchPolicy() -> void
+ATProtoNet.Net.UntrustedHttp
+ATProtoNet.Net.UntrustedHttp.CreateClient() -> System.Net.Http.HttpClient!
+ATProtoNet.Net.UntrustedHttp.Dispose() -> void
+ATProtoNet.Net.UntrustedHttp.GetAsync(System.Uri! url, ATProtoNet.Net.UntrustedRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Net.UntrustedResponse!>!
+ATProtoNet.Net.UntrustedHttp.IsEnforced.get -> bool
+ATProtoNet.Net.UntrustedHttp.Policy.get -> ATProtoNet.Net.UntrustedFetchPolicy!
+ATProtoNet.Net.UntrustedHttp.PostAsync(System.Uri! url, System.Net.Http.HttpContent! content, ATProtoNet.Net.UntrustedRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Net.UntrustedResponse!>!
+ATProtoNet.Net.UntrustedHttp.UntrustedHttp(ATProtoNet.Net.UntrustedFetchPolicy? policy = null, System.TimeProvider? time = null, Microsoft.Extensions.Logging.ILogger? logger = null, System.Net.Http.HttpMessageHandler? handler = null) -> void
+ATProtoNet.Net.UntrustedRequest
+ATProtoNet.Net.UntrustedRequest.Accept.get -> string?
+ATProtoNet.Net.UntrustedRequest.Accept.init -> void
+ATProtoNet.Net.UntrustedRequest.<Clone>$() -> ATProtoNet.Net.UntrustedRequest!
+ATProtoNet.Net.UntrustedRequest.Equals(ATProtoNet.Net.UntrustedRequest? other) -> bool
+ATProtoNet.Net.UntrustedRequest.MaxBodyBytes.get -> int
+ATProtoNet.Net.UntrustedRequest.MaxBodyBytes.init -> void
+ATProtoNet.Net.UntrustedRequest.MaxSameHostRedirects.get -> int
+ATProtoNet.Net.UntrustedRequest.MaxSameHostRedirects.init -> void
+ATProtoNet.Net.UntrustedRequest.UntrustedRequest() -> void
+ATProtoNet.Net.UntrustedResponse
+ATProtoNet.Net.UntrustedResponse.Body.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Net.UntrustedResponse.EnsureSuccess() -> ATProtoNet.Net.UntrustedResponse!
+ATProtoNet.Net.UntrustedResponse.FinalUrl.get -> System.Uri!
+ATProtoNet.Net.UntrustedResponse.IsSuccess.get -> bool
+ATProtoNet.Net.UntrustedResponse.Status.get -> System.Net.HttpStatusCode
+const ATProtoNet.Net.DnsOverHttpsTxtResolver.MaxResponseBytes = 65536 -> int
+const ATProtoNet.Net.UntrustedHttp.MaxErrorBodyBytes = 65536 -> int
+override ATProtoNet.Net.UntrustedFetchPolicy.Equals(object? obj) -> bool
+override ATProtoNet.Net.UntrustedFetchPolicy.GetHashCode() -> int
+override ATProtoNet.Net.UntrustedFetchPolicy.ToString() -> string!
+override ATProtoNet.Net.UntrustedRequest.Equals(object? obj) -> bool
+override ATProtoNet.Net.UntrustedRequest.GetHashCode() -> int
+override ATProtoNet.Net.UntrustedRequest.ToString() -> string!
+static ATProtoNet.Net.DnsOverHttpsTxtResolver.DefaultEndpoint.get -> System.Uri!
+static ATProtoNet.Net.UntrustedFetchPolicy.IsPublicAddress(System.Net.IPAddress! address) -> bool
+static ATProtoNet.Net.UntrustedFetchPolicy.operator !=(ATProtoNet.Net.UntrustedFetchPolicy? left, ATProtoNet.Net.UntrustedFetchPolicy? right) -> bool
+static ATProtoNet.Net.UntrustedFetchPolicy.operator ==(ATProtoNet.Net.UntrustedFetchPolicy? left, ATProtoNet.Net.UntrustedFetchPolicy? right) -> bool
+static ATProtoNet.Net.UntrustedRequest.operator !=(ATProtoNet.Net.UntrustedRequest? left, ATProtoNet.Net.UntrustedRequest? right) -> bool
+static ATProtoNet.Net.UntrustedRequest.operator ==(ATProtoNet.Net.UntrustedRequest? left, ATProtoNet.Net.UntrustedRequest? right) -> bool
+ATProtoNet.Identity.DidDocument
+ATProtoNet.Identity.DidDocument.AlsoKnownAs.get -> System.Collections.Generic.IReadOnlyList<string!>!
+ATProtoNet.Identity.DidDocumentEntryStatus
+ATProtoNet.Identity.DidDocumentEntryStatus.Absent = 0 -> ATProtoNet.Identity.DidDocumentEntryStatus
+ATProtoNet.Identity.DidDocumentEntryStatus.Found = 1 -> ATProtoNet.Identity.DidDocumentEntryStatus
+ATProtoNet.Identity.DidDocumentEntryStatus.Malformed = 2 -> ATProtoNet.Identity.DidDocumentEntryStatus
+ATProtoNet.Identity.DidDocumentEntry<T>
+ATProtoNet.Identity.DidDocumentEntry<T>.Deconstruct(out ATProtoNet.Identity.DidDocumentEntryStatus Status, out T? Value) -> void
+ATProtoNet.Identity.DidDocumentEntry<T>.DidDocumentEntry(ATProtoNet.Identity.DidDocumentEntryStatus Status, T? Value) -> void
+ATProtoNet.Identity.DidDocumentEntry<T>.DidDocumentEntry() -> void
+~ATProtoNet.Identity.DidDocumentEntry<T>.Equals(ATProtoNet.Identity.DidDocumentEntry<T> other) -> bool
+ATProtoNet.Identity.DidDocumentEntry<T>.Status.get -> ATProtoNet.Identity.DidDocumentEntryStatus
+ATProtoNet.Identity.DidDocumentEntry<T>.Status.init -> void
+ATProtoNet.Identity.DidDocumentEntry<T>.Value.get -> T?
+ATProtoNet.Identity.DidDocumentEntry<T>.Value.init -> void
+ATProtoNet.Identity.DidDocument.GetHandle() -> ATProtoNet.Handle?
+ATProtoNet.Identity.DidDocument.GetPdsEndpoint() -> System.Uri?
+ATProtoNet.Identity.DidDocument.GetSigningKey() -> ATProtoNet.Crypto.DidKey?
+ATProtoNet.Identity.DidDocument.Id.get -> ATProtoNet.Did!
+ATProtoNet.Identity.DidDocument.Json.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Identity.DidDocument.Services.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Identity.DidService!>!
+ATProtoNet.Identity.DidDocument.TryGetKemKey() -> ATProtoNet.Identity.DidDocumentEntry<ATProtoNet.Crypto.KemPublicKey!>
+ATProtoNet.Identity.DidDocument.TryGetServiceEndpoint(string! fragment, string? type = null) -> ATProtoNet.Identity.DidDocumentEntry<System.Uri!>
+ATProtoNet.Identity.DidDocument.TryGetVerificationKey(string! fragment) -> ATProtoNet.Identity.DidDocumentEntry<ATProtoNet.Crypto.DidKey!>
+ATProtoNet.Identity.DidDocument.VerificationMethods.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Identity.VerificationMethod!>!
+ATProtoNet.Identity.DidService
+ATProtoNet.Identity.DidService.DidService(string! Id, string! Type, string? Endpoint) -> void
+ATProtoNet.Identity.DidService.Endpoint.get -> string?
+ATProtoNet.Identity.DidService.Id.get -> string!
+ATProtoNet.Identity.DidService.Type.get -> string!
+ATProtoNet.Identity.VerificationMethod
+ATProtoNet.Identity.VerificationMethod.Controller.get -> string?
+ATProtoNet.Identity.VerificationMethod.Id.get -> string!
+ATProtoNet.Identity.VerificationMethod.PublicKeyMultibase.get -> string?
+ATProtoNet.Identity.VerificationMethod.ToDidKey() -> ATProtoNet.Crypto.DidKey?
+ATProtoNet.Identity.VerificationMethod.Type.get -> string!
+ATProtoNet.Identity.VerificationMethod.VerificationMethod(string! Id, string! Type, string? Controller, string? PublicKeyMultibase) -> void
+const ATProtoNet.Identity.DidDocument.KemKeyId = "#atproto_kem" -> string!
+const ATProtoNet.Identity.DidDocument.LabelerServiceId = "#atproto_labeler" -> string!
+const ATProtoNet.Identity.DidDocument.LabelerServiceType = "AtprotoLabeler" -> string!
+const ATProtoNet.Identity.DidDocument.LabelKeyId = "#atproto_label" -> string!
+const ATProtoNet.Identity.DidDocument.PdsServiceId = "#atproto_pds" -> string!
+const ATProtoNet.Identity.DidDocument.PdsServiceType = "AtprotoPersonalDataServer" -> string!
+const ATProtoNet.Identity.DidDocument.SigningKeyId = "#atproto" -> string!
+~override ATProtoNet.Identity.DidDocumentEntry<T>.Equals(object obj) -> bool
+override ATProtoNet.Identity.DidDocumentEntry<T>.GetHashCode() -> int
+~override ATProtoNet.Identity.DidDocumentEntry<T>.ToString() -> string
+~static ATProtoNet.Identity.DidDocumentEntry<T>.operator !=(ATProtoNet.Identity.DidDocumentEntry<T> left, ATProtoNet.Identity.DidDocumentEntry<T> right) -> bool
+~static ATProtoNet.Identity.DidDocumentEntry<T>.operator ==(ATProtoNet.Identity.DidDocumentEntry<T> left, ATProtoNet.Identity.DidDocumentEntry<T> right) -> bool
+static ATProtoNet.Identity.DidDocument.Parse(System.ReadOnlySpan<byte> json) -> ATProtoNet.Identity.DidDocument!
+ATProtoNet.Identity.CachingDidResolver
+ATProtoNet.Identity.CachingDidResolver.CachingDidResolver(ATProtoNet.Identity.IDidResolver! inner, ATProtoNet.Identity.DidCacheOptions? options = null, Microsoft.Extensions.Caching.Distributed.IDistributedCache? shared = null, System.TimeProvider? time = null, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
+ATProtoNet.Identity.CachingDidResolver.FetchFreshAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.DidDocument!>!
+ATProtoNet.Identity.CachingDidResolver.InvalidateAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ATProtoNet.Identity.CachingDidResolver.RefreshAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.DidDocument!>!
+ATProtoNet.Identity.CachingDidResolver.ResolveAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.DidDocument!>!
+ATProtoNet.Identity.DidCacheOptions
+ATProtoNet.Identity.DidCacheOptions.Capacity.get -> int
+ATProtoNet.Identity.DidCacheOptions.Capacity.init -> void
+ATProtoNet.Identity.DidCacheOptions.<Clone>$() -> ATProtoNet.Identity.DidCacheOptions!
+ATProtoNet.Identity.DidCacheOptions.DidCacheOptions() -> void
+ATProtoNet.Identity.DidCacheOptions.DistributedCacheKeyPrefix.get -> string!
+ATProtoNet.Identity.DidCacheOptions.DistributedCacheKeyPrefix.init -> void
+ATProtoNet.Identity.DidCacheOptions.Equals(ATProtoNet.Identity.DidCacheOptions? other) -> bool
+ATProtoNet.Identity.DidCacheOptions.ExpireAfter.get -> System.TimeSpan
+ATProtoNet.Identity.DidCacheOptions.ExpireAfter.init -> void
+ATProtoNet.Identity.DidCacheOptions.FailureCapacity.get -> int
+ATProtoNet.Identity.DidCacheOptions.FailureCapacity.init -> void
+ATProtoNet.Identity.DidCacheOptions.FailureTtl.get -> System.TimeSpan
+ATProtoNet.Identity.DidCacheOptions.FailureTtl.init -> void
+ATProtoNet.Identity.DidCacheOptions.MinRefreshInterval.get -> System.TimeSpan
+ATProtoNet.Identity.DidCacheOptions.MinRefreshInterval.init -> void
+ATProtoNet.Identity.DidCacheOptions.StaleAfter.get -> System.TimeSpan
+ATProtoNet.Identity.DidCacheOptions.StaleAfter.init -> void
+ATProtoNet.Identity.DidResolver
+ATProtoNet.Identity.DidResolver.DidResolver(System.Collections.Generic.IReadOnlyDictionary<string!, ATProtoNet.Identity.IDidResolver!>! methods) -> void
+ATProtoNet.Identity.DidResolver.FetchFreshAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.DidDocument!>!
+ATProtoNet.Identity.DidResolver.InvalidateAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ATProtoNet.Identity.DidResolver.RefreshAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.DidDocument!>!
+ATProtoNet.Identity.DidResolver.ResolveAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.DidDocument!>!
+ATProtoNet.Identity.DidResolverExtensions
+static ATProtoNet.Identity.DidResolverExtensions.VerifyWithRefreshAsync(this ATProtoNet.Identity.IDidResolver! resolver, ATProtoNet.Did! did, System.Func<ATProtoNet.Identity.DidDocument!, ATProtoNet.Crypto.DidKey?>! selectKey, System.Func<ATProtoNet.Crypto.VerificationKey!, bool>! verify, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.KeyVerification>!
+ATProtoNet.Identity.KeyVerification
+ATProtoNet.Identity.KeyVerification.Deconstruct(out bool Verified, out ATProtoNet.Crypto.DidKey? KeyTried) -> void
+ATProtoNet.Identity.KeyVerification.Equals(ATProtoNet.Identity.KeyVerification other) -> bool
+~override ATProtoNet.Identity.KeyVerification.Equals(object obj) -> bool
+override ATProtoNet.Identity.KeyVerification.GetHashCode() -> int
+ATProtoNet.Identity.KeyVerification.KeyTried.get -> ATProtoNet.Crypto.DidKey?
+ATProtoNet.Identity.KeyVerification.KeyTried.init -> void
+ATProtoNet.Identity.KeyVerification.KeyVerification() -> void
+ATProtoNet.Identity.KeyVerification.KeyVerification(bool Verified, ATProtoNet.Crypto.DidKey? KeyTried) -> void
+~override ATProtoNet.Identity.KeyVerification.ToString() -> string
+ATProtoNet.Identity.KeyVerification.Verified.get -> bool
+ATProtoNet.Identity.KeyVerification.Verified.init -> void
+static ATProtoNet.Identity.KeyVerification.operator !=(ATProtoNet.Identity.KeyVerification left, ATProtoNet.Identity.KeyVerification right) -> bool
+static ATProtoNet.Identity.KeyVerification.operator ==(ATProtoNet.Identity.KeyVerification left, ATProtoNet.Identity.KeyVerification right) -> bool
+ATProtoNet.Identity.DidWebOptions
+ATProtoNet.Identity.DidWebOptions.<Clone>$() -> ATProtoNet.Identity.DidWebOptions!
+ATProtoNet.Identity.DidWebOptions.DidWebOptions() -> void
+ATProtoNet.Identity.DidWebOptions.Equals(ATProtoNet.Identity.DidWebOptions? other) -> bool
+ATProtoNet.Identity.DidWebOptions.MaxDidDocumentBytes.get -> int
+ATProtoNet.Identity.DidWebOptions.MaxDidDocumentBytes.init -> void
+ATProtoNet.Identity.DidWebResolver
+ATProtoNet.Identity.DidWebResolver.DidWebResolver(ATProtoNet.Net.UntrustedHttp! http, ATProtoNet.Identity.DidWebOptions? options = null) -> void
+ATProtoNet.Identity.DidWebResolver.ResolveAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.DidDocument!>!
+ATProtoNet.Identity.HandleResolver
+ATProtoNet.Identity.HandleResolver.HandleResolver(ATProtoNet.Net.UntrustedHttp! http, ATProtoNet.Net.IDnsTxtResolver? dns, ATProtoNet.Identity.HandleResolverOptions? options = null, System.TimeProvider? time = null, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
+ATProtoNet.Identity.HandleResolver.InvalidateAsync(ATProtoNet.Handle! handle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ATProtoNet.Identity.HandleResolverOptions
+ATProtoNet.Identity.HandleResolverOptions.Budget.get -> System.TimeSpan
+ATProtoNet.Identity.HandleResolverOptions.Budget.init -> void
+ATProtoNet.Identity.HandleResolverOptions.CacheCapacity.get -> int
+ATProtoNet.Identity.HandleResolverOptions.CacheCapacity.init -> void
+ATProtoNet.Identity.HandleResolverOptions.CacheTtl.get -> System.TimeSpan
+ATProtoNet.Identity.HandleResolverOptions.CacheTtl.init -> void
+ATProtoNet.Identity.HandleResolverOptions.<Clone>$() -> ATProtoNet.Identity.HandleResolverOptions!
+ATProtoNet.Identity.HandleResolverOptions.Equals(ATProtoNet.Identity.HandleResolverOptions? other) -> bool
+ATProtoNet.Identity.HandleResolverOptions.HandleResolverOptions() -> void
+ATProtoNet.Identity.HandleResolver.ResolveAsync(ATProtoNet.Handle! handle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Did?>!
+ATProtoNet.Identity.IdentityResolutionError
+ATProtoNet.Identity.IdentityResolutionError.Deactivated = 3 -> ATProtoNet.Identity.IdentityResolutionError
+ATProtoNet.Identity.IdentityResolutionError.HandleConflict = 6 -> ATProtoNet.Identity.IdentityResolutionError
+ATProtoNet.Identity.IdentityResolutionError.HandleNotFound = 5 -> ATProtoNet.Identity.IdentityResolutionError
+ATProtoNet.Identity.IdentityResolutionError.InvalidDid = 0 -> ATProtoNet.Identity.IdentityResolutionError
+ATProtoNet.Identity.IdentityResolutionError.InvalidDocument = 4 -> ATProtoNet.Identity.IdentityResolutionError
+ATProtoNet.Identity.IdentityResolutionError.NotFound = 2 -> ATProtoNet.Identity.IdentityResolutionError
+ATProtoNet.Identity.IdentityResolutionError.Unavailable = 7 -> ATProtoNet.Identity.IdentityResolutionError
+ATProtoNet.Identity.IdentityResolutionError.UnsupportedMethod = 1 -> ATProtoNet.Identity.IdentityResolutionError
+ATProtoNet.Identity.IdentityResolutionException
+ATProtoNet.Identity.IdentityResolutionException.Error.get -> ATProtoNet.Identity.IdentityResolutionError
+ATProtoNet.Identity.IdentityResolutionException.Identifier.get -> ATProtoNet.AtIdentifier?
+ATProtoNet.Identity.IdentityResolutionException.IdentityResolutionException(ATProtoNet.Identity.IdentityResolutionError error, string! message, ATProtoNet.AtIdentifier? identifier = null, System.Exception? innerException = null) -> void
+ATProtoNet.Identity.IdentityResolveOptions
+ATProtoNet.Identity.IdentityResolveOptions.BypassCache.get -> bool
+ATProtoNet.Identity.IdentityResolveOptions.BypassCache.init -> void
+ATProtoNet.Identity.IdentityResolveOptions.<Clone>$() -> ATProtoNet.Identity.IdentityResolveOptions!
+ATProtoNet.Identity.IdentityResolveOptions.Equals(ATProtoNet.Identity.IdentityResolveOptions? other) -> bool
+ATProtoNet.Identity.IdentityResolveOptions.IdentityResolveOptions() -> void
+ATProtoNet.Identity.IdentityResolver
+ATProtoNet.Identity.IdentityResolver.IdentityResolver(ATProtoNet.Identity.IDidResolver! dids, ATProtoNet.Identity.IHandleResolver! handles, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
+ATProtoNet.Identity.IdentityResolver.InvalidateAsync(ATProtoNet.AtIdentifier! identifier, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ATProtoNet.Identity.IdentityResolver.ResolveAsync(ATProtoNet.AtIdentifier! identifier, ATProtoNet.Identity.IdentityResolveOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.ResolvedIdentity!>!
+ATProtoNet.Identity.IDidResolver
+ATProtoNet.Identity.IDidResolver.FetchFreshAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.DidDocument!>!
+ATProtoNet.Identity.IDidResolver.InvalidateAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ATProtoNet.Identity.IDidResolver.RefreshAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.DidDocument!>!
+ATProtoNet.Identity.IDidResolver.ResolveAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.DidDocument!>!
+ATProtoNet.Identity.IHandleResolver
+ATProtoNet.Identity.IHandleResolver.InvalidateAsync(ATProtoNet.Handle! handle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ATProtoNet.Identity.IHandleResolver.ResolveAsync(ATProtoNet.Handle! handle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Did?>!
+ATProtoNet.Identity.IIdentityResolver
+ATProtoNet.Identity.IIdentityResolver.InvalidateAsync(ATProtoNet.AtIdentifier! identifier, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+ATProtoNet.Identity.IIdentityResolver.ResolveAsync(ATProtoNet.AtIdentifier! identifier, ATProtoNet.Identity.IdentityResolveOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.ResolvedIdentity!>!
+ATProtoNet.Identity.ResolvedIdentity
+ATProtoNet.Identity.ResolvedIdentity.<Clone>$() -> ATProtoNet.Identity.ResolvedIdentity!
+ATProtoNet.Identity.ResolvedIdentity.Deconstruct(out ATProtoNet.Did! Did, out ATProtoNet.Handle? Handle, out bool HandleVerified, out ATProtoNet.Identity.DidDocument! Document) -> void
+ATProtoNet.Identity.ResolvedIdentity.Did.get -> ATProtoNet.Did!
+ATProtoNet.Identity.ResolvedIdentity.Did.init -> void
+ATProtoNet.Identity.ResolvedIdentity.Document.get -> ATProtoNet.Identity.DidDocument!
+ATProtoNet.Identity.ResolvedIdentity.Document.init -> void
+ATProtoNet.Identity.ResolvedIdentity.Equals(ATProtoNet.Identity.ResolvedIdentity? other) -> bool
+ATProtoNet.Identity.ResolvedIdentity.Handle.get -> ATProtoNet.Handle?
+ATProtoNet.Identity.ResolvedIdentity.Handle.init -> void
+ATProtoNet.Identity.ResolvedIdentity.HandleVerified.get -> bool
+ATProtoNet.Identity.ResolvedIdentity.HandleVerified.init -> void
+ATProtoNet.Identity.ResolvedIdentity.Pds.get -> System.Uri?
+ATProtoNet.Identity.ResolvedIdentity.ResolvedIdentity(ATProtoNet.Did! Did, ATProtoNet.Handle? Handle, bool HandleVerified, ATProtoNet.Identity.DidDocument! Document) -> void
+ATProtoNet.Identity.ResolvedIdentity.SigningKey.get -> ATProtoNet.Crypto.DidKey?
+const ATProtoNet.Identity.HandleResolver.MaxWellKnownBytes = 2048 -> int
+const ATProtoNet.Identity.HandleResolver.MaxWellKnownRedirects = 3 -> int
+override ATProtoNet.Identity.DidCacheOptions.Equals(object? obj) -> bool
+override ATProtoNet.Identity.DidCacheOptions.GetHashCode() -> int
+override ATProtoNet.Identity.DidCacheOptions.ToString() -> string!
+override ATProtoNet.Identity.DidWebOptions.Equals(object? obj) -> bool
+override ATProtoNet.Identity.DidWebOptions.GetHashCode() -> int
+override ATProtoNet.Identity.DidWebOptions.ToString() -> string!
+override ATProtoNet.Identity.HandleResolverOptions.Equals(object? obj) -> bool
+override ATProtoNet.Identity.HandleResolverOptions.GetHashCode() -> int
+override ATProtoNet.Identity.HandleResolverOptions.ToString() -> string!
+override ATProtoNet.Identity.IdentityResolveOptions.Equals(object? obj) -> bool
+override ATProtoNet.Identity.IdentityResolveOptions.GetHashCode() -> int
+override ATProtoNet.Identity.IdentityResolveOptions.ToString() -> string!
+override ATProtoNet.Identity.ResolvedIdentity.Equals(object? obj) -> bool
+override ATProtoNet.Identity.ResolvedIdentity.GetHashCode() -> int
+override ATProtoNet.Identity.ResolvedIdentity.ToString() -> string!
+static ATProtoNet.Identity.DidCacheOptions.operator !=(ATProtoNet.Identity.DidCacheOptions? left, ATProtoNet.Identity.DidCacheOptions? right) -> bool
+static ATProtoNet.Identity.DidCacheOptions.operator ==(ATProtoNet.Identity.DidCacheOptions? left, ATProtoNet.Identity.DidCacheOptions? right) -> bool
+static ATProtoNet.Identity.DidWebOptions.operator !=(ATProtoNet.Identity.DidWebOptions? left, ATProtoNet.Identity.DidWebOptions? right) -> bool
+static ATProtoNet.Identity.DidWebOptions.operator ==(ATProtoNet.Identity.DidWebOptions? left, ATProtoNet.Identity.DidWebOptions? right) -> bool
+static ATProtoNet.Identity.HandleResolverOptions.operator !=(ATProtoNet.Identity.HandleResolverOptions? left, ATProtoNet.Identity.HandleResolverOptions? right) -> bool
+static ATProtoNet.Identity.HandleResolverOptions.operator ==(ATProtoNet.Identity.HandleResolverOptions? left, ATProtoNet.Identity.HandleResolverOptions? right) -> bool
+static ATProtoNet.Identity.IdentityResolveOptions.operator !=(ATProtoNet.Identity.IdentityResolveOptions? left, ATProtoNet.Identity.IdentityResolveOptions? right) -> bool
+static ATProtoNet.Identity.IdentityResolveOptions.operator ==(ATProtoNet.Identity.IdentityResolveOptions? left, ATProtoNet.Identity.IdentityResolveOptions? right) -> bool
+static ATProtoNet.Identity.ResolvedIdentity.operator !=(ATProtoNet.Identity.ResolvedIdentity? left, ATProtoNet.Identity.ResolvedIdentity? right) -> bool
+static ATProtoNet.Identity.ResolvedIdentity.operator ==(ATProtoNet.Identity.ResolvedIdentity? left, ATProtoNet.Identity.ResolvedIdentity? right) -> bool
+abstract ATProtoNet.Identity.Plc.PlcOperation.<Clone>$() -> ATProtoNet.Identity.Plc.PlcOperation!
+ATProtoNet.Identity.Plc.PlcLegacyCreate
+ATProtoNet.Identity.Plc.PlcLegacyCreate.Equals(ATProtoNet.Identity.Plc.PlcLegacyCreate? other) -> bool
+ATProtoNet.Identity.Plc.PlcLegacyCreate.Handle.get -> string!
+ATProtoNet.Identity.Plc.PlcLegacyCreate.Handle.init -> void
+ATProtoNet.Identity.Plc.PlcLegacyCreate.PlcLegacyCreate() -> void
+ATProtoNet.Identity.Plc.PlcLegacyCreate.RecoveryKey.get -> ATProtoNet.Crypto.DidKey!
+ATProtoNet.Identity.Plc.PlcLegacyCreate.RecoveryKey.init -> void
+ATProtoNet.Identity.Plc.PlcLegacyCreate.Service.get -> string!
+ATProtoNet.Identity.Plc.PlcLegacyCreate.Service.init -> void
+ATProtoNet.Identity.Plc.PlcLegacyCreate.SigningKey.get -> ATProtoNet.Crypto.DidKey!
+ATProtoNet.Identity.Plc.PlcLegacyCreate.SigningKey.init -> void
+ATProtoNet.Identity.Plc.PlcOperation
+ATProtoNet.Identity.Plc.PlcOperation.PlcOperation(ATProtoNet.Identity.Plc.PlcOperation! original) -> void
+ATProtoNet.Identity.Plc.PlcOperation.PlcOperation() -> void
+ATProtoNet.Identity.Plc.PlcOperation.Prev.get -> ATProtoNet.Cid?
+ATProtoNet.Identity.Plc.PlcOperation.Prev.init -> void
+ATProtoNet.Identity.Plc.PlcService
+ATProtoNet.Identity.Plc.PlcService.<Clone>$() -> ATProtoNet.Identity.Plc.PlcService!
+ATProtoNet.Identity.Plc.PlcService.Deconstruct(out string! Type, out System.Uri! Endpoint) -> void
+ATProtoNet.Identity.Plc.PlcService.Endpoint.get -> System.Uri!
+ATProtoNet.Identity.Plc.PlcService.Endpoint.init -> void
+ATProtoNet.Identity.Plc.PlcService.Equals(ATProtoNet.Identity.Plc.PlcService? other) -> bool
+ATProtoNet.Identity.Plc.PlcService.PlcService(string! Type, System.Uri! Endpoint) -> void
+ATProtoNet.Identity.Plc.PlcService.Type.get -> string!
+ATProtoNet.Identity.Plc.PlcService.Type.init -> void
+ATProtoNet.Identity.Plc.PlcTombstone
+ATProtoNet.Identity.Plc.PlcTombstone.Equals(ATProtoNet.Identity.Plc.PlcTombstone? other) -> bool
+ATProtoNet.Identity.Plc.PlcTombstone.PlcTombstone() -> void
+ATProtoNet.Identity.Plc.PlcUpdate
+ATProtoNet.Identity.Plc.PlcUpdate.AlsoKnownAs.get -> System.Collections.Generic.IReadOnlyList<string!>!
+ATProtoNet.Identity.Plc.PlcUpdate.AlsoKnownAs.init -> void
+ATProtoNet.Identity.Plc.PlcUpdate.Equals(ATProtoNet.Identity.Plc.PlcUpdate? other) -> bool
+ATProtoNet.Identity.Plc.PlcUpdate.PlcUpdate() -> void
+ATProtoNet.Identity.Plc.PlcUpdate.RotationKeys.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Crypto.DidKey!>!
+ATProtoNet.Identity.Plc.PlcUpdate.RotationKeys.init -> void
+ATProtoNet.Identity.Plc.PlcUpdate.Services.get -> System.Collections.Generic.IReadOnlyDictionary<string!, ATProtoNet.Identity.Plc.PlcService!>!
+ATProtoNet.Identity.Plc.PlcUpdate.Services.init -> void
+ATProtoNet.Identity.Plc.PlcUpdate.VerificationMethods.get -> System.Collections.Generic.IReadOnlyDictionary<string!, ATProtoNet.Crypto.DidKey!>!
+ATProtoNet.Identity.Plc.PlcUpdate.VerificationMethods.init -> void
+ATProtoNet.Identity.Plc.SignedPlcOperation
+ATProtoNet.Identity.Plc.SignedPlcOperation.Cid.get -> ATProtoNet.Cid!
+ATProtoNet.Identity.Plc.SignedPlcOperation.DeriveDid() -> ATProtoNet.Did!
+ATProtoNet.Identity.Plc.SignedPlcOperation.Operation.get -> ATProtoNet.Identity.Plc.PlcOperation!
+ATProtoNet.Identity.Plc.SignedPlcOperation.Signature.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Identity.Plc.SignedPlcOperation.ToJson() -> System.ReadOnlyMemory<byte>
+ATProtoNet.Identity.Plc.SignedPlcOperation.Verify(ATProtoNet.Crypto.DidKey! rotationKey) -> bool
+const ATProtoNet.Identity.Plc.PlcService.MaxEndpointLength = 512 -> int
+const ATProtoNet.Identity.Plc.PlcService.MaxTypeLength = 256 -> int
+const ATProtoNet.Identity.Plc.PlcUpdate.MaxAlsoKnownAs = 10 -> int
+const ATProtoNet.Identity.Plc.PlcUpdate.MaxAlsoKnownAsLength = 258 -> int
+const ATProtoNet.Identity.Plc.PlcUpdate.MaxIdLength = 32 -> int
+const ATProtoNet.Identity.Plc.PlcUpdate.MaxRotationKeys = 5 -> int
+const ATProtoNet.Identity.Plc.PlcUpdate.MaxServices = 10 -> int
+const ATProtoNet.Identity.Plc.PlcUpdate.MaxVerificationMethods = 10 -> int
+const ATProtoNet.Identity.Plc.SignedPlcOperation.MaxOperationBytes = 4000 -> int
+override ATProtoNet.Identity.Plc.PlcLegacyCreate.<Clone>$() -> ATProtoNet.Identity.Plc.PlcLegacyCreate!
+override ATProtoNet.Identity.Plc.PlcLegacyCreate.Equals(object? obj) -> bool
+override ATProtoNet.Identity.Plc.PlcLegacyCreate.GetHashCode() -> int
+override ATProtoNet.Identity.Plc.PlcLegacyCreate.ToString() -> string!
+override ATProtoNet.Identity.Plc.PlcOperation.Equals(object? obj) -> bool
+override ATProtoNet.Identity.Plc.PlcOperation.GetHashCode() -> int
+override ATProtoNet.Identity.Plc.PlcOperation.ToString() -> string!
+override ATProtoNet.Identity.Plc.PlcService.Equals(object? obj) -> bool
+override ATProtoNet.Identity.Plc.PlcService.GetHashCode() -> int
+override ATProtoNet.Identity.Plc.PlcService.ToString() -> string!
+override ATProtoNet.Identity.Plc.PlcTombstone.<Clone>$() -> ATProtoNet.Identity.Plc.PlcTombstone!
+override ATProtoNet.Identity.Plc.PlcTombstone.Equals(object? obj) -> bool
+override ATProtoNet.Identity.Plc.PlcTombstone.GetHashCode() -> int
+override ATProtoNet.Identity.Plc.PlcTombstone.ToString() -> string!
+override ATProtoNet.Identity.Plc.PlcUpdate.<Clone>$() -> ATProtoNet.Identity.Plc.PlcUpdate!
+override ATProtoNet.Identity.Plc.PlcUpdate.Equals(object? obj) -> bool
+override ATProtoNet.Identity.Plc.PlcUpdate.GetHashCode() -> int
+override ATProtoNet.Identity.Plc.PlcUpdate.ToString() -> string!
+override sealed ATProtoNet.Identity.Plc.PlcLegacyCreate.Equals(ATProtoNet.Identity.Plc.PlcOperation? other) -> bool
+override sealed ATProtoNet.Identity.Plc.PlcTombstone.Equals(ATProtoNet.Identity.Plc.PlcOperation? other) -> bool
+override sealed ATProtoNet.Identity.Plc.PlcUpdate.Equals(ATProtoNet.Identity.Plc.PlcOperation? other) -> bool
+static ATProtoNet.Identity.Plc.PlcLegacyCreate.operator !=(ATProtoNet.Identity.Plc.PlcLegacyCreate? left, ATProtoNet.Identity.Plc.PlcLegacyCreate? right) -> bool
+static ATProtoNet.Identity.Plc.PlcLegacyCreate.operator ==(ATProtoNet.Identity.Plc.PlcLegacyCreate? left, ATProtoNet.Identity.Plc.PlcLegacyCreate? right) -> bool
+static ATProtoNet.Identity.Plc.PlcOperation.operator !=(ATProtoNet.Identity.Plc.PlcOperation? left, ATProtoNet.Identity.Plc.PlcOperation? right) -> bool
+static ATProtoNet.Identity.Plc.PlcOperation.operator ==(ATProtoNet.Identity.Plc.PlcOperation? left, ATProtoNet.Identity.Plc.PlcOperation? right) -> bool
+static ATProtoNet.Identity.Plc.PlcService.operator !=(ATProtoNet.Identity.Plc.PlcService? left, ATProtoNet.Identity.Plc.PlcService? right) -> bool
+static ATProtoNet.Identity.Plc.PlcService.operator ==(ATProtoNet.Identity.Plc.PlcService? left, ATProtoNet.Identity.Plc.PlcService? right) -> bool
+static ATProtoNet.Identity.Plc.PlcTombstone.operator !=(ATProtoNet.Identity.Plc.PlcTombstone? left, ATProtoNet.Identity.Plc.PlcTombstone? right) -> bool
+static ATProtoNet.Identity.Plc.PlcTombstone.operator ==(ATProtoNet.Identity.Plc.PlcTombstone? left, ATProtoNet.Identity.Plc.PlcTombstone? right) -> bool
+static ATProtoNet.Identity.Plc.PlcUpdate.operator !=(ATProtoNet.Identity.Plc.PlcUpdate? left, ATProtoNet.Identity.Plc.PlcUpdate? right) -> bool
+static ATProtoNet.Identity.Plc.PlcUpdate.operator ==(ATProtoNet.Identity.Plc.PlcUpdate? left, ATProtoNet.Identity.Plc.PlcUpdate? right) -> bool
+static ATProtoNet.Identity.Plc.SignedPlcOperation.Parse(System.ReadOnlySpan<byte> json) -> ATProtoNet.Identity.Plc.SignedPlcOperation!
+static ATProtoNet.Identity.Plc.SignedPlcOperation.Sign(ATProtoNet.Identity.Plc.PlcOperation! operation, ATProtoNet.Crypto.SigningKey! rotationKey) -> ATProtoNet.Identity.Plc.SignedPlcOperation!
+virtual ATProtoNet.Identity.Plc.PlcOperation.EqualityContract.get -> System.Type!
+virtual ATProtoNet.Identity.Plc.PlcOperation.Equals(ATProtoNet.Identity.Plc.PlcOperation? other) -> bool
+virtual ATProtoNet.Identity.Plc.PlcOperation.PrintMembers(System.Text.StringBuilder! builder) -> bool
+ATProtoNet.Identity.Plc.PlcAuditEntry
+ATProtoNet.Identity.Plc.PlcAuditEntry.Cid.get -> ATProtoNet.Cid!
+ATProtoNet.Identity.Plc.PlcAuditEntry.Cid.init -> void
+ATProtoNet.Identity.Plc.PlcAuditEntry.<Clone>$() -> ATProtoNet.Identity.Plc.PlcAuditEntry!
+ATProtoNet.Identity.Plc.PlcAuditEntry.CreatedAt.get -> System.DateTimeOffset
+ATProtoNet.Identity.Plc.PlcAuditEntry.CreatedAt.init -> void
+ATProtoNet.Identity.Plc.PlcAuditEntry.Deconstruct(out ATProtoNet.Did! Did, out ATProtoNet.Identity.Plc.SignedPlcOperation! Operation, out ATProtoNet.Cid! Cid, out bool Nullified, out System.DateTimeOffset CreatedAt, out long? Seq) -> void
+ATProtoNet.Identity.Plc.PlcAuditEntry.Did.get -> ATProtoNet.Did!
+ATProtoNet.Identity.Plc.PlcAuditEntry.Did.init -> void
+ATProtoNet.Identity.Plc.PlcAuditEntry.Equals(ATProtoNet.Identity.Plc.PlcAuditEntry? other) -> bool
+ATProtoNet.Identity.Plc.PlcAuditEntry.Nullified.get -> bool
+ATProtoNet.Identity.Plc.PlcAuditEntry.Nullified.init -> void
+ATProtoNet.Identity.Plc.PlcAuditEntry.Operation.get -> ATProtoNet.Identity.Plc.SignedPlcOperation!
+ATProtoNet.Identity.Plc.PlcAuditEntry.Operation.init -> void
+ATProtoNet.Identity.Plc.PlcAuditEntry.PlcAuditEntry(ATProtoNet.Did! Did, ATProtoNet.Identity.Plc.SignedPlcOperation! Operation, ATProtoNet.Cid! Cid, bool Nullified, System.DateTimeOffset CreatedAt, long? Seq) -> void
+ATProtoNet.Identity.Plc.PlcAuditEntry.Seq.get -> long?
+ATProtoNet.Identity.Plc.PlcAuditEntry.Seq.init -> void
+ATProtoNet.Identity.Plc.PlcClient
+ATProtoNet.Identity.Plc.PlcClient.Directory.get -> System.Uri!
+ATProtoNet.Identity.Plc.PlcClient.ExportAsync(long after = 0, int count = 1000, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<ATProtoNet.Identity.Plc.PlcAuditEntry!>!>!
+ATProtoNet.Identity.Plc.PlcClient.GetAuditLogAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<ATProtoNet.Identity.Plc.PlcAuditEntry!>!>!
+ATProtoNet.Identity.Plc.PlcClient.GetLastOperationAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.Plc.SignedPlcOperation!>!
+ATProtoNet.Identity.Plc.PlcClient.GetOperationLogAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<ATProtoNet.Identity.Plc.SignedPlcOperation!>!>!
+ATProtoNet.Identity.Plc.PlcClient.GetStateAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.Plc.PlcUpdate!>!
+ATProtoNet.Identity.Plc.PlcClient.IsHealthyAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+ATProtoNet.Identity.Plc.PlcClient.PlcClient(ATProtoNet.Net.UntrustedHttp! http, System.Uri? directory = null) -> void
+ATProtoNet.Identity.Plc.PlcClient.ResolveAsync(ATProtoNet.Did! did, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<ATProtoNet.Identity.DidDocument!>!
+ATProtoNet.Identity.Plc.PlcClient.SubmitAsync(ATProtoNet.Did! did, ATProtoNet.Identity.Plc.SignedPlcOperation! operation, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+ATProtoNet.Identity.Plc.PlcOperationRejectedException
+ATProtoNet.Identity.Plc.PlcOperationRejectedException.DirectoryMessage.get -> string?
+ATProtoNet.Identity.Plc.PlcOperationRejectedException.PlcOperationRejectedException(string! message, string? directoryMessage = null, System.Exception? innerException = null) -> void
+const ATProtoNet.Identity.Plc.PlcClient.MaxDocumentBytes = 65536 -> int
+const ATProtoNet.Identity.Plc.PlcClient.MaxExportBytes = 33554432 -> int
+const ATProtoNet.Identity.Plc.PlcClient.MaxExportCount = 1000 -> int
+const ATProtoNet.Identity.Plc.PlcClient.MaxLogBytes = 8388608 -> int
+override ATProtoNet.Identity.Plc.PlcAuditEntry.Equals(object? obj) -> bool
+override ATProtoNet.Identity.Plc.PlcAuditEntry.GetHashCode() -> int
+override ATProtoNet.Identity.Plc.PlcAuditEntry.ToString() -> string!
+static ATProtoNet.Identity.Plc.PlcAuditEntry.operator !=(ATProtoNet.Identity.Plc.PlcAuditEntry? left, ATProtoNet.Identity.Plc.PlcAuditEntry? right) -> bool
+static ATProtoNet.Identity.Plc.PlcAuditEntry.operator ==(ATProtoNet.Identity.Plc.PlcAuditEntry? left, ATProtoNet.Identity.Plc.PlcAuditEntry? right) -> bool
+static ATProtoNet.Identity.Plc.PlcClient.DefaultDirectory.get -> System.Uri!
+ATProtoNet.Identity.IdentityDefaults
+ATProtoNet.Identity.IdentityDefaults.Cache.get -> ATProtoNet.Identity.DidCacheOptions?
+ATProtoNet.Identity.IdentityDefaults.Cache.init -> void
+ATProtoNet.Identity.IdentityDefaults.<Clone>$() -> ATProtoNet.Identity.IdentityDefaults!
+ATProtoNet.Identity.IdentityDefaults.DidWeb.get -> ATProtoNet.Identity.DidWebOptions?
+ATProtoNet.Identity.IdentityDefaults.DidWeb.init -> void
+ATProtoNet.Identity.IdentityDefaults.Dns.get -> ATProtoNet.Net.IDnsTxtResolver?
+ATProtoNet.Identity.IdentityDefaults.Dns.init -> void
+ATProtoNet.Identity.IdentityDefaults.Equals(ATProtoNet.Identity.IdentityDefaults? other) -> bool
+ATProtoNet.Identity.IdentityDefaults.Handles.get -> ATProtoNet.Identity.HandleResolverOptions?
+ATProtoNet.Identity.IdentityDefaults.Handles.init -> void
+ATProtoNet.Identity.IdentityDefaults.IdentityDefaults() -> void
+ATProtoNet.Identity.IdentityDefaults.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+ATProtoNet.Identity.IdentityDefaults.Logger.init -> void
+ATProtoNet.Identity.IdentityDefaults.PlcDirectory.get -> System.Uri?
+ATProtoNet.Identity.IdentityDefaults.PlcDirectory.init -> void
+ATProtoNet.Identity.IdentityDefaults.SharedCache.get -> Microsoft.Extensions.Caching.Distributed.IDistributedCache?
+ATProtoNet.Identity.IdentityDefaults.SharedCache.init -> void
+ATProtoNet.Identity.IdentityDefaults.Time.get -> System.TimeProvider?
+ATProtoNet.Identity.IdentityDefaults.Time.init -> void
+ATProtoNet.Identity.IdentityResolverFactory
+override ATProtoNet.Identity.IdentityDefaults.Equals(object? obj) -> bool
+override ATProtoNet.Identity.IdentityDefaults.GetHashCode() -> int
+override ATProtoNet.Identity.IdentityDefaults.ToString() -> string!
+static ATProtoNet.Identity.IdentityDefaults.operator !=(ATProtoNet.Identity.IdentityDefaults? left, ATProtoNet.Identity.IdentityDefaults? right) -> bool
+static ATProtoNet.Identity.IdentityDefaults.operator ==(ATProtoNet.Identity.IdentityDefaults? left, ATProtoNet.Identity.IdentityDefaults? right) -> bool
+static ATProtoNet.Identity.IdentityResolverFactory.CreateDefault(ATProtoNet.Net.UntrustedHttp! http, ATProtoNet.Identity.IdentityDefaults? defaults = null) -> ATProtoNet.Identity.IIdentityResolver!

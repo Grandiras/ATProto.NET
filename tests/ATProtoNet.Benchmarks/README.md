@@ -20,6 +20,8 @@ its own project. `Legacy` runs every scenario; `Next` (`ATProtoNet.Benchmarks.Ne
 - **Phase 2:** `MstBenchmarks`, and the CAR's MST nodes come from `MerkleSearchTree`. The tree is
   persistent, so `UpdateAndRecomputeRoot` re-hashes only the edited paths where 0.8 rebuilt the
   whole tree. `MstBenchmarks.Diff` (no 0.8 counterpart) writes a 10-update commit's blocks.
+- **Phase 4:** `IdentityBenchmarks`, through `UntrustedHttp` over an in-process handler with DNS
+  disabled, as 0.8 ran it.
 
 ## Running
 

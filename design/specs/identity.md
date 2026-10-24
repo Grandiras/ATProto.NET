@@ -522,9 +522,13 @@ they use is ordinary identity resolution, not Spaces-specific code.
 | `HandleResolverOptions.CacheTtl` | 5 min, positive answers only | IDN-31 |
 | `DidCacheOptions.StaleAfter` / `ExpireAfter` / `FailureTtl` / `MinRefreshInterval` | 1 h / 24 h / 1 min / 30 s | IDN-37..IDN-40 |
 | `DidCacheOptions.Capacity` / `FailureCapacity` | 10,000 / 1,000 | IDN-43 |
-| `PlcClient.MaxLogBytes` / `MaxExportBytes` / `MaxErrorBodyBytes` | 8 MiB / 32 MiB / 64 KiB | IDN-47 |
+| `PlcClient.MaxLogBytes` / `MaxExportBytes` / `UntrustedHttp.MaxErrorBodyBytes` | 8 MiB / 32 MiB / 64 KiB | IDN-47 |
 | `PlcClient.MaxExportCount` | 1,000 | IDN-47 |
 | `PlcUpdate.MaxRotationKeys` | 5 | IDN-50 |
+| `PlcUpdate.MaxVerificationMethods` / `MaxServices` / `MaxAlsoKnownAs` | 10 each | IDN-50 (open point 3) |
+| `PlcUpdate.MaxAlsoKnownAsLength` / `MaxIdLength` | 258 / 32 characters | IDN-50 (open point 3) |
+| `PlcService.MaxTypeLength` / `MaxEndpointLength` | 256 / 512 characters | IDN-50 (open point 3) |
+| `SignedPlcOperation.MaxOperationBytes` | 4,000 bytes of signed DRISL | IDN-51 (open point 3) |
 
 ## Errors
 
@@ -577,16 +581,35 @@ records the outcome here in the same PR.
 1. **Native DNS.** Ship a UDP/TCP DNS TXT resolver against the system's configured resolvers as a
    second `IDnsTxtResolver`, to avoid disclosing handles to a DoH provider? Default: not in 0.9;
    keep the seam and document the privacy trade-off (IDN-11a).
+
+   *Phase 4 outcome:* default applied; `docs/identity.md` and the `DnsOverHttpsTxtResolver` remarks
+   state the trade-off, and `IdentityDefaults.Dns` takes another resolver.
 2. **PLC audit-chain verification.** Verify a DID's full operation log (signatures by rotation
    keys in force, `prev` chain, the 72-hour recovery window for higher-priority keys)? Default:
    phase 4 ships per-operation verification (IDN-54); full chain verification is a later addition
    behind `PlcAuditVerifier`.
+
+   *Phase 4 outcome:* per-operation verification only (`SignedPlcOperation.Verify`); there is no
+   `PlcAuditVerifier` yet.
 3. **PLC operation size and field limits** enforced by the directory (operation byte size,
    `alsoKnownAs` and service counts): mirror them client-side so a bad operation fails before
    submission? Default: yes, as named constants confirmed against the directory implementation in
    phase 4.
+
+   *Phase 4 outcome:* mirrored at `Sign` time as `ArgumentException`s, confirmed against
+   did-method-plc `packages/server/src/constraints.ts` at `ed532fadf23c524c0dfddc2e7c2b7da85b432ef5`
+   (2026-10-21): at most 4,000 bytes of signed DRISL, 10 `alsoKnownAs` entries of at most 258
+   characters without duplicates, 10 services (id at most 32, type 256, endpoint 512 characters),
+   10 verification methods (id at most 32 characters). Rotation keys stay at the spec's 1–5 without
+   duplicates although the directory accepts 10. Reading (`SignedPlcOperation.Parse`) applies no
+   limits but is as strict about fields as the reference's schemas (`packages/lib/src/types.ts`): an
+   unknown field is a `FormatException`. Verification methods are `DidKey`s, so an operation whose
+   verification method is a did:key of another curve (the directory accepts any) is refused too.
 4. **WASM behaviour.** Should `UntrustedHttp` refuse to run when `IsEnforced` is false unless the
    caller opts in? Default: no (browser apps cannot do otherwise); log and expose the flag.
+
+   *Phase 4 outcome:* default applied; the constructor logs a warning (event 1001) when the platform
+   cannot run the check.
 5. **Spaces DID-document identifiers.** Dedicated `#atproto_space_host` / `#atproto_space`
    entries versus reusing `#atproto_pds` / `#atproto`, the `#atproto_kem` key type, and a
    space authority's account status were open upstream. Default: implement the pinned
@@ -595,4 +618,36 @@ records the outcome here in the same PR.
    *Settled upstream (alpha release 2026-10-22, proposals #122/#123):* the dedicated entries are
    gone; an authority is its `#atproto_pds` and `#atproto`, and `#atproto_kem` is a P-256
    `Multikey` (IDN-55…59). The authority's account status stays open in
-   [spaces.md](spaces.md#open-points) (open point 4). Nothing was built yet (phase 4).
+   [spaces.md](spaces.md#open-points) (open point 4).
+
+   *Phase 4 outcome:* built to the 2026-10-22 alpha: `DidDocument.KemKeyId` and `TryGetKemKey`;
+   no space-specific entries, and `ResolvedIdentity` has no `SpaceHost` (its `Pds` is the host).
+
+## Phase 4 outcomes
+
+Deviations from the API sketch, settled while implementing (issue #243):
+
+- **One way to supply HTTP.** `UntrustedRequest.Client` is gone: `UntrustedHttp` takes an optional
+  `HttpMessageHandler` instead (one constructor, since the API analyzer forbids two overloads with
+  optional parameters), plus an `ILogger`. Over a caller's handler `IsEnforced` is false and the URL,
+  budget, body and redirect rules still apply; `IsEnforced` is also false under
+  `AllowPrivateNetworks`.
+- **`UntrustedHttp.PostAsync`** exists for PLC submission (redirects refused). `UntrustedResponse`
+  holds managed memory only, so it is not `IDisposable`; `EnsureSuccess` throws `HttpStatus`. Bodies
+  of non-2xx responses are kept up to `UntrustedHttp.MaxErrorBodyBytes` (64 KiB) and truncated, not
+  refused.
+- **`did:web:localhost` without the opt-out** is `IdentityResolutionError.Unavailable` with an inner
+  `UntrustedFetchException(Blocked)`, sent nowhere (IDN-10's wrapping rule; there is no `Blocked`
+  resolution error).
+- **PLC client shapes.** The log reads return `SignedPlcOperation` (no `PlcLogEntry`), `GetStateAsync`
+  returns the state as a `PlcUpdate` (no `PlcState`), `SubmitAsync` takes the DID next to the
+  operation, and `ExportAsync` returns the page's `PlcAuditEntry` list (continue after the last
+  `Seq`; no `PlcExportPage`). A transport failure while submitting surfaces as the
+  `UntrustedFetchException` itself.
+- **Clocks and logs everywhere.** `HandleResolver`, `CachingDidResolver` and `IdentityResolver` take a
+  `TimeProvider` and an `ILogger`; logging uses event IDs 1000–1030. `IdentityResolver` starts an
+  `identity resolve` activity on the `ATProtoNet.Identity` source.
+- **`DidDocument.Json`** exposes the parsed bytes, which the distributed tier stores. Legacy
+  `EcdsaSecp256*VerificationKey2019` entries also accept a compressed point.
+- **`IdentityDefaults`** carries the PLC directory, the TXT resolver, each component's options, the
+  shared cache, the clock and the logger.
