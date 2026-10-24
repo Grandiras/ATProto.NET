@@ -1,6 +1,7 @@
 using System.Text;
 using ATProtoNet.Data;
 using ATProtoNet.Data.Car;
+using ATProtoNet.Repo;
 using BenchmarkDotNet.Attributes;
 
 namespace ATProtoNet.Benchmarks;
@@ -15,14 +16,16 @@ public class CarBenchmarks
     public void Setup()
     {
         var entries = Corpus.RepoEntries();
-        var (root, nodes) = MstNodes.Build(entries.Select(e => (e.Path, Cid.FromBytes(e.Cid))));
+        var tree = MerkleSearchTree.Build(entries.Select(e => KeyValuePair.Create(MstKey.Parse(e.Path), Cid.FromBytes(e.Cid))));
+        var nodes = new MemoryBlockStore();
+        tree.WriteBlocks(nodes);
         var records = entries.Select((e, i) =>
         {
             var bytes = DrislJson.ToDrisl(Encoding.UTF8.GetBytes(Corpus.PostRecordJson(i)));
             return new CarBlock(Cid.Compute(CidCodec.DagCbor, bytes), bytes);
         });
         var car = new System.Buffers.ArrayBufferWriter<byte>();
-        CarWriter.Write(car, [root], nodes.Concat(records));
+        CarWriter.Write(car, [tree.Root], nodes.Blocks.Concat(records));
         _car = car.WrittenSpan.ToArray();
         if (ReadVerifyingCids().Blocks.Count < Corpus.RepoSize)
             throw new InvalidOperationException("The CAR lost blocks.");

@@ -636,6 +636,7 @@ records the outcome here in the same PR.
      `StarWriter` refuses metadata over `StarLimits.DefaultMaxHeaderBytes`, which readers refuse by
      default.
 8. **Waivers.** DAT-49: the hot binders arrive with their consumers (MST and commits in phase 2,
-   frames in phase 7); phase 1 provides the `DrislReader` they bind from. DAT-77: record paths are
+   frames in phase 7); phase 1 provides the `DrislReader` they bind from. *Phase 2:* MST nodes and
+   commits bind by hand ([repo.md](repo.md), phase 2 outcome 1); frames remain for phase 7. DAT-77: record paths are
    checked by an internal NSID and record-key check until the syntax types are merged, then by them.
    DAT-78: no reference STAR vectors exist yet; the tests are written from the STAR text.

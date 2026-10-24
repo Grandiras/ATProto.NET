@@ -16,9 +16,10 @@ its own project. `Legacy` runs every scenario; `Next` (`ATProtoNet.Benchmarks.Ne
 
 - **Phase 1:** `DrislBenchmarks` and `CarBenchmarks`. `Encode` starts from the JSON text
   (`DrislJson.ToDrisl`), where 0.8 started from a parsed `JsonElement`; `Decode` writes the JSON into
-  a reused `Utf8JsonWriter` (`DrislJson.WriteJson`), where 0.8 returned a `JsonElement`. The CAR's MST
-  nodes come from `Next/MstNodes.cs`, a stand-in built to the repository spec until phase 2's MST
-  replaces it.
+  a reused `Utf8JsonWriter` (`DrislJson.WriteJson`), where 0.8 returned a `JsonElement`.
+- **Phase 2:** `MstBenchmarks`, and the CAR's MST nodes come from `MerkleSearchTree`. The tree is
+  persistent, so `UpdateAndRecomputeRoot` re-hashes only the edited paths where 0.8 rebuilt the
+  whole tree. `MstBenchmarks.Diff` (no 0.8 counterpart) writes a 10-update commit's blocks.
 
 ## Running
 
@@ -50,6 +51,7 @@ setup checks that the input really exercises the path (nothing dropped, caches h
 | `CarBenchmarks.ReadVerifyingCids` | the same, recomputing every block's CID | the CAR |
 | `MstBenchmarks.Build` | MST from 2,000 entries and its root CID | the build |
 | `MstBenchmarks.UpdateAndRecomputeRoot` | 10 updates to a built tree, then the root CID | the 10 updates |
+| `MstBenchmarks.Diff` | the `#commit` blocks of 10 updates (Next only) | the diff |
 | `FirehoseBenchmarks.Decode` | parse the six captured `subscribeRepos` frames | one frame |
 | `FirehoseBenchmarks.DecodeAndVerify` | parse and verify each frame (signature, inductive proof, chain) against an in-memory resolver | one frame |
 | `JetstreamBenchmarks.Decode` | 200 mixed v1 frames (commits, identity, account) | one frame |

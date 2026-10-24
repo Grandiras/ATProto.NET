@@ -23,6 +23,8 @@ ATProtoNet.AtIdentifier.Handle.get -> ATProtoNet.Handle?
 ATProtoNet.AtIdentifier.IsDid.get -> bool
 ATProtoNet.AtIdentifier.IsHandle.get -> bool
 ATProtoNet.AtIdentifier.Value.get -> string!
+ATProtoNet.AtProtoException
+ATProtoNet.AtProtoException.AtProtoException(string! message, System.Exception? innerException = null) -> void
 ATProtoNet.AtUri
 ATProtoNet.AtUri.Authority.get -> ATProtoNet.AtIdentifier!
 ATProtoNet.AtUri.Collection.get -> ATProtoNet.Nsid?
@@ -478,6 +480,166 @@ ATProtoNet.RecordKey
 ATProtoNet.RecordKey.CompareTo(ATProtoNet.RecordKey? other) -> int
 ATProtoNet.RecordKey.Equals(ATProtoNet.RecordKey? other) -> bool
 ATProtoNet.RecordKey.Value.get -> string!
+ATProtoNet.Repo.IBlockStore
+ATProtoNet.Repo.IBlockStore.TryGet(ATProtoNet.Cid! cid, out System.ReadOnlyMemory<byte> block) -> bool
+ATProtoNet.Repo.IWritableBlockStore
+ATProtoNet.Repo.IWritableBlockStore.Put(ATProtoNet.Cid! cid, System.ReadOnlyMemory<byte> block) -> void
+ATProtoNet.Repo.MemoryBlockStore
+ATProtoNet.Repo.MemoryBlockStore.Blocks.get -> System.Collections.Generic.IEnumerable<ATProtoNet.Data.Car.CarBlock!>!
+ATProtoNet.Repo.MemoryBlockStore.Count.get -> int
+ATProtoNet.Repo.MemoryBlockStore.MemoryBlockStore() -> void
+ATProtoNet.Repo.MemoryBlockStore.Put(ATProtoNet.Cid! cid, System.ReadOnlyMemory<byte> block) -> void
+ATProtoNet.Repo.MemoryBlockStore.TryGet(ATProtoNet.Cid! cid, out System.ReadOnlyMemory<byte> block) -> bool
+ATProtoNet.Repo.MerkleSearchTree
+ATProtoNet.Repo.MerkleSearchTree.Apply(ATProtoNet.Repo.MstKey key, ATProtoNet.Cid? value, out ATProtoNet.Cid? previous) -> ATProtoNet.Repo.MerkleSearchTree!
+ATProtoNet.Repo.MerkleSearchTree.Delete(ATProtoNet.Repo.MstKey key) -> ATProtoNet.Repo.MerkleSearchTree!
+ATProtoNet.Repo.MerkleSearchTree.Enumerate(ATProtoNet.Repo.MstKey? from = null) -> System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<ATProtoNet.Repo.MstKey, ATProtoNet.Cid!>>!
+ATProtoNet.Repo.MerkleSearchTree.Get(ATProtoNet.Repo.MstKey key) -> ATProtoNet.Cid?
+ATProtoNet.Repo.MerkleSearchTree.Insert(ATProtoNet.Repo.MstKey key, ATProtoNet.Cid! value) -> ATProtoNet.Repo.MerkleSearchTree!
+ATProtoNet.Repo.MerkleSearchTree.Root.get -> ATProtoNet.Cid!
+ATProtoNet.Repo.MerkleSearchTree.Update(ATProtoNet.Repo.MstKey key, ATProtoNet.Cid! value) -> ATProtoNet.Repo.MerkleSearchTree!
+ATProtoNet.Repo.MerkleSearchTree.WriteBlocks(ATProtoNet.Repo.IWritableBlockStore! destination) -> void
+ATProtoNet.Repo.MerkleSearchTree.WriteCoveringProof(System.Collections.Generic.IEnumerable<ATProtoNet.Repo.MstKey>! keys, ATProtoNet.Repo.IWritableBlockStore! destination) -> void
+ATProtoNet.Repo.MerkleSearchTree.WriteDiffBlocks(ATProtoNet.Repo.MerkleSearchTree! previous, ATProtoNet.Repo.IWritableBlockStore! destination) -> void
+ATProtoNet.Repo.MstIncompleteException
+ATProtoNet.Repo.MstIncompleteException.Cid.get -> ATProtoNet.Cid!
+ATProtoNet.Repo.MstIncompleteException.MstIncompleteException(ATProtoNet.Cid! cid) -> void
+ATProtoNet.Repo.MstKey
+ATProtoNet.Repo.MstKey.CompareTo(ATProtoNet.Repo.MstKey other) -> int
+ATProtoNet.Repo.MstKey.Equals(ATProtoNet.Repo.MstKey other) -> bool
+ATProtoNet.Repo.MstKey.Layer.get -> int
+ATProtoNet.Repo.MstKey.MstKey() -> void
+ATProtoNet.Repo.MstKey.TryGetRecordPath(out ATProtoNet.Nsid? collection, out ATProtoNet.RecordKey? rkey) -> bool
+ATProtoNet.Repo.MstKey.Value.get -> string!
+ATProtoNet.Repo.RecordProof
+ATProtoNet.Repo.RecordWrite
+ATProtoNet.Repo.RecordWrite.<Clone>$() -> ATProtoNet.Repo.RecordWrite!
+ATProtoNet.Repo.RecordWrite.Deconstruct(out ATProtoNet.Repo.MstKey Key, out System.ReadOnlyMemory<byte>? Record) -> void
+ATProtoNet.Repo.RecordWrite.Equals(ATProtoNet.Repo.RecordWrite? other) -> bool
+ATProtoNet.Repo.RecordWrite.Key.get -> ATProtoNet.Repo.MstKey
+ATProtoNet.Repo.RecordWrite.Key.init -> void
+ATProtoNet.Repo.RecordWrite.Record.get -> System.ReadOnlyMemory<byte>?
+ATProtoNet.Repo.RecordWrite.Record.init -> void
+ATProtoNet.Repo.RecordWrite.RecordWrite(ATProtoNet.Repo.MstKey Key, System.ReadOnlyMemory<byte>? Record) -> void
+ATProtoNet.Repo.RepoCommit
+ATProtoNet.Repo.RepoCommit.<Clone>$() -> ATProtoNet.Repo.RepoCommit!
+ATProtoNet.Repo.RepoCommit.Data.get -> ATProtoNet.Cid!
+ATProtoNet.Repo.RepoCommit.Data.init -> void
+ATProtoNet.Repo.RepoCommit.Did.get -> ATProtoNet.Did!
+ATProtoNet.Repo.RepoCommit.Did.init -> void
+ATProtoNet.Repo.RepoCommit.Equals(ATProtoNet.Repo.RepoCommit? other) -> bool
+ATProtoNet.Repo.RepoCommit.Prev.get -> ATProtoNet.Cid?
+ATProtoNet.Repo.RepoCommit.Prev.init -> void
+ATProtoNet.Repo.RepoCommit.RepoCommit() -> void
+ATProtoNet.Repo.RepoCommit.Rev.get -> ATProtoNet.Tid
+ATProtoNet.Repo.RepoCommit.Rev.init -> void
+ATProtoNet.Repo.RepoCommit.Sign(ATProtoNet.Crypto.SigningKey! key) -> ATProtoNet.Repo.SignedCommit!
+ATProtoNet.Repo.RepoLimits
+ATProtoNet.Repo.RepoLimits.<Clone>$() -> ATProtoNet.Repo.RepoLimits!
+ATProtoNet.Repo.RepoLimits.Equals(ATProtoNet.Repo.RepoLimits? other) -> bool
+ATProtoNet.Repo.RepoLimits.MaxBlockCount.get -> int
+ATProtoNet.Repo.RepoLimits.MaxBlockCount.init -> void
+ATProtoNet.Repo.RepoLimits.MaxCarBytes.get -> long
+ATProtoNet.Repo.RepoLimits.MaxCarBytes.init -> void
+ATProtoNet.Repo.RepoLimits.MaxRecordBytes.get -> int
+ATProtoNet.Repo.RepoLimits.MaxRecordBytes.init -> void
+ATProtoNet.Repo.RepoLimits.RepoLimits() -> void
+ATProtoNet.Repo.RepoOperation
+ATProtoNet.Repo.RepoOperation.<Clone>$() -> ATProtoNet.Repo.RepoOperation!
+ATProtoNet.Repo.RepoOperation.After.get -> ATProtoNet.Cid?
+ATProtoNet.Repo.RepoOperation.After.init -> void
+ATProtoNet.Repo.RepoOperation.Before.get -> ATProtoNet.Cid?
+ATProtoNet.Repo.RepoOperation.Before.init -> void
+ATProtoNet.Repo.RepoOperation.Deconstruct(out ATProtoNet.Repo.MstKey Key, out ATProtoNet.Cid? Before, out ATProtoNet.Cid? After) -> void
+ATProtoNet.Repo.RepoOperation.Equals(ATProtoNet.Repo.RepoOperation? other) -> bool
+ATProtoNet.Repo.RepoOperation.Key.get -> ATProtoNet.Repo.MstKey
+ATProtoNet.Repo.RepoOperation.Key.init -> void
+ATProtoNet.Repo.RepoOperation.RepoOperation(ATProtoNet.Repo.MstKey Key, ATProtoNet.Cid? Before, ATProtoNet.Cid? After) -> void
+ATProtoNet.Repo.RepoSnapshot
+ATProtoNet.Repo.RepoSnapshot.Blocks.get -> ATProtoNet.Repo.IBlockStore!
+ATProtoNet.Repo.RepoSnapshot.Commit.get -> ATProtoNet.Repo.SignedCommit!
+ATProtoNet.Repo.RepoSnapshot.Entries.get -> System.Collections.Generic.IEnumerable<ATProtoNet.Repo.RepoSnapshotEntry!>!
+ATProtoNet.Repo.RepoSnapshot.Records.get -> System.Collections.Generic.IEnumerable<ATProtoNet.Repo.RepoSnapshotRecord!>!
+ATProtoNet.Repo.RepoSnapshot.Tree.get -> ATProtoNet.Repo.MerkleSearchTree!
+ATProtoNet.Repo.RepoSnapshotEntry
+ATProtoNet.Repo.RepoSnapshotEntry.<Clone>$() -> ATProtoNet.Repo.RepoSnapshotEntry!
+ATProtoNet.Repo.RepoSnapshotEntry.Cid.get -> ATProtoNet.Cid!
+ATProtoNet.Repo.RepoSnapshotEntry.Cid.init -> void
+ATProtoNet.Repo.RepoSnapshotEntry.Deconstruct(out ATProtoNet.Repo.MstKey Key, out ATProtoNet.Cid! Cid) -> void
+ATProtoNet.Repo.RepoSnapshotEntry.Equals(ATProtoNet.Repo.RepoSnapshotEntry? other) -> bool
+ATProtoNet.Repo.RepoSnapshotEntry.Key.get -> ATProtoNet.Repo.MstKey
+ATProtoNet.Repo.RepoSnapshotEntry.Key.init -> void
+ATProtoNet.Repo.RepoSnapshotEntry.RepoSnapshotEntry(ATProtoNet.Repo.MstKey Key, ATProtoNet.Cid! Cid) -> void
+ATProtoNet.Repo.RepoSnapshotRecord
+ATProtoNet.Repo.RepoSnapshotRecord.<Clone>$() -> ATProtoNet.Repo.RepoSnapshotRecord!
+ATProtoNet.Repo.RepoSnapshotRecord.Block.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Repo.RepoSnapshotRecord.Block.init -> void
+ATProtoNet.Repo.RepoSnapshotRecord.Cid.get -> ATProtoNet.Cid!
+ATProtoNet.Repo.RepoSnapshotRecord.Cid.init -> void
+ATProtoNet.Repo.RepoSnapshotRecord.Collection.get -> ATProtoNet.Nsid!
+ATProtoNet.Repo.RepoSnapshotRecord.Collection.init -> void
+ATProtoNet.Repo.RepoSnapshotRecord.Decode() -> ATProtoNet.Data.DataModelValue!
+ATProtoNet.Repo.RepoSnapshotRecord.Deconstruct(out ATProtoNet.Nsid! Collection, out ATProtoNet.RecordKey! Rkey, out ATProtoNet.Cid! Cid, out System.ReadOnlyMemory<byte> Block) -> void
+ATProtoNet.Repo.RepoSnapshotRecord.Equals(ATProtoNet.Repo.RepoSnapshotRecord? other) -> bool
+ATProtoNet.Repo.RepoSnapshotRecord.RepoSnapshotRecord(ATProtoNet.Nsid! Collection, ATProtoNet.RecordKey! Rkey, ATProtoNet.Cid! Cid, System.ReadOnlyMemory<byte> Block) -> void
+ATProtoNet.Repo.RepoSnapshotRecord.Rkey.get -> ATProtoNet.RecordKey!
+ATProtoNet.Repo.RepoSnapshotRecord.Rkey.init -> void
+ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationError.BadSignature = 4 -> ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationError.CidMismatch = 2 -> ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationError.Incomplete = 8 -> ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationError.LimitExceeded = 9 -> ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationError.MalformedCar = 0 -> ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationError.MalformedCommit = 5 -> ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationError.MalformedTree = 7 -> ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationError.MissingBlock = 1 -> ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationError.UnsupportedVersion = 6 -> ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationError.WrongRepository = 3 -> ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationException
+ATProtoNet.Repo.RepoVerificationException.Error.get -> ATProtoNet.Repo.RepoVerificationError
+ATProtoNet.Repo.RepoVerificationException.RepoVerificationException(ATProtoNet.Repo.RepoVerificationError error, string! message, System.Exception? innerException = null) -> void
+ATProtoNet.Repo.RepoWriteResult
+ATProtoNet.Repo.RepoWriteResult.<Clone>$() -> ATProtoNet.Repo.RepoWriteResult!
+ATProtoNet.Repo.RepoWriteResult.Blocks.get -> ATProtoNet.Repo.MemoryBlockStore!
+ATProtoNet.Repo.RepoWriteResult.Blocks.init -> void
+ATProtoNet.Repo.RepoWriteResult.Commit.get -> ATProtoNet.Repo.SignedCommit!
+ATProtoNet.Repo.RepoWriteResult.Commit.init -> void
+ATProtoNet.Repo.RepoWriteResult.Deconstruct(out ATProtoNet.Repo.SignedCommit! Commit, out System.Collections.Generic.IReadOnlyList<ATProtoNet.Repo.RepoOperation!>! Operations, out ATProtoNet.Repo.MemoryBlockStore! Blocks) -> void
+ATProtoNet.Repo.RepoWriteResult.Equals(ATProtoNet.Repo.RepoWriteResult? other) -> bool
+ATProtoNet.Repo.RepoWriteResult.Operations.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Repo.RepoOperation!>!
+ATProtoNet.Repo.RepoWriteResult.Operations.init -> void
+ATProtoNet.Repo.RepoWriteResult.RepoWriteResult(ATProtoNet.Repo.SignedCommit! Commit, System.Collections.Generic.IReadOnlyList<ATProtoNet.Repo.RepoOperation!>! Operations, ATProtoNet.Repo.MemoryBlockStore! Blocks) -> void
+ATProtoNet.Repo.RepoWriter
+ATProtoNet.Repo.RepoWriter.Commit(System.Collections.Generic.IEnumerable<ATProtoNet.Repo.RecordWrite!>! writes, ATProtoNet.Tid rev) -> ATProtoNet.Repo.RepoWriteResult!
+ATProtoNet.Repo.RepoWriter.Head.get -> ATProtoNet.Repo.SignedCommit?
+ATProtoNet.Repo.RepoWriter.RepoWriter(ATProtoNet.Did! did, ATProtoNet.Crypto.SigningKey! key, ATProtoNet.Repo.IWritableBlockStore! blocks, ATProtoNet.Repo.SignedCommit? head = null) -> void
+ATProtoNet.Repo.RepoWriter.Tree.get -> ATProtoNet.Repo.MerkleSearchTree!
+ATProtoNet.Repo.SignedCommit
+ATProtoNet.Repo.SignedCommit.Block.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Repo.SignedCommit.Cid.get -> ATProtoNet.Cid!
+ATProtoNet.Repo.SignedCommit.Commit.get -> ATProtoNet.Repo.RepoCommit!
+ATProtoNet.Repo.SignedCommit.Signature.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Repo.SignedCommit.Verify(ATProtoNet.Crypto.VerificationKey! key) -> bool
+ATProtoNet.Repo.VerifiedRecord
+ATProtoNet.Repo.VerifiedRecord.<Clone>$() -> ATProtoNet.Repo.VerifiedRecord!
+ATProtoNet.Repo.VerifiedRecord.Block.get -> System.ReadOnlyMemory<byte>?
+ATProtoNet.Repo.VerifiedRecord.Block.init -> void
+ATProtoNet.Repo.VerifiedRecord.Cid.get -> ATProtoNet.Cid?
+ATProtoNet.Repo.VerifiedRecord.Cid.init -> void
+ATProtoNet.Repo.VerifiedRecord.Collection.get -> ATProtoNet.Nsid!
+ATProtoNet.Repo.VerifiedRecord.Collection.init -> void
+ATProtoNet.Repo.VerifiedRecord.Commit.get -> ATProtoNet.Cid!
+ATProtoNet.Repo.VerifiedRecord.Commit.init -> void
+ATProtoNet.Repo.VerifiedRecord.Deconstruct(out ATProtoNet.Did! Did, out ATProtoNet.Tid Rev, out ATProtoNet.Cid! Commit, out ATProtoNet.Nsid! Collection, out ATProtoNet.RecordKey! Rkey, out ATProtoNet.Cid? Cid, out System.ReadOnlyMemory<byte>? Block) -> void
+ATProtoNet.Repo.VerifiedRecord.Did.get -> ATProtoNet.Did!
+ATProtoNet.Repo.VerifiedRecord.Did.init -> void
+ATProtoNet.Repo.VerifiedRecord.Equals(ATProtoNet.Repo.VerifiedRecord? other) -> bool
+ATProtoNet.Repo.VerifiedRecord.Exists.get -> bool
+ATProtoNet.Repo.VerifiedRecord.Rev.get -> ATProtoNet.Tid
+ATProtoNet.Repo.VerifiedRecord.Rev.init -> void
+ATProtoNet.Repo.VerifiedRecord.Rkey.get -> ATProtoNet.RecordKey!
+ATProtoNet.Repo.VerifiedRecord.Rkey.init -> void
+ATProtoNet.Repo.VerifiedRecord.VerifiedRecord(ATProtoNet.Did! Did, ATProtoNet.Tid Rev, ATProtoNet.Cid! Commit, ATProtoNet.Nsid! Collection, ATProtoNet.RecordKey! Rkey, ATProtoNet.Cid? Cid, System.ReadOnlyMemory<byte>? Block) -> void
 ATProtoNet.SpaceRecordUri
 ATProtoNet.SpaceRecordUri.Author.get -> ATProtoNet.Did!
 ATProtoNet.SpaceRecordUri.Collection.get -> ATProtoNet.Nsid!
@@ -547,6 +709,10 @@ const ATProtoNet.Language.MaxLength = 128 -> int
 const ATProtoNet.Nsid.MaxLength = 317 -> int
 const ATProtoNet.Nsid.MaxNameLength = 63 -> int
 const ATProtoNet.RecordKey.MaxLength = 512 -> int
+const ATProtoNet.Repo.MerkleSearchTree.MaxEntriesPerNode = 1024 -> int
+const ATProtoNet.Repo.MerkleSearchTree.MaxTreeDepth = 64 -> int
+const ATProtoNet.Repo.MstKey.MaxLength = 1024 -> int
+const ATProtoNet.Repo.RepoCommit.Version = 3 -> int
 const ATProtoNet.SpaceRecordUri.MaxLength = 8192 -> int
 const ATProtoNet.SpaceUri.MaxLength = 8192 -> int
 const ATProtoNet.Tid.Length = 13 -> int
@@ -706,6 +872,32 @@ override ATProtoNet.Nsid.ToString() -> string!
 override ATProtoNet.RecordKey.Equals(object? obj) -> bool
 override ATProtoNet.RecordKey.GetHashCode() -> int
 override ATProtoNet.RecordKey.ToString() -> string!
+override ATProtoNet.Repo.MstKey.GetHashCode() -> int
+override ATProtoNet.Repo.MstKey.ToString() -> string!
+override ATProtoNet.Repo.RecordWrite.Equals(object? obj) -> bool
+override ATProtoNet.Repo.RecordWrite.GetHashCode() -> int
+override ATProtoNet.Repo.RecordWrite.ToString() -> string!
+override ATProtoNet.Repo.RepoCommit.Equals(object? obj) -> bool
+override ATProtoNet.Repo.RepoCommit.GetHashCode() -> int
+override ATProtoNet.Repo.RepoCommit.ToString() -> string!
+override ATProtoNet.Repo.RepoLimits.Equals(object? obj) -> bool
+override ATProtoNet.Repo.RepoLimits.GetHashCode() -> int
+override ATProtoNet.Repo.RepoLimits.ToString() -> string!
+override ATProtoNet.Repo.RepoOperation.Equals(object? obj) -> bool
+override ATProtoNet.Repo.RepoOperation.GetHashCode() -> int
+override ATProtoNet.Repo.RepoOperation.ToString() -> string!
+override ATProtoNet.Repo.RepoSnapshotEntry.Equals(object? obj) -> bool
+override ATProtoNet.Repo.RepoSnapshotEntry.GetHashCode() -> int
+override ATProtoNet.Repo.RepoSnapshotEntry.ToString() -> string!
+override ATProtoNet.Repo.RepoSnapshotRecord.Equals(object? obj) -> bool
+override ATProtoNet.Repo.RepoSnapshotRecord.GetHashCode() -> int
+override ATProtoNet.Repo.RepoSnapshotRecord.ToString() -> string!
+override ATProtoNet.Repo.RepoWriteResult.Equals(object? obj) -> bool
+override ATProtoNet.Repo.RepoWriteResult.GetHashCode() -> int
+override ATProtoNet.Repo.RepoWriteResult.ToString() -> string!
+override ATProtoNet.Repo.VerifiedRecord.Equals(object? obj) -> bool
+override ATProtoNet.Repo.VerifiedRecord.GetHashCode() -> int
+override ATProtoNet.Repo.VerifiedRecord.ToString() -> string!
 override ATProtoNet.SpaceRecordUri.Equals(object? obj) -> bool
 override ATProtoNet.SpaceRecordUri.GetHashCode() -> int
 override ATProtoNet.SpaceRecordUri.ToString() -> string!
@@ -960,6 +1152,41 @@ static ATProtoNet.RecordKey.TryParse(string? s, out ATProtoNet.RecordKey? result
 static ATProtoNet.RecordKey.implicit operator string?(ATProtoNet.RecordKey? value) -> string?
 static ATProtoNet.RecordKey.operator !=(ATProtoNet.RecordKey? left, ATProtoNet.RecordKey? right) -> bool
 static ATProtoNet.RecordKey.operator ==(ATProtoNet.RecordKey? left, ATProtoNet.RecordKey? right) -> bool
+static ATProtoNet.Repo.MemoryBlockStore.FromCar(ATProtoNet.Data.Car.CarFile! car) -> ATProtoNet.Repo.MemoryBlockStore!
+static ATProtoNet.Repo.MerkleSearchTree.Build(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<ATProtoNet.Repo.MstKey, ATProtoNet.Cid!>>! entries) -> ATProtoNet.Repo.MerkleSearchTree!
+static ATProtoNet.Repo.MerkleSearchTree.Empty() -> ATProtoNet.Repo.MerkleSearchTree!
+static ATProtoNet.Repo.MerkleSearchTree.Load(ATProtoNet.Cid! root, ATProtoNet.Repo.IBlockStore! blocks) -> ATProtoNet.Repo.MerkleSearchTree!
+static ATProtoNet.Repo.MerkleSearchTree.LoadComplete(ATProtoNet.Cid! root, ATProtoNet.Repo.IBlockStore! blocks) -> ATProtoNet.Repo.MerkleSearchTree!
+static ATProtoNet.Repo.MstKey.For(ATProtoNet.Nsid! collection, ATProtoNet.RecordKey! rkey) -> ATProtoNet.Repo.MstKey
+static ATProtoNet.Repo.MstKey.Parse(string! value) -> ATProtoNet.Repo.MstKey
+static ATProtoNet.Repo.MstKey.TryParse(System.ReadOnlySpan<char> value, out ATProtoNet.Repo.MstKey key) -> bool
+static ATProtoNet.Repo.MstKey.operator !=(ATProtoNet.Repo.MstKey left, ATProtoNet.Repo.MstKey right) -> bool
+static ATProtoNet.Repo.MstKey.operator <(ATProtoNet.Repo.MstKey left, ATProtoNet.Repo.MstKey right) -> bool
+static ATProtoNet.Repo.MstKey.operator <=(ATProtoNet.Repo.MstKey left, ATProtoNet.Repo.MstKey right) -> bool
+static ATProtoNet.Repo.MstKey.operator ==(ATProtoNet.Repo.MstKey left, ATProtoNet.Repo.MstKey right) -> bool
+static ATProtoNet.Repo.MstKey.operator >(ATProtoNet.Repo.MstKey left, ATProtoNet.Repo.MstKey right) -> bool
+static ATProtoNet.Repo.MstKey.operator >=(ATProtoNet.Repo.MstKey left, ATProtoNet.Repo.MstKey right) -> bool
+static ATProtoNet.Repo.RecordProof.Verify(System.ReadOnlySpan<byte> car, ATProtoNet.Did! did, ATProtoNet.Nsid! collection, ATProtoNet.RecordKey! rkey, ATProtoNet.Crypto.VerificationKey! key) -> ATProtoNet.Repo.VerifiedRecord!
+static ATProtoNet.Repo.RecordProof.Write(ATProtoNet.Repo.SignedCommit! commit, ATProtoNet.Repo.MerkleSearchTree! tree, System.Collections.Generic.IEnumerable<ATProtoNet.Repo.MstKey>! keys, ATProtoNet.Repo.IBlockStore! records, System.IO.Stream! destination) -> void
+static ATProtoNet.Repo.RecordWrite.operator !=(ATProtoNet.Repo.RecordWrite? left, ATProtoNet.Repo.RecordWrite? right) -> bool
+static ATProtoNet.Repo.RecordWrite.operator ==(ATProtoNet.Repo.RecordWrite? left, ATProtoNet.Repo.RecordWrite? right) -> bool
+static ATProtoNet.Repo.RepoCommit.operator !=(ATProtoNet.Repo.RepoCommit? left, ATProtoNet.Repo.RepoCommit? right) -> bool
+static ATProtoNet.Repo.RepoCommit.operator ==(ATProtoNet.Repo.RepoCommit? left, ATProtoNet.Repo.RepoCommit? right) -> bool
+static ATProtoNet.Repo.RepoLimits.operator !=(ATProtoNet.Repo.RepoLimits? left, ATProtoNet.Repo.RepoLimits? right) -> bool
+static ATProtoNet.Repo.RepoLimits.operator ==(ATProtoNet.Repo.RepoLimits? left, ATProtoNet.Repo.RepoLimits? right) -> bool
+static ATProtoNet.Repo.RepoOperation.operator !=(ATProtoNet.Repo.RepoOperation? left, ATProtoNet.Repo.RepoOperation? right) -> bool
+static ATProtoNet.Repo.RepoOperation.operator ==(ATProtoNet.Repo.RepoOperation? left, ATProtoNet.Repo.RepoOperation? right) -> bool
+static ATProtoNet.Repo.RepoSnapshot.Verify(System.ReadOnlySpan<byte> car, ATProtoNet.Did! did, ATProtoNet.Crypto.VerificationKey! key, ATProtoNet.Repo.RepoLimits? limits = null) -> ATProtoNet.Repo.RepoSnapshot!
+static ATProtoNet.Repo.RepoSnapshot.VerifyAsync(System.IO.Stream! car, ATProtoNet.Did! did, ATProtoNet.Crypto.VerificationKey! key, ATProtoNet.Repo.RepoLimits? limits = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ATProtoNet.Repo.RepoSnapshot!>
+static ATProtoNet.Repo.RepoSnapshotEntry.operator !=(ATProtoNet.Repo.RepoSnapshotEntry? left, ATProtoNet.Repo.RepoSnapshotEntry? right) -> bool
+static ATProtoNet.Repo.RepoSnapshotEntry.operator ==(ATProtoNet.Repo.RepoSnapshotEntry? left, ATProtoNet.Repo.RepoSnapshotEntry? right) -> bool
+static ATProtoNet.Repo.RepoSnapshotRecord.operator !=(ATProtoNet.Repo.RepoSnapshotRecord? left, ATProtoNet.Repo.RepoSnapshotRecord? right) -> bool
+static ATProtoNet.Repo.RepoSnapshotRecord.operator ==(ATProtoNet.Repo.RepoSnapshotRecord? left, ATProtoNet.Repo.RepoSnapshotRecord? right) -> bool
+static ATProtoNet.Repo.RepoWriteResult.operator !=(ATProtoNet.Repo.RepoWriteResult? left, ATProtoNet.Repo.RepoWriteResult? right) -> bool
+static ATProtoNet.Repo.RepoWriteResult.operator ==(ATProtoNet.Repo.RepoWriteResult? left, ATProtoNet.Repo.RepoWriteResult? right) -> bool
+static ATProtoNet.Repo.SignedCommit.Read(System.ReadOnlyMemory<byte> block) -> ATProtoNet.Repo.SignedCommit!
+static ATProtoNet.Repo.VerifiedRecord.operator !=(ATProtoNet.Repo.VerifiedRecord? left, ATProtoNet.Repo.VerifiedRecord? right) -> bool
+static ATProtoNet.Repo.VerifiedRecord.operator ==(ATProtoNet.Repo.VerifiedRecord? left, ATProtoNet.Repo.VerifiedRecord? right) -> bool
 static ATProtoNet.SpaceRecordUri.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.SpaceRecordUri!
 static ATProtoNet.SpaceRecordUri.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.SpaceRecordUri!
 static ATProtoNet.SpaceRecordUri.Parse(string! s) -> ATProtoNet.SpaceRecordUri!
@@ -1006,3 +1233,4 @@ virtual ATProtoNet.Data.DataModelValue.Equals(ATProtoNet.Data.DataModelValue? ot
 virtual ATProtoNet.Data.DataModelValue.PrintMembers(System.Text.StringBuilder! builder) -> bool
 ~override ATProtoNet.Crypto.HttpSignatures.StructuredToken.Equals(object obj) -> bool
 ~override ATProtoNet.Crypto.HttpSignatures.StructuredToken.ToString() -> string
+~override ATProtoNet.Repo.MstKey.Equals(object obj) -> bool

@@ -13,8 +13,6 @@ public sealed partial class NextAdapter
         // arrays, links and bytes through the same member, so one of the two verdicts has to give.
         ["data-model/data-model-invalid.json#top-level not an object"] =
             "A record (not a value) must be an object: record-level validation, phase 3 (Lexicon record validation, lexicon/interop/record-data-*).",
-        // The MST rows of the hostile corpus run on the MST adapter members.
-        ["hostile/mst.json#*"] = "MST loading is built in phase 2 (ATProtoNet.Repo).",
     };
 
     /// <inheritdoc />

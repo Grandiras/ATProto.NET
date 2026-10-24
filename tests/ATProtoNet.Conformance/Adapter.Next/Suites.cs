@@ -15,3 +15,7 @@ public sealed class HostileInput : HostileInputConformance<NextAdapter>;
 public sealed class Crypto : CryptoConformance<NextAdapter>;
 
 public sealed class Spaces : SpacesConformance<NextAdapter>;
+
+public sealed class Mst : MstConformance<NextAdapter>;
+
+public sealed class Repo : RepoConformance<NextAdapter>;

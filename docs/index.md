@@ -9,6 +9,7 @@ Pages so far:
 - [Identifiers and string formats](identifiers.md): the vocabulary types, TIDs, datetimes, addresses and their JSON.
 - [The data model](data-model.md): DRISL-CBOR, the JSON forms, CIDs, CAR and STAR.
 - [Cryptography](crypto.md): signing keys and `did:key`, JWS and JWKs, BLAKE3, key encapsulation, HTTP message signatures.
+- [Repositories](repositories.md): the Merkle Search Tree, commits, record proofs, snapshots and the repository writer.
 
 The 0.8 documentation is on
 [`main`](https://git.grandiras.net/Grandiras/ATProto.NET/src/branch/main/docs/index.md).

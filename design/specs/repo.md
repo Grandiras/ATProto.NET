@@ -439,9 +439,46 @@ records the outcome here in the same PR.
    fanout-4 node) and record the choice here.
 2. **Snapshot defaults.** `MaxBlockCount = 2,000,000` is a proposal; confirm against the largest
    real repositories during phase 2 and against what streaming resync (`ATProtoNet.Streaming.Firehose`) needs.
+   *Phase 2:* kept. No consumer needs another value yet; streaming resync (phase 7) confirms it.
 3. **Record body decoding in snapshots** (REP-42): expose raw blocks only, or also a
    `DataModelValue` view? Default: raw block plus `DecodeAs<T>()` via the Lexicon contracts.
+   *Phase 2:* the raw block plus `Decode()` to a `DataModelValue`; `DecodeAs<T>()` arrives with the
+   Lexicon record contracts (phase 3).
 4. **Writable repository helper.** 0.8 has no PDS-side "apply writes and produce a commit + diff"
    type beyond `RepoWritePathTests`. Default: a small `RepoWriter` (tree + block store + signer →
    `SignedCommit` + diff blocks) in phase 2, since test fixtures and the repository-host side of
    the server need it (space repositories get the equivalent writer in spaces.md).
+   *Phase 2:* `RepoWriter(did, key, blocks, head?)` with `Commit(writes, rev)` returning a
+   `RepoWriteResult` (the `SignedCommit`, the `RepoOperation`s, the diff blocks in a
+   `MemoryBlockStore`). A write is a `RecordWrite(key, block)`, the block `null` to delete. The
+   revision is the caller's, checked to increase, so the writer reads no clock.
+
+## Phase 2 outcomes
+
+Recorded by phase 2 (#240).
+
+1. **Node model.** A node holds its keys, values and the subtrees around them; edits rebuild the
+   nodes on their path and share the rest, so `Root` hashes only new nodes (REP-18). A node read
+   from a store loads on first use, which is what makes a tree partial; one whose block is absent is
+   a stub. The node codec (`{e, l}` and `{k, p, t, v}`) and the commit reader bind straight from
+   `DrislReader` and to bytes, closing data-model's DAT-49 waiver for both.
+2. **Sketch changes.** `Load` takes no options (the limits are the constants above). `Apply` returns
+   the new tree, as every edit does on a persistent tree, rather than an `MstEdit`. `Insert` of a
+   present key throws whatever the value; leaving a key at its value changes nothing through `Apply`
+   (REP-17). `MemoryBlockStore.Blocks` lists the blocks. `MstIncompleteException.Cid` names the
+   missing node. `AtProtoException` is the abstract base of the hierarchy (AG-19), added here as its
+   first user.
+3. **Lookups walk by key order alone,** as the reference `get` does, not by layer: a node's layer
+   could prove some keys absent without descending, but REP-36 says a walk that needs an absent
+   node is `Incomplete`, and the interop vector "key off the proven path" agrees.
+4. **Diff blocks** are the covering proofs, in the new tree, of every key whose value changed. Every
+   node of the new tree that the old one lacks lies on such a path, so REP-22 holds without walking
+   either tree in full; the changed keys come from a walk of both trees that steps over subtrees
+   with equal CIDs.
+5. **Trimming a partial tree.** A delete that leaves the root holding only a link descends to that
+   subtree, and stops at a stub (its CID is the root), as 0.8's partial tree and indigo do.
+6. **Errors.** A missing commit or record block is `MissingBlock`; a block that does not match its
+   CID is `CidMismatch` (the CAR is read without the reader's CID check, then each block is
+   checked); a record block that is not a DRISL map is `MalformedCar`. An entry without `p` reads
+   as prefix 0, as in 0.8. `RepoLimits.MaxRecordBytes` bounds every block of a snapshot, nodes and
+   the commit included, since none is legitimately larger.
