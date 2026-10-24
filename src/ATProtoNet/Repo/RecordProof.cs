@@ -64,6 +64,7 @@ public static class RecordProof
     {
         ArgumentNullException.ThrowIfNull(commit);
         ArgumentNullException.ThrowIfNull(tree);
+        ArgumentNullException.ThrowIfNull(keys);
         ArgumentNullException.ThrowIfNull(records);
         ArgumentNullException.ThrowIfNull(destination);
         if (tree.Root != commit.Commit.Data) throw new ArgumentException("The tree is not the commit's tree.", nameof(tree));

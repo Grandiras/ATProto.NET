@@ -85,8 +85,9 @@ hasher.GetCurrentHash(extended);                 // starts with digest
 
 A repository host publishes a key-encapsulation key next to its signing key. A requester
 encapsulates a fresh shared secret to it; the host decapsulates the same secret. The secret is only
-ever read through HKDF, bound to a context. The algorithm today is DHKEM(P-256, HKDF-SHA256) of
-RFC 9180 (`KemAlgorithm.Default`); KEM keys are never signing keys.
+ever an HMAC-SHA256 key: the consumer frames its context into the message it MACs. The algorithm
+today is DHKEM(P-256, HKDF-SHA256) of RFC 9180 (`KemAlgorithm.Default`); KEM keys are never
+signing keys.
 
 ```csharp continued
 using var hostKey = KemPrivateKey.Generate(KemAlgorithm.Default);
@@ -96,16 +97,17 @@ var (secret, ciphertext) = published.Encapsulate();
 using var mine = secret;
 using var theirs = hostKey.Decapsulate(ciphertext.Span);
 
-var macKey = new byte[32];
-mine.DeriveKey("example context"u8, macKey);
+var mac = new byte[SharedSecret.MacLength];
+mine.ComputeMac("example context and message"u8, mac);
 ```
 
 ## HTTP message signatures
 
 `HttpMessageSigner` signs exactly the fields and parameters it is given, and
 `HttpMessageSignatureVerifier` checks a signature covers what the caller requires. Which fields a
-protocol signs is the protocol's choice; Spaces signs its requests under the label
-`atproto-space`. The request is a plain list of fields, so this works with any HTTP stack.
+protocol signs is the protocol's choice; Spaces signs its requests under the label and `tag`
+`atproto-space-credential`. A verifier that names a `Tag` refuses any signature without exactly
+that tag. The request is a plain list of fields, so this works with any HTTP stack.
 
 ```csharp continued
 using ATProtoNet.Crypto.HttpSignatures;

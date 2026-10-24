@@ -1,0 +1,1366 @@
+{
+  "comment": "Space repo exports (STAR-lite v1, profile atproto-space-repo): archives the reference serializeRepo writes, and invalid ones, with the verdict of the reference verifyRepoStarFull(archive, {repo, space, sharedSecret, mac}). `archive` is hex, or segments for Vectors.Hex. `star` is the bare STAR layer verdict (reference readStar, pairs drained, no profile checks).",
+  "profile": {
+    "magic": "2a6c0100",
+    "metaType": "atproto-space-repo",
+    "maxRecordBytes": 1048576
+  },
+  "cases": [
+    {
+      "name": "empty repo",
+      "note": "SPC-59/60: metadata only; data is the digest of the empty LtHash.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "29dcfee73922851fb5b1ad8c2ac34ca775047182b50d908f932c9682ae783410",
+      "archive": "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c74",
+      "expect": {
+        "ok": true,
+        "commit": {
+          "ver": 1,
+          "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+          "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+          "rev": "3kbcq3p7ad400",
+          "data": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad"
+        },
+        "records": []
+      },
+      "star": {
+        "ok": true,
+        "pairs": 0
+      }
+    },
+    {
+      "name": "three records",
+      "note": "SPC-59/60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": true,
+        "commit": {
+          "ver": 1,
+          "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+          "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+          "rev": "3kbcq3p7ad400",
+          "data": "6ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d"
+        },
+        "records": [
+          {
+            "path": "com.example.note/3kbcq3p7ad400",
+            "cid": "bafyreibqrvab2uuhh5j7dsrwjzptpmu3g42eiwvodyt67ojclmttqjjv4e"
+          },
+          {
+            "path": "com.example.note/3kbcq3p7ad401",
+            "cid": "bafyreifeyovuvkh4ybsuzdz57qesewbhokskp2ljlebospsggsc5jlg2su"
+          },
+          {
+            "path": "com.example.note/3kbcq3p7ad402",
+            "cid": "bafyreiaewxl4nn7r5u63euyorlwjuzflqrtzthkjydfn7rdbrqmjagfrwu"
+          }
+        ]
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      }
+    },
+    {
+      "name": "records needing byte ordering",
+      "note": "SPC-59: keys in strictly increasing byte order: com.example.a.b/x precedes com.example.a/A (\".\" < \"/\"), and A < a < a-b < a.b < a:b < a_b < a~b.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "972ba2f0b20180a491f52af72870f1885e2b5b227802e44867059aeca4028340",
+      "archive": "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820cc74cadd112333f81ac69276bbbb9056221eefc506d4e595acbf973955bf9907647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7411636f6d2e6578616d706c652e612e622f7841a264746578747822636f6c6c656374696f6e20657874656e64696e6720636f6d2e6578616d706c652e6165247479706570636f6d2e6578616d706c652e6e6f74650f636f6d2e6578616d706c652e612f4128a264746578746a7570706572206361736565247479706570636f6d2e6578616d706c652e6e6f74650f636f6d2e6578616d706c652e612f6123a26474657874656c6f77657265247479706570636f6d2e6578616d706c652e6e6f746511636f6d2e6578616d706c652e612f612d621fa26474657874612d65247479706570636f6d2e6578616d706c652e6e6f746511636f6d2e6578616d706c652e612f612e621fa26474657874612e65247479706570636f6d2e6578616d706c652e6e6f746511636f6d2e6578616d706c652e612f613a621fa26474657874613a65247479706570636f6d2e6578616d706c652e6e6f746511636f6d2e6578616d706c652e612f615f621fa26474657874615f65247479706570636f6d2e6578616d706c652e6e6f746511636f6d2e6578616d706c652e612f617e621fa26474657874617e65247479706570636f6d2e6578616d706c652e6e6f746510636f6d2e6578616d706c652e61622f6120a2647465787462616265247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": true,
+        "commit": {
+          "ver": 1,
+          "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+          "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+          "rev": "3kbcq3p7ad400",
+          "data": "cc74cadd112333f81ac69276bbbb9056221eefc506d4e595acbf973955bf9907"
+        },
+        "records": [
+          {
+            "path": "com.example.a.b/x",
+            "cid": "bafyreibjudvsiz7jxqlmihbjrlmjelijv2746ngxpobhiuwpxtmuagodxe"
+          },
+          {
+            "path": "com.example.a/A",
+            "cid": "bafyreicmxlgyqgxevmcd5ltwucq25t2oya4yb6atntmy5flyvgcxivnlgi"
+          },
+          {
+            "path": "com.example.a/a",
+            "cid": "bafyreifp37chdoj3zho3vjzg2cied3miztgv6wctoac75owx7cm5gqbdqu"
+          },
+          {
+            "path": "com.example.a/a-b",
+            "cid": "bafyreig25kz5kwd35avvcitplugsbdlqhbn3e5ytkctyrkuz5fqc5kbboa"
+          },
+          {
+            "path": "com.example.a/a.b",
+            "cid": "bafyreia3ngpd6p7dlixbs2o7xpkhmnzgekkvitqpj22plbcsqnfvyjcm3e"
+          },
+          {
+            "path": "com.example.a/a:b",
+            "cid": "bafyreidabdsht7cpwhprpomgnfkgz4azznxbi64xxyvp64nybiwyc6xytu"
+          },
+          {
+            "path": "com.example.a/a_b",
+            "cid": "bafyreienoz24i2meflekihwutjis5bqib7a2a6ok25or7edzmzp3fctnhq"
+          },
+          {
+            "path": "com.example.a/a~b",
+            "cid": "bafyreicd7dkvgeysr2entuucrifyzlvrkyztdy54asg2xzzhhz2cqop6pa"
+          },
+          {
+            "path": "com.example.ab/a",
+            "cid": "bafyreicasa26n4w6jmv3d4swjmoj3sgqdljrltgqdbqgd3srxrquutukw4"
+          }
+        ]
+      },
+      "star": {
+        "ok": true,
+        "pairs": 9
+      }
+    },
+    {
+      "name": "a record of every data type",
+      "note": "SPC-17/59: text, integers, booleans, null, arrays, nested maps, bytes and a CID link, canonically encoded.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "37e3b1ca4179cc411a35c7ddd07cfcd66f54fc599c42df2390c630f6826002fe",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158201ab912e4595fc7b16925972fabea6ef21577eb712ba89be098080a781a6cdcfa647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7415636f6d2e6578616d706c652e726963682f73656c66a001aa616e3829636269671b001fffffffffffff63726566d82a582500017112206428f02304b8db8cb107c89336481f0fead728bf374ca80168d2c71938cefae763796573f5646c69737483016374776f810364746578746f68c3a96c6c6f20e29c9320f09d849e65247479706570636f6d2e6578616d706c652e7269636865627974657344000102ff666e6573746564a16162a16161617a676e6f7468696e67f6",
+      "expect": {
+        "ok": true,
+        "commit": {
+          "ver": 1,
+          "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+          "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+          "rev": "3kbcq3p7ad400",
+          "data": "1ab912e4595fc7b16925972fabea6ef21577eb712ba89be098080a781a6cdcfa"
+        },
+        "records": [
+          {
+            "path": "com.example.rich/self",
+            "cid": "bafyreihu7dqeltdplydttu7whsfyxbz3oe62zn4lfhjgpt7q4kjsbvzlxa"
+          }
+        ]
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      }
+    },
+    {
+      "name": "a record of exactly 1 MiB",
+      "note": "SPC-59: a record value is at most 1 MiB (1,048,576 bytes).",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "08241c3deb4753854ea5aa5ee05346571e1d5b5f3864dfec805a4a0f69600790",
+      "archive": [
+        "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820256886fdaf0e960f6c8e017293c46f426c250c8d998ee21ed519e13d0d76b855647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7413636f6d2e6578616d706c652e6269672f6d6178808040a264746578747a000fffdf",
+        {
+          "repeat": "61",
+          "count": 1048543
+        },
+        "6524747970656f636f6d2e6578616d706c652e626967"
+      ],
+      "expect": {
+        "ok": true,
+        "commit": {
+          "ver": 1,
+          "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+          "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+          "rev": "3kbcq3p7ad400",
+          "data": "256886fdaf0e960f6c8e017293c46f426c250c8d998ee21ed519e13d0d76b855"
+        },
+        "records": [
+          {
+            "path": "com.example.big/max",
+            "cid": "bafyreigep2eywsh5yahn26qwuzd2jxfrjd4jonzvduf5mydlqy5jtojqhi"
+          }
+        ]
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      }
+    },
+    {
+      "name": "rev that is not a TID",
+      "note": "SPC-77 says rev is a TID; the reference metadata schema takes any string, and SPC-60 does not list rev among the checks.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "48c208cc0d0c411bf36edd69ceaeba0505a509d7848aec7a88da436c8393a695",
+      "archive": "2a6c0100cb01a663726576696e6f742d612d7469646376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": true,
+        "commit": {
+          "ver": 1,
+          "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+          "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+          "rev": "not-a-tid",
+          "data": "6ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d"
+        },
+        "records": [
+          {
+            "path": "com.example.note/3kbcq3p7ad400",
+            "cid": "bafyreibqrvab2uuhh5j7dsrwjzptpmu3g42eiwvodyt67ojclmttqjjv4e"
+          },
+          {
+            "path": "com.example.note/3kbcq3p7ad401",
+            "cid": "bafyreifeyovuvkh4ybsuzdz57qesewbhokskp2ljlebospsggsc5jlg2su"
+          },
+          {
+            "path": "com.example.note/3kbcq3p7ad402",
+            "cid": "bafyreiaewxl4nn7r5u63euyorlwjuzflqrtzthkjydfn7rdbrqmjagfrwu"
+          }
+        ]
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      }
+    },
+    {
+      "name": "metadata with an extra field",
+      "note": "SPC-59 lists the metadata fields; the reference ignores unknown ones (its schema strips them).",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100dd01a7637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f6565787472616769676e6f726564657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": true,
+        "commit": {
+          "ver": 1,
+          "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+          "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+          "rev": "3kbcq3p7ad400",
+          "data": "6ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d"
+        },
+        "records": [
+          {
+            "path": "com.example.note/3kbcq3p7ad400",
+            "cid": "bafyreibqrvab2uuhh5j7dsrwjzptpmu3g42eiwvodyt67ojclmttqjjv4e"
+          },
+          {
+            "path": "com.example.note/3kbcq3p7ad401",
+            "cid": "bafyreifeyovuvkh4ybsuzdz57qesewbhokskp2ljlebospsggsc5jlg2su"
+          },
+          {
+            "path": "com.example.note/3kbcq3p7ad402",
+            "cid": "bafyreiaewxl4nn7r5u63euyorlwjuzflqrtzthkjydfn7rdbrqmjagfrwu"
+          }
+        ]
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      }
+    },
+    {
+      "name": "MAC under another secret",
+      "note": "SPC-60: a MAC mismatch rejects the archive.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "46987d809acb37260adec8aed7222b7e4adfaed48c05f9d152e9d20fc6c0a88b",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: commit failed verification"
+    },
+    {
+      "name": "MAC over another rev",
+      "note": "SPC-60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "e143c0b7511f28370864426a8d4cbafebeaf13aeafe01aef34265e6b17520dfc",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: commit failed verification"
+    },
+    {
+      "name": "another repo requested",
+      "note": "SPC-60/77: repo must equal the request.",
+      "request": {
+        "repo": "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: commit failed verification"
+    },
+    {
+      "name": "another space requested",
+      "note": "SPC-60/77: space must equal the request.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default2"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: commit failed verification"
+    },
+    {
+      "name": "commit ver 2",
+      "note": "SPC-60/77: ver is 1 (the MAC does not cover ver, so it matches).",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657202646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: commit failed verification"
+    },
+    {
+      "name": "metadata $type of another profile",
+      "note": "SPC-59/60: the metadata is $type \"atproto-space-repo\" plus the commit fields.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100d201a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706575617470726f746f2d73706163652d7265636f726473657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: invalid repo metadata: [ { \"received\": \"atproto-space-records\", \"code\": \"invalid_literal\", \"expected\": \"atproto-space-repo\", \"path\": [ \"$type\" ], \"message\": \"Invalid literal val"
+    },
+    {
+      "name": "metadata without $type",
+      "note": "SPC-59/60: the metadata is $type \"atproto-space-repo\" plus the commit fields.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100b601a5637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a3237683674767572657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: metadata must be a map with a $type"
+      },
+      "referenceError": "StarParseError: metadata must be a map with a $type"
+    },
+    {
+      "name": "metadata without rev",
+      "note": "SPC-59/60: the metadata is $type \"atproto-space-repo\" plus the commit fields.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100bd01a56376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: invalid repo metadata: [ { \"code\": \"invalid_type\", \"expected\": \"string\", \"received\": \"undefined\", \"path\": [ \"rev\" ], \"message\": \"Required\" } ]"
+    },
+    {
+      "name": "metadata without data",
+      "note": "SPC-59/60: the metadata is $type \"atproto-space-repo\" plus the commit fields.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100a801a5637265766d336b62637133703761643430306376657201647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: invalid repo metadata: [ { \"code\": \"custom\", \"message\": \"Input not instance of Uint8Array\", \"fatal\": true, \"path\": [ \"data\" ] } ]"
+    },
+    {
+      "name": "metadata data as a string",
+      "note": "SPC-59/60: the metadata is $type \"atproto-space-repo\" plus the commit fields.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100ef01a6637265766d336b626371337037616434303063766572016464617461784036616433356564346431343231616362313563666632623932663937336435376561663531646334663531353662323932383032386339363361343563353964647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: invalid repo metadata: [ { \"code\": \"custom\", \"message\": \"Input not instance of Uint8Array\", \"fatal\": true, \"path\": [ \"data\" ] } ]"
+    },
+    {
+      "name": "metadata ver as a string",
+      "note": "SPC-59/60: the metadata is $type \"atproto-space-repo\" plus the commit fields.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100d001a6637265766d336b6263713370376164343030637665726131646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: invalid repo metadata: [ { \"code\": \"invalid_type\", \"expected\": \"number\", \"received\": \"string\", \"path\": [ \"ver\" ], \"message\": \"Expected number, received string\" } ]"
+    },
+    {
+      "name": "metadata repo that is not a DID",
+      "note": "SPC-59/60: the metadata is $type \"atproto-space-repo\" plus the commit fields.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100bf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f71616c6963652e6578616d706c652e636f6d65247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: invalid repo metadata: [ { \"code\": \"custom\", \"fatal\": true, \"path\": [ \"repo\" ], \"message\": \"Invalid input\" } ]"
+    },
+    {
+      "name": "metadata space that is not a space reference",
+      "note": "SPC-59/60: the metadata is $type \"atproto-space-repo\" plus the commit fields.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100c901a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784261743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: invalid repo metadata: [ { \"code\": \"custom\", \"fatal\": true, \"path\": [ \"space\" ], \"message\": \"Invalid input\" } ]"
+    },
+    {
+      "name": "metadata with keys out of canonical order",
+      "note": "SPC-59: the metadata is canonical DRISL.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a665247479706572617470726f746f2d73706163652d7265706f646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a3237683674767572637265766d336b6263713370376164343030657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7463766572011e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: metadata is not canonical DRISL"
+      },
+      "referenceError": "StarParseError: metadata is not canonical DRISL"
+    },
+    {
+      "name": "metadata with trailing bytes",
+      "note": "SPC-59: the metadata frame holds exactly one item.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100d001a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c74001e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: invalid metadata"
+      },
+      "referenceError": "StarParseError: invalid metadata"
+    },
+    {
+      "name": "metadata that is an array",
+      "note": "SPC-59.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100d00181a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: metadata must be a map with a $type"
+      },
+      "referenceError": "StarParseError: metadata must be a map with a $type"
+    },
+    {
+      "name": "metadata that is not CBOR",
+      "note": "SPC-59.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c010001ff1e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: invalid metadata"
+      },
+      "referenceError": "StarParseError: invalid metadata"
+    },
+    {
+      "name": "empty input",
+      "note": "SPC-59: STAR magic 2a 6c 01 00.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: invalid magic bytes"
+      },
+      "referenceError": "StarParseError: invalid magic bytes"
+    },
+    {
+      "name": "wrong magic",
+      "note": "SPC-59.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "3a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: invalid magic bytes"
+      },
+      "referenceError": "StarParseError: invalid magic bytes"
+    },
+    {
+      "name": "another STAR version",
+      "note": "SPC-59: version byte 01.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0200cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: invalid magic bytes"
+      },
+      "referenceError": "StarParseError: invalid magic bytes"
+    },
+    {
+      "name": "magic only",
+      "note": "SPC-59: the metadata is required.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: missing metadata"
+      },
+      "referenceError": "StarParseError: missing metadata"
+    },
+    {
+      "name": "metadata length padded with a zero byte",
+      "note": "SPC-59: varints are in shortest form.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf8100a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c74",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: non-canonical varint"
+      },
+      "referenceError": "StarParseError: non-canonical varint"
+    },
+    {
+      "name": "varint longer than 6 bytes",
+      "note": "SPC-59: the reference reads at most 6 varint bytes.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c010080808080808001",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: varint too long"
+      },
+      "referenceError": "StarParseError: varint too long"
+    },
+    {
+      "name": "metadata length over 64 MiB",
+      "note": "SPC-59/60: the length is refused before reading (the frame is not present).",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c010081808020",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: length 67108865 exceeds limit of 67108864"
+      },
+      "referenceError": "StarParseError: length 67108865 exceeds limit of 67108864"
+    },
+    {
+      "name": "metadata truncated",
+      "note": "SPC-60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b6263",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: unexpected end of archive"
+      },
+      "referenceError": "StarParseError: unexpected end of archive"
+    },
+    {
+      "name": "EOF inside a key length",
+      "note": "SPC-60: EOF is allowed only at a pair boundary.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7480",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: unexpected end of archive"
+      },
+      "referenceError": "StarParseError: unexpected end of archive"
+    },
+    {
+      "name": "EOF inside a key",
+      "note": "SPC-60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e65",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: unexpected end of archive"
+      },
+      "referenceError": "StarParseError: unexpected end of archive"
+    },
+    {
+      "name": "key without a value",
+      "note": "SPC-60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b6263713370376164343030",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: missing value for key"
+      },
+      "referenceError": "StarParseError: missing value for key"
+    },
+    {
+      "name": "EOF inside a value",
+      "note": "SPC-60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: unexpected end of archive"
+      },
+      "referenceError": "StarParseError: unexpected end of archive"
+    },
+    {
+      "name": "key length padded with a zero byte",
+      "note": "SPC-59: varints are in shortest form.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c749e00636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": false,
+        "error": "StarParseError: non-canonical varint"
+      },
+      "referenceError": "StarParseError: non-canonical varint"
+    },
+    {
+      "name": "records out of order",
+      "note": "SPC-59/60: keys strictly increase.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: records out of order at com.example.note/3kbcq3p7ad400"
+    },
+    {
+      "name": "duplicate key",
+      "note": "SPC-59/60: no duplicate keys (the commit counts the record twice, so only the key order fails).",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "21a261429d0a6f3a4c7db93477bc4bb5573606bf9d77f732d965dbf96d2b8a5b",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206166572ccf15fe2ff8474dc79bb9c0736cc8b9b0eda5b6f23066d0fb746149f8647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 4
+      },
+      "referenceError": "RepoVerificationError: records out of order at com.example.note/3kbcq3p7ad400"
+    },
+    {
+      "name": "a record missing",
+      "note": "SPC-60: the digest of the records does not match data.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 2
+      },
+      "referenceError": "RepoVerificationError: records do not match the commit data"
+    },
+    {
+      "name": "an extra record",
+      "note": "SPC-60: digest mismatch.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303322a2647465787464666f757265247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 4
+      },
+      "referenceError": "RepoVerificationError: records do not match the commit data"
+    },
+    {
+      "name": "a record changed",
+      "note": "SPC-60: digest mismatch.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303223a2647465787465544852454565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: records do not match the commit data"
+    },
+    {
+      "name": "a record under another key",
+      "note": "SPC-60: the key is part of the LtHash element.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c741e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303121a264746578746374776f65247479706570636f6d2e6578616d706c652e6e6f74651e636f6d2e6578616d706c652e6e6f74652f336b626371337037616434303923a2647465787465746872656565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 3
+      },
+      "referenceError": "RepoVerificationError: records do not match the commit data"
+    },
+    {
+      "name": "empty key",
+      "note": "SPC-59/60: each key is a record path {collection}/{rkey}.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c740021a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record path: "
+    },
+    {
+      "name": "key without a slash",
+      "note": "SPC-59/60: each key is a record path {collection}/{rkey}.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b594dca88427fc1570860e3c1c445e120d518c6799bc3b662adcb30938579c81",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158206ad35ed4d1421acb15cff2b92f973d57eaf51dc4f5156b2928028c963a45c59d647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7410636f6d2e6578616d706c652e6e6f746521a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record path: com.example.note"
+    },
+    {
+      "name": "key with two slashes",
+      "note": "SPC-59/60: each key is a record path {collection}/{rkey}.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "1a03da3dd8e47394b0701ea97240ad61d88ad6d82d5ce5c7f31226bb8c886b73",
+      "archive": "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820082b7d974f112c1380c4a081b4296f9b78bbe5be0f866611d4bd884e0e2b06db647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7414636f6d2e6578616d706c652e6e6f74652f612f6221a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record path: com.example.note/a/b"
+    },
+    {
+      "name": "key whose collection is not an NSID",
+      "note": "SPC-59/60: each key is a record path {collection}/{rkey}.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "ee6ba81c0bab8ece3ef23b3d982cd8ee6e69783111b64cb0a01b97cdbbce6829",
+      "archive": "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820f1ddbdc31d50c09376637624750d4c13a2e888961cdf9a5f5a912dd9f9fd4c0a647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c74066e6f74652f6121a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid NSID in record path: note/a"
+    },
+    {
+      "name": "key whose rkey is not a record key",
+      "note": "SPC-59/60: each key is a record path {collection}/{rkey}.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "2702f77f5562569f33bbb761ec82cd73dbd9221c207ad08ecc65758c88a320a1",
+      "archive": "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820f7f33413ab50f6106e09e56afb9fb01c406fc6b75c953a5ca42cf66c4bc4d4ab647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7413636f6d2e6578616d706c652e6e6f74652f2e2e21a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record key in record path: com.example.note/.."
+    },
+    {
+      "name": "key that is not UTF-8",
+      "note": "SPC-59/60: each key is a record path {collection}/{rkey}.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "79c82c138fd0909734a36d8dadf53c6ad227098df9217ade24321e56d5daebe9",
+      "archive": "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820997ec23334dc0c0b578706b38150f42a4aef750d01fd59770ccc6382eaf50399647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7403632fff21a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f7465",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid NSID in record path: c/�"
+    },
+    {
+      "name": "record that is an array",
+      "note": "SPC-17/60: a record is a map.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "4ae7b7c7167f75ef3ac1b14d9bfb803c50fd87e7d4f6d77f2fb98e9c91c26d13",
+      "archive": "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820aca65478faf3c501a1dcc14777ba83525602ebb0f1b10658b6fc513384681ded647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7412636f6d2e6578616d706c652e6e6f74652f610581636f6e65",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record at com.example.note/a"
+    },
+    {
+      "name": "record that is text",
+      "note": "SPC-17/60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "3edfd0cbb6b09eff8778d2f035a096b9ecb3da0d72e56d2efae398058c0c2e83",
+      "archive": "2a6c0100cf01a6637265766d336b626371337037616434303063766572016464617461582056302db24ef07a7a9aad05d85f8b15dda3533b7fa1671b96633abe874f608c1c647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7412636f6d2e6578616d706c652e6e6f74652f6104636f6e65",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record at com.example.note/a"
+    },
+    {
+      "name": "record that is not CBOR",
+      "note": "SPC-17/60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "f018f8ff39f6e4a31ece5f94a323d7ddf3a4ae6bd7a893f5b32b96a2d5338a1b",
+      "archive": "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820cc1194c7001c753367e051ede5bd7eeffa1f115ad327bc1226d9030318d1c2dc647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7412636f6d2e6578616d706c652e6e6f74652f6101ff",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record cbor at com.example.note/a"
+    },
+    {
+      "name": "record with trailing bytes",
+      "note": "SPC-17/60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "fd7e2d864af61db9b712ac64eff68109a4f322d8959646782729092a1b9d16d4",
+      "archive": "2a6c0100cf01a6637265766d336b626371337037616434303063766572016464617461582026d5ef051dc9d847e569e4919233d07f1b685c3252020f7a167afaf2b8b2403f647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7412636f6d2e6578616d706c652e6e6f74652f6122a26474657874636f6e6565247479706570636f6d2e6578616d706c652e6e6f746500",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record cbor at com.example.note/a"
+    },
+    {
+      "name": "record with a repeated key",
+      "note": "SPC-17/60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "4a1598f299ee41d5cf6c42aebfbd05ed936bc5f8511fd5cc4f42fdd4839e17e6",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158205bfbfe27af29015e671c68f167905f2403e5d489fea7ecb559df35298f3f8e7a647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7412636f6d2e6578616d706c652e6e6f74652f610fa26474657874616164746578746162",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record cbor at com.example.note/a"
+    },
+    {
+      "name": "record with a non-minimal integer",
+      "note": "SPC-17/60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "ac1a913f8fb987f6d993adb17b2ecf95a46abce379ffae5c23d93e056a144947",
+      "archive": "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820dd23f548cc1cabea022d5d86fdbe4bf56ec3df614348eac9a8a07ff8bde19e4b647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7412636f6d2e6578616d706c652e6e6f74652f6105a1616e1801",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record cbor at com.example.note/a"
+    },
+    {
+      "name": "record with a tag other than 42",
+      "note": "SPC-17/60.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "ef965f8234a0e1a6924abda685fd7336aedf68fe99bf43ed8a87d080011a7553",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158205355681dea118090e7c2deb04748ea9bc490fc6b791fe35a9d3d107926bb79a8647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7412636f6d2e6578616d706c652e6e6f74652f6105a16174c101",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record cbor at com.example.note/a"
+    },
+    {
+      "name": "record with an integer key",
+      "note": "SPC-17/60: text keys only.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "b84036b863b10058f6077415f9375bcf6040c7ba3128e7da42feb5dc49127732",
+      "archive": "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820c74f336d0ac823b414dab372bb2e96d68bd1d880b78d1c53130047b5ac99f838647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7412636f6d2e6578616d706c652e6e6f74652f6103a10101",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "RepoVerificationError: invalid record cbor at com.example.note/a"
+    },
+    {
+      "name": "record with keys out of canonical order",
+      "note": "SPC-17/60 require canonical encoding; the reference decodes it, hashes the bytes as sent and accepts it.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "6e84bf5104d0cb5b47bcb39b1be19144b18a05a3b2b58924d3ec66785d6d9998",
+      "archive": "2a6c0100cf01a6637265766d336b62637133703761643430306376657201646461746158203353eabb69c651e978cf360369b6947a22dae9b41c7f2907fe195b4fe8665a1b647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7412636f6d2e6578616d706c652e6e6f74652f610ea26474657874636f6e6561616162",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "beyondReference": true,
+      "reference": {
+        "ok": true,
+        "commit": {
+          "ver": 1,
+          "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+          "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+          "rev": "3kbcq3p7ad400",
+          "data": "3353eabb69c651e978cf360369b6947a22dae9b41c7f2907fe195b4fe8665a1b"
+        },
+        "records": [
+          {
+            "path": "com.example.note/a",
+            "cid": "bafyreigps2lrml3azpidwmtmrpz4thsabtxp5nw3jwykcfipkvvy4hvgcy"
+          }
+        ]
+      }
+    },
+    {
+      "name": "record with a float",
+      "note": "SPC-17/60 forbid floats; the reference decoder accepts them.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "bd1fad8f3b8d568638a9c0b0e5af86a65dcff6ccacebe719cd3cf212a4fd9a3f",
+      "archive": "2a6c0100cf01a6637265766d336b626371337037616434303063766572016464617461582051c3e832e5c0e927768b2860a04dc44b2a0bc2694dfff3cf238bf0b1d0a7e439647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7412636f6d2e6578616d706c652e6e6f74652f610ca1616efb3ff8000000000000",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "beyondReference": true,
+      "reference": {
+        "ok": true,
+        "commit": {
+          "ver": 1,
+          "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+          "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+          "rev": "3kbcq3p7ad400",
+          "data": "51c3e832e5c0e927768b2860a04dc44b2a0bc2694dfff3cf238bf0b1d0a7e439"
+        },
+        "records": [
+          {
+            "path": "com.example.note/a",
+            "cid": "bafyreigtytbrne6gxg56rmajcunvykynqzggthkhyxleqxrwhkatugowpi"
+          }
+        ]
+      }
+    },
+    {
+      "name": "record with undefined",
+      "note": "SPC-17/60: undefined is not DRISL; the reference decoder reads it as null.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "d99e61edec92060dba5a18697e75f0ab54ffcf3f756d1f58ba78c66c99fdf727",
+      "archive": "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820a2fd70fa3a6761a373134b7a121e83a2097a394b20169277e657137ac8e9a9cc647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7412636f6d2e6578616d706c652e6e6f74652f6104a16175f7",
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "beyondReference": true,
+      "reference": {
+        "ok": true,
+        "commit": {
+          "ver": 1,
+          "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+          "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+          "rev": "3kbcq3p7ad400",
+          "data": "a2fd70fa3a6761a373134b7a121e83a2097a394b20169277e657137ac8e9a9cc"
+        },
+        "records": [
+          {
+            "path": "com.example.note/a",
+            "cid": "bafyreifytikh7z5d5jdcygiapwqnoqrhouygak6epnpt356jkhkbgomlu4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a record of 1 MiB + 1 byte",
+      "note": "SPC-59/60: a record value is at most 1 MiB; the length is refused before the value is read.",
+      "request": {
+        "repo": "did:plc:z72i7hdynmk6r22z27h6tvur",
+        "space": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default"
+      },
+      "sharedSecret": "9bb4c68730f95a7e45bfc6f0ff7929ebec49ef4d615a8496d0e27d201bbd4f8e",
+      "mac": "dfb13958292208b1a1e59119ab85d0f49b3e9e21370106d8f9569928d4ab8b4a",
+      "archive": [
+        "2a6c0100cf01a6637265766d336b6263713370376164343030637665720164646174615820d56a84d1e10a37680482441e5588f3ac524bc2aeae9fbca621e681d0e187794e647265706f78206469643a706c633a7a373269376864796e6d6b367232327a323768367476757265247479706572617470726f746f2d73706163652d7265706f657370616365784861743a2f2f6469643a706c633a65777669376e787a796f756e367a687872687336346f697a2f73706163652f636f6d2e61746d6f626f617264732e666f72756d2f64656661756c7414636f6d2e6578616d706c652e6269672f6f766572818040a264746578747a000fffe0",
+        {
+          "repeat": "61",
+          "count": 1048544
+        },
+        "6524747970656f636f6d2e6578616d706c652e626967"
+      ],
+      "expect": {
+        "ok": false
+      },
+      "star": {
+        "ok": true,
+        "pairs": 1
+      },
+      "referenceError": "StarParseError: length 1048577 exceeds limit of 1048576"
+    }
+  ]
+}

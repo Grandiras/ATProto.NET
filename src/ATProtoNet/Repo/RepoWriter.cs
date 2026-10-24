@@ -33,6 +33,8 @@ public sealed class RepoWriter
     /// <param name="key">The repository's signing key. The caller keeps owning it.</param>
     /// <param name="blocks">The repository's blocks: the head's tree is read from it, and every new block written to it.</param>
     /// <param name="head">The current commit, or <see langword="null"/> for a new, empty repository.</param>
+    /// <exception cref="ArgumentException"><paramref name="head"/> is a commit of another repository.</exception>
+    /// <exception cref="MstIncompleteException"><paramref name="blocks"/> lacks the head's root node.</exception>
     public RepoWriter(Did did, SigningKey key, IWritableBlockStore blocks, SignedCommit? head = null)
     {
         ArgumentNullException.ThrowIfNull(did);

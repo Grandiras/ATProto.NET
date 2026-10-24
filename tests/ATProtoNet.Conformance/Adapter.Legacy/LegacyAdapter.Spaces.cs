@@ -25,37 +25,40 @@ public sealed partial class LegacyAdapter
         return (hash.GetState(), hash.Digest());
     }
 
-    /// <inheritdoc />
-    public string? VerifySpaceSignature(string authorization, string? audience, string signatureInput, string signature, string? keyId)
-    {
-        try
-        {
-            return audience is null || keyId is null
-                ? SpaceHttpSignature.VerifyExchange(authorization, signatureInput, signature)
-                : SpaceHttpSignature.VerifyRequest(authorization, Did.Parse(audience), signatureInput, signature, keyId);
-        }
-        catch (SpaceSignatureException)
-        {
-            return null;
-        }
-    }
+    // 0.8 signs the 2026-10-01 alpha's request (label atproto-space, no tag); the 2026-10-22 vectors are
+    // listed in LegacyKnownFailures, and these members serve no vector.
 
     /// <inheritdoc />
-    public (string SignatureInput, string Signature)? SignSpaceRequest(string curve, string privateKeyHex, string authorization, string? audience)
-    {
-        using var key = ImportKey(curve, privateKeyHex);
-        try
-        {
-            var signed = audience is null
-                ? SpaceHttpSignature.SignExchange(key, authorization)
-                : SpaceHttpSignature.SignRequest(key, authorization, Did.Parse(audience));
-            return (signed.SignatureInput, signed.Signature);
-        }
-        catch (ArgumentException)
-        {
-            return null;
-        }
-    }
+    public string? VerifySpaceSignature(string? authorization, string? audience, string? signatureInput, string? signature, string keyId) => throw After0_8();
+
+    /// <inheritdoc />
+    public (string SignatureInput, string Signature)? SignSpaceRequest(string curve, string privateKeyHex, string authorization, string audience) => throw After0_8();
+
+    /// <inheritdoc />
+    public byte[]? KemDecapsulate(string authorPrivateKeyHex, string keyShare) => throw After0_8();
+
+    /// <inheritdoc />
+    public (string KeyShare, byte[] Secret)? KemEncapsulate(string authorKey) => throw After0_8();
+
+    /// <inheritdoc />
+    public byte[]? SpaceMac(byte[] sharedSecret, string type, IReadOnlyList<string> fields, byte[] data) => throw After0_8();
+
+    /// <inheritdoc />
+    public string FormatWantMac(string type, string keyShare) => throw After0_8();
+
+    /// <inheritdoc />
+    public string FormatMac(string type, byte[] mac) => throw After0_8();
+
+    /// <inheritdoc />
+    public string? ParseWantMac(string? value, string type) => throw After0_8();
+
+    /// <inheritdoc />
+    public byte[]? ParseMac(string? value, string type) => throw After0_8();
+
+    /// <inheritdoc />
+    public SpaceRepoVerdict? VerifySpaceRepo(byte[] archive, string repo, string space, byte[] sharedSecret, byte[] mac) => throw After0_8();
+
+    private static NotSupportedException After0_8() => new("0.8 implements the 2026-10-01 Spaces alpha, before the shared-secret commitment and the atproto-space-credential signature.");
 
     /// <inheritdoc />
     public StructuredMember? ReadStructuredField(string field, string key)

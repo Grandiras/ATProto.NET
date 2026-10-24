@@ -65,7 +65,7 @@ public sealed class HttpSignatureRequest
 /// <remarks>Which components and parameters a protocol signs is that protocol's decision; this layer signs exactly what it is given.</remarks>
 public sealed record HttpSignatureParameters
 {
-    /// <summary>The signature's label in <c>Signature-Input</c> and <c>Signature</c>, such as <c>atproto-space</c>.</summary>
+    /// <summary>The signature's label in <c>Signature-Input</c> and <c>Signature</c>, such as <c>atproto-space-credential</c>.</summary>
     public required string Label { get; init; }
 
     /// <summary>The covered field names, lower case, in signing order.</summary>
@@ -73,6 +73,9 @@ public sealed record HttpSignatureParameters
 
     /// <summary>The <c>keyid</c> parameter, such as the signer's <c>did:key</c>.</summary>
     public string? KeyId { get; init; }
+
+    /// <summary>The <c>tag</c> parameter: the application the signature is for, such as <c>atproto-space-credential</c>.</summary>
+    public string? Tag { get; init; }
 
     /// <summary>The <c>created</c> parameter; the caller reads it from its <see cref="TimeProvider"/>.</summary>
     public DateTimeOffset? Created { get; init; }

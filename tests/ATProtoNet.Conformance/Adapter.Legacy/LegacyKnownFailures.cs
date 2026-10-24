@@ -6,6 +6,9 @@ namespace ATProtoNet.Conformance.Legacy;
 /// </summary>
 internal static class LegacyKnownFailures
 {
+    private const string After0_8 = "0.8 implements the 2026-10-01 Spaces alpha; the shared-secret commitment, STAR exports and the atproto-space-credential signature came with the 2026-10-22 release.";
+    private const string After0_8Kid = "0.8 accepts any kid on space tokens; since the 2026-10-22 release delegation tokens and credentials must carry kid \"#atproto\" (SPC-19).";
+    private const string After0_8Cnf = "0.8 accepts any cnf.kid; SPC-19 binds a credential to a P-256 did:key.";
     private const string NoStrictReader = "0.8 has no strict DRISL reader for general values (DagCborDecoder is lax; strict reading exists only inside CommitBlock and MstNodeData).";
 
     public static IReadOnlyDictionary<string, string> All { get; } = new Dictionary<string, string>
@@ -39,6 +42,16 @@ internal static class LegacyKnownFailures
         ["repo/commit-blocks.json#keys out of canonical order"] = "#230: CommitBlock.Read uses CborConformanceMode.Strict, which does not enforce canonical key order, so a reordered commit is a bad signature rather than malformed.",
 
         // Firehose, Jetstream, labels, tokens, Lexicon and Spaces.
+        ["spaces/http-signatures.json#*"] = After0_8,
+        ["spaces/kem.json#*"] = After0_8,
+        ["spaces/space-mac.json#*"] = After0_8,
+        ["spaces/star.json#*"] = After0_8,
+        ["spaces/space-tokens.json#delegation token with kid #other_key"] = After0_8Kid,
+        ["spaces/space-tokens.json#delegation token without kid"] = After0_8Kid,
+        ["spaces/space-tokens.json#credential bound to a DID that is not a did:key"] = After0_8Cnf,
+        ["spaces/space-tokens.json#credential bound to a K-256 did:key"] = After0_8Cnf,
+        ["spaces/space-tokens.json#credential with kid #atproto_space"] = After0_8Kid,
+        ["spaces/space-tokens.json#credential without kid"] = After0_8Kid,
         ["streaming/jetstream-events.json#v2 commit with a non-numeric seq"] =
             "#232: a Jetstream v2 event whose seq is not a number is delivered without a cursor instead of dropped (STR-71).",
         ["lexicon/interop/lexicon-*"] = "0.8 has no Lexicon schema validation.",

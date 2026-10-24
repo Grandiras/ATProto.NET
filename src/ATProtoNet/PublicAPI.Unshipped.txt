@@ -90,6 +90,8 @@ ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.KeyId.get -> string?
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.KeyId.init -> void
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Label.get -> string!
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Label.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Tag.get -> string?
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureParameters.Tag.init -> void
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequest
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequest.GetField(string! name) -> string?
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequest.HttpSignatureRequest(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! fields) -> void
@@ -103,6 +105,8 @@ ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Equals(ATProtoNet.Cry
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.HttpSignatureRequirements() -> void
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Label.get -> string!
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Label.init -> void
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Tag.get -> string?
+ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Tag.init -> void
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Time.get -> System.TimeProvider?
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureRequirements.Time.init -> void
 ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict
@@ -228,7 +232,7 @@ ATProtoNet.Crypto.KeyCurve
 ATProtoNet.Crypto.KeyCurve.K256 = 1 -> ATProtoNet.Crypto.KeyCurve
 ATProtoNet.Crypto.KeyCurve.P256 = 0 -> ATProtoNet.Crypto.KeyCurve
 ATProtoNet.Crypto.SharedSecret
-ATProtoNet.Crypto.SharedSecret.DeriveKey(System.ReadOnlySpan<byte> info, System.Span<byte> destination) -> void
+ATProtoNet.Crypto.SharedSecret.ComputeMac(System.ReadOnlySpan<byte> message, System.Span<byte> destination) -> void
 ATProtoNet.Crypto.SharedSecret.Dispose() -> void
 ATProtoNet.Crypto.SignatureEncoding
 ATProtoNet.Crypto.SignatureEncoding.Base64Url = 1 -> ATProtoNet.Crypto.SignatureEncoding
@@ -657,6 +661,100 @@ ATProtoNet.SpaceUri.Record(ATProtoNet.Did! author, ATProtoNet.Nsid! collection, 
 ATProtoNet.SpaceUri.Skey.get -> ATProtoNet.RecordKey!
 ATProtoNet.SpaceUri.SpaceType.get -> ATProtoNet.Nsid!
 ATProtoNet.SpaceUri.Value.get -> string!
+ATProtoNet.Spaces.ClientAttestationClaims
+ATProtoNet.Spaces.ClientAttestationClaims.<Clone>$() -> ATProtoNet.Spaces.ClientAttestationClaims!
+ATProtoNet.Spaces.ClientAttestationClaims.Audience.get -> string!
+ATProtoNet.Spaces.ClientAttestationClaims.Audience.init -> void
+ATProtoNet.Spaces.ClientAttestationClaims.ClientAttestationClaims() -> void
+ATProtoNet.Spaces.ClientAttestationClaims.ClientId.get -> string!
+ATProtoNet.Spaces.ClientAttestationClaims.ClientId.init -> void
+ATProtoNet.Spaces.ClientAttestationClaims.Equals(ATProtoNet.Spaces.ClientAttestationClaims? other) -> bool
+ATProtoNet.Spaces.ClientAttestationClaims.IssuedAt.get -> System.DateTimeOffset
+ATProtoNet.Spaces.ClientAttestationClaims.IssuedAt.init -> void
+ATProtoNet.Spaces.ClientAttestationClaims.KeyId.get -> string?
+ATProtoNet.Spaces.ClientAttestationClaims.KeyId.init -> void
+ATProtoNet.Spaces.ClientAttestationClaims.Lifetime.get -> System.TimeSpan
+ATProtoNet.Spaces.ClientAttestationClaims.Lifetime.init -> void
+ATProtoNet.Spaces.LtHash
+ATProtoNet.Spaces.LtHash.Add(ATProtoNet.Nsid! collection, ATProtoNet.RecordKey! rkey, ATProtoNet.Cid! cid) -> void
+ATProtoNet.Spaces.LtHash.Clone() -> ATProtoNet.Spaces.LtHash!
+ATProtoNet.Spaces.LtHash.Digest() -> byte[]!
+ATProtoNet.Spaces.LtHash.GetState() -> byte[]!
+ATProtoNet.Spaces.LtHash.IsEmpty.get -> bool
+ATProtoNet.Spaces.LtHash.Remove(ATProtoNet.Nsid! collection, ATProtoNet.RecordKey! rkey, ATProtoNet.Cid! cid) -> void
+ATProtoNet.Spaces.SpaceCommit
+ATProtoNet.Spaces.SpaceCommit.Data.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Spaces.SpaceCommit.Describes(ATProtoNet.Did! repo, ATProtoNet.SpaceUri! space) -> bool
+ATProtoNet.Spaces.SpaceCommit.Repo.get -> ATProtoNet.Did!
+ATProtoNet.Spaces.SpaceCommit.Rev.get -> string!
+ATProtoNet.Spaces.SpaceCommit.Space.get -> ATProtoNet.SpaceUri!
+ATProtoNet.Spaces.SpaceCommit.SpaceCommit(ATProtoNet.Did! repo, ATProtoNet.SpaceUri! space, ATProtoNet.Tid rev, System.ReadOnlySpan<byte> data) -> void
+ATProtoNet.Spaces.SpaceCommit.ToStarMetadata() -> byte[]!
+ATProtoNet.Spaces.SpaceCommit.Ver.get -> long
+ATProtoNet.Spaces.SpaceCredentialClaims
+ATProtoNet.Spaces.SpaceCredentialClaims.<Clone>$() -> ATProtoNet.Spaces.SpaceCredentialClaims!
+ATProtoNet.Spaces.SpaceCredentialClaims.Authority.get -> ATProtoNet.Did!
+ATProtoNet.Spaces.SpaceCredentialClaims.Authority.init -> void
+ATProtoNet.Spaces.SpaceCredentialClaims.BoundKey.get -> ATProtoNet.Crypto.DidKey!
+ATProtoNet.Spaces.SpaceCredentialClaims.BoundKey.init -> void
+ATProtoNet.Spaces.SpaceCredentialClaims.Equals(ATProtoNet.Spaces.SpaceCredentialClaims? other) -> bool
+ATProtoNet.Spaces.SpaceCredentialClaims.IssuedAt.get -> System.DateTimeOffset
+ATProtoNet.Spaces.SpaceCredentialClaims.IssuedAt.init -> void
+ATProtoNet.Spaces.SpaceCredentialClaims.Lifetime.get -> System.TimeSpan
+ATProtoNet.Spaces.SpaceCredentialClaims.Lifetime.init -> void
+ATProtoNet.Spaces.SpaceCredentialClaims.Space.get -> ATProtoNet.SpaceUri!
+ATProtoNet.Spaces.SpaceCredentialClaims.Space.init -> void
+ATProtoNet.Spaces.SpaceCredentialClaims.SpaceCredentialClaims() -> void
+ATProtoNet.Spaces.SpaceMac
+ATProtoNet.Spaces.SpaceMacRequest
+ATProtoNet.Spaces.SpaceMacRequest.Accept(ATProtoNet.Crypto.KemPrivateKey! authorKey) -> ATProtoNet.Crypto.SharedSecret!
+ATProtoNet.Spaces.SpaceMacRequest.KeyShare.get -> string!
+ATProtoNet.Spaces.SpaceMacRequest.SpaceMacRequest(ATProtoNet.Spaces.SpaceMacType type, string! keyShare) -> void
+ATProtoNet.Spaces.SpaceMacRequest.ToHeaderValue() -> string!
+ATProtoNet.Spaces.SpaceMacRequest.Type.get -> ATProtoNet.Spaces.SpaceMacType
+ATProtoNet.Spaces.SpaceMacType
+ATProtoNet.Spaces.SpaceMacType.Record = 1 -> ATProtoNet.Spaces.SpaceMacType
+ATProtoNet.Spaces.SpaceMacType.Repo = 0 -> ATProtoNet.Spaces.SpaceMacType
+ATProtoNet.Spaces.SpaceRepoExport
+ATProtoNet.Spaces.SpaceToken
+ATProtoNet.Spaces.SpaceToken.Audience.get -> string?
+ATProtoNet.Spaces.SpaceToken.ConfirmationKey.get -> ATProtoNet.Crypto.DidKey?
+ATProtoNet.Spaces.SpaceToken.ExpiresAt.get -> System.DateTimeOffset
+ATProtoNet.Spaces.SpaceToken.IssuedAt.get -> System.DateTimeOffset?
+ATProtoNet.Spaces.SpaceToken.Issuer.get -> string!
+ATProtoNet.Spaces.SpaceToken.Jti.get -> string!
+ATProtoNet.Spaces.SpaceToken.KeyId.get -> string?
+ATProtoNet.Spaces.SpaceToken.Subject.get -> string!
+ATProtoNet.Spaces.SpaceToken.Type.get -> ATProtoNet.Spaces.SpaceTokenType
+ATProtoNet.Spaces.SpaceToken.VerifySignature(ATProtoNet.Crypto.VerificationKey! key) -> bool
+ATProtoNet.Spaces.SpaceTokenError
+ATProtoNet.Spaces.SpaceTokenError.BadJwt = 0 -> ATProtoNet.Spaces.SpaceTokenError
+ATProtoNet.Spaces.SpaceTokenError.BadJwtAudience = 4 -> ATProtoNet.Spaces.SpaceTokenError
+ATProtoNet.Spaces.SpaceTokenError.BadJwtCnf = 5 -> ATProtoNet.Spaces.SpaceTokenError
+ATProtoNet.Spaces.SpaceTokenError.BadJwtIss = 2 -> ATProtoNet.Spaces.SpaceTokenError
+ATProtoNet.Spaces.SpaceTokenError.BadJwtSignature = 7 -> ATProtoNet.Spaces.SpaceTokenError
+ATProtoNet.Spaces.SpaceTokenError.BadJwtSub = 3 -> ATProtoNet.Spaces.SpaceTokenError
+ATProtoNet.Spaces.SpaceTokenError.BadJwtType = 1 -> ATProtoNet.Spaces.SpaceTokenError
+ATProtoNet.Spaces.SpaceTokenError.JwtExpired = 6 -> ATProtoNet.Spaces.SpaceTokenError
+ATProtoNet.Spaces.SpaceTokenException
+ATProtoNet.Spaces.SpaceTokenException.Error.get -> ATProtoNet.Spaces.SpaceTokenError
+ATProtoNet.Spaces.SpaceTokenException.SpaceTokenException(ATProtoNet.Spaces.SpaceTokenError error, string! message) -> void
+ATProtoNet.Spaces.SpaceTokenType
+ATProtoNet.Spaces.SpaceTokenType.ClientAttestation = 2 -> ATProtoNet.Spaces.SpaceTokenType
+ATProtoNet.Spaces.SpaceTokenType.Credential = 1 -> ATProtoNet.Spaces.SpaceTokenType
+ATProtoNet.Spaces.SpaceTokenType.Delegation = 0 -> ATProtoNet.Spaces.SpaceTokenType
+ATProtoNet.Spaces.SpaceVerificationError
+ATProtoNet.Spaces.SpaceVerificationError.BadMac = 2 -> ATProtoNet.Spaces.SpaceVerificationError
+ATProtoNet.Spaces.SpaceVerificationError.DigestMismatch = 3 -> ATProtoNet.Spaces.SpaceVerificationError
+ATProtoNet.Spaces.SpaceVerificationError.LimitExceeded = 4 -> ATProtoNet.Spaces.SpaceVerificationError
+ATProtoNet.Spaces.SpaceVerificationError.Malformed = 0 -> ATProtoNet.Spaces.SpaceVerificationError
+ATProtoNet.Spaces.SpaceVerificationError.WrongRepository = 1 -> ATProtoNet.Spaces.SpaceVerificationError
+ATProtoNet.Spaces.SpaceVerificationException
+ATProtoNet.Spaces.SpaceVerificationException.Error.get -> ATProtoNet.Spaces.SpaceVerificationError
+ATProtoNet.Spaces.SpaceVerificationException.SpaceVerificationException(ATProtoNet.Spaces.SpaceVerificationError error, string! message, System.Exception? innerException = null) -> void
+ATProtoNet.Spaces.VerifiedSpaceRepo
+ATProtoNet.Spaces.VerifiedSpaceRepo.Commit.get -> ATProtoNet.Spaces.SpaceCommit!
+ATProtoNet.Spaces.VerifiedSpaceRepo.Records.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Data.Star.StarEntry!>!
 ATProtoNet.Tid
 ATProtoNet.Tid.ClockId.get -> int
 ATProtoNet.Tid.CompareTo(ATProtoNet.Tid other) -> int
@@ -684,6 +782,7 @@ const ATProtoNet.Crypto.Blake3.HashLength = 32 -> int
 const ATProtoNet.Crypto.Blake3.KeyLength = 32 -> int
 const ATProtoNet.Crypto.HttpSignatures.StructuredFields.MaxHeaderValueLength = 8192 -> int
 const ATProtoNet.Crypto.Jose.Jws.MaxTokenLength = 16384 -> int
+const ATProtoNet.Crypto.SharedSecret.MacLength = 32 -> int
 const ATProtoNet.Crypto.VerificationKey.CompressedPointLength = 33 -> int
 const ATProtoNet.Crypto.VerificationKey.SignatureLength = 64 -> int
 const ATProtoNet.Crypto.VerificationKey.UncompressedPointLength = 65 -> int
@@ -715,6 +814,13 @@ const ATProtoNet.Repo.MstKey.MaxLength = 1024 -> int
 const ATProtoNet.Repo.RepoCommit.Version = 3 -> int
 const ATProtoNet.SpaceRecordUri.MaxLength = 8192 -> int
 const ATProtoNet.SpaceUri.MaxLength = 8192 -> int
+const ATProtoNet.Spaces.LtHash.StateLength = 2048 -> int
+const ATProtoNet.Spaces.SpaceCommit.CurrentVersion = 1 -> int
+const ATProtoNet.Spaces.SpaceCommit.StarType = "atproto-space-repo" -> string!
+const ATProtoNet.Spaces.SpaceMac.MacHeader = "Atproto-Space-Mac" -> string!
+const ATProtoNet.Spaces.SpaceMac.WantMacHeader = "Atproto-Space-Want-Mac" -> string!
+const ATProtoNet.Spaces.SpaceToken.MaxJtiLength = 128 -> int
+const ATProtoNet.Spaces.SpaceToken.SigningKeyId = "#atproto" -> string!
 const ATProtoNet.Tid.Length = 13 -> int
 const ATProtoNet.TidGenerator.MaxClockId = 1023 -> int
 const ATProtoNet.TidGenerator.MaxTimestamp = 9007199254740991 -> long
@@ -904,6 +1010,12 @@ override ATProtoNet.SpaceRecordUri.ToString() -> string!
 override ATProtoNet.SpaceUri.Equals(object? obj) -> bool
 override ATProtoNet.SpaceUri.GetHashCode() -> int
 override ATProtoNet.SpaceUri.ToString() -> string!
+override ATProtoNet.Spaces.ClientAttestationClaims.Equals(object? obj) -> bool
+override ATProtoNet.Spaces.ClientAttestationClaims.GetHashCode() -> int
+override ATProtoNet.Spaces.ClientAttestationClaims.ToString() -> string!
+override ATProtoNet.Spaces.SpaceCredentialClaims.Equals(object? obj) -> bool
+override ATProtoNet.Spaces.SpaceCredentialClaims.GetHashCode() -> int
+override ATProtoNet.Spaces.SpaceCredentialClaims.ToString() -> string!
 override ATProtoNet.Tid.Equals(object? obj) -> bool
 override ATProtoNet.Tid.GetHashCode() -> int
 override ATProtoNet.Tid.ToString() -> string!
@@ -1206,6 +1318,29 @@ static ATProtoNet.SpaceUri.TryParse(string? s, out ATProtoNet.SpaceUri? result) 
 static ATProtoNet.SpaceUri.implicit operator string?(ATProtoNet.SpaceUri? value) -> string?
 static ATProtoNet.SpaceUri.operator !=(ATProtoNet.SpaceUri? left, ATProtoNet.SpaceUri? right) -> bool
 static ATProtoNet.SpaceUri.operator ==(ATProtoNet.SpaceUri? left, ATProtoNet.SpaceUri? right) -> bool
+static ATProtoNet.Spaces.ClientAttestationClaims.operator !=(ATProtoNet.Spaces.ClientAttestationClaims? left, ATProtoNet.Spaces.ClientAttestationClaims? right) -> bool
+static ATProtoNet.Spaces.ClientAttestationClaims.operator ==(ATProtoNet.Spaces.ClientAttestationClaims? left, ATProtoNet.Spaces.ClientAttestationClaims? right) -> bool
+static ATProtoNet.Spaces.LtHash.Empty() -> ATProtoNet.Spaces.LtHash!
+static ATProtoNet.Spaces.LtHash.FromState(System.ReadOnlySpan<byte> state) -> ATProtoNet.Spaces.LtHash!
+static ATProtoNet.Spaces.SpaceCommit.FromStarMetadata(System.ReadOnlyMemory<byte> metadata) -> ATProtoNet.Spaces.SpaceCommit!
+static ATProtoNet.Spaces.SpaceCredentialClaims.operator !=(ATProtoNet.Spaces.SpaceCredentialClaims? left, ATProtoNet.Spaces.SpaceCredentialClaims? right) -> bool
+static ATProtoNet.Spaces.SpaceCredentialClaims.operator ==(ATProtoNet.Spaces.SpaceCredentialClaims? left, ATProtoNet.Spaces.SpaceCredentialClaims? right) -> bool
+static ATProtoNet.Spaces.SpaceMac.ComputeCommit(ATProtoNet.Crypto.SharedSecret! secret, ATProtoNet.Spaces.SpaceCommit! commit) -> byte[]!
+static ATProtoNet.Spaces.SpaceMac.ComputeRecord(ATProtoNet.Crypto.SharedSecret! secret, ATProtoNet.SpaceRecordUri! uri, ATProtoNet.Cid! cid) -> byte[]!
+static ATProtoNet.Spaces.SpaceMac.FormatHeader(ATProtoNet.Spaces.SpaceMacType type, System.ReadOnlySpan<byte> mac) -> string!
+static ATProtoNet.Spaces.SpaceMac.ParseHeader(string! value, ATProtoNet.Spaces.SpaceMacType type) -> byte[]!
+static ATProtoNet.Spaces.SpaceMac.TypeName(ATProtoNet.Spaces.SpaceMacType type) -> string!
+static ATProtoNet.Spaces.SpaceMac.VerifyCommit(ATProtoNet.Crypto.SharedSecret! secret, ATProtoNet.Spaces.SpaceCommit! commit, System.ReadOnlySpan<byte> mac) -> bool
+static ATProtoNet.Spaces.SpaceMac.VerifyRecord(ATProtoNet.Crypto.SharedSecret! secret, ATProtoNet.SpaceRecordUri! uri, ATProtoNet.Cid! cid, System.ReadOnlySpan<byte> mac) -> bool
+static ATProtoNet.Spaces.SpaceMac.Version(ATProtoNet.Spaces.SpaceMacType type) -> int
+static ATProtoNet.Spaces.SpaceMacRequest.Create(ATProtoNet.Crypto.KemPublicKey! authorKey, ATProtoNet.Spaces.SpaceMacType type, out ATProtoNet.Crypto.SharedSecret! secret) -> ATProtoNet.Spaces.SpaceMacRequest!
+static ATProtoNet.Spaces.SpaceMacRequest.Parse(string! value, ATProtoNet.Spaces.SpaceMacType type) -> ATProtoNet.Spaces.SpaceMacRequest!
+static ATProtoNet.Spaces.SpaceRepoExport.VerifyAsync(System.IO.Stream! star, ATProtoNet.Did! repo, ATProtoNet.SpaceUri! space, ATProtoNet.Crypto.SharedSecret! secret, System.ReadOnlyMemory<byte> mac, ATProtoNet.Data.Star.StarReaderOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<ATProtoNet.Spaces.VerifiedSpaceRepo!>
+static ATProtoNet.Spaces.SpaceRepoExport.WriteAsync(System.IO.Stream! output, ATProtoNet.Spaces.SpaceCommit! commit, System.Collections.Generic.IAsyncEnumerable<(string! Path, System.ReadOnlyMemory<byte> Record)>! records, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+static ATProtoNet.Spaces.SpaceToken.CreateClientAttestation(ATProtoNet.Spaces.ClientAttestationClaims! claims, ATProtoNet.Crypto.SigningKey! clientKey) -> string!
+static ATProtoNet.Spaces.SpaceToken.CreateCredential(ATProtoNet.Spaces.SpaceCredentialClaims! claims, ATProtoNet.Crypto.SigningKey! authorityKey) -> string!
+static ATProtoNet.Spaces.SpaceToken.Parse(string! jwt, ATProtoNet.Spaces.SpaceTokenType expected, System.TimeProvider? time = null) -> ATProtoNet.Spaces.SpaceToken!
+static ATProtoNet.Spaces.SpaceToken.TypeName(ATProtoNet.Spaces.SpaceTokenType type) -> string!
 static ATProtoNet.Tid.FromInt64(long value) -> ATProtoNet.Tid
 static ATProtoNet.Tid.Next() -> ATProtoNet.Tid
 static ATProtoNet.Tid.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.Tid
@@ -1219,6 +1354,10 @@ static ATProtoNet.Tid.operator !=(ATProtoNet.Tid left, ATProtoNet.Tid right) -> 
 static ATProtoNet.Tid.operator ==(ATProtoNet.Tid left, ATProtoNet.Tid right) -> bool
 static ATProtoNet.TidGenerator.Default.get -> ATProtoNet.TidGenerator!
 static ATProtoNet.UriFormat.IsValid(System.ReadOnlySpan<char> value) -> bool
+static readonly ATProtoNet.Spaces.SpaceToken.DefaultShortTokenLifetime -> System.TimeSpan
+static readonly ATProtoNet.Spaces.SpaceToken.DefaultSpaceCredentialLifetime -> System.TimeSpan
+static readonly ATProtoNet.Spaces.SpaceToken.MaxSpaceCredentialLifetime -> System.TimeSpan
+static readonly ATProtoNet.Spaces.SpaceToken.SpaceTokenClockSkew -> System.TimeSpan
 virtual ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.EqualityContract.get -> System.Type!
 virtual ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Equals(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict? other) -> bool
 virtual ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.PrintMembers(System.Text.StringBuilder! builder) -> bool

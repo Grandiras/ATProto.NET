@@ -19,7 +19,7 @@
       "type": "git",
       "repository": "bluesky-social/atproto",
       "branch": "permissioned-data",
-      "commit": "619c6e8556db7dd37bb7df1d92a5eae83da8d8b0",
+      "commit": "3a0b8c669881efa9e75680275f8695d618c5f80f",
       "path": "lexicons",
       "namespaces": [
         "com/atproto/space",
@@ -27,7 +27,7 @@
       ],
       "licence": "MIT OR Apache-2.0",
       "note": "Spaces reference implementation, until the GA Lexicons reach main (SPC-1..3)",
-      "fetched": "2026-10-18"
+      "fetched": "2026-10-24"
     },
     "standard.site": {
       "type": "network",
@@ -1219,123 +1219,123 @@
       "cid": "bafyreia57t6r2crv7hinanwkcfyhqfcbt3qnfqponrj3j5owwlepnbxb7u"
     },
     "com.atproto.simplespace.checkUserAccess": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreih5p47feoi7skubovivyp6po2gsmvc7wmhbz5g7la5fyqphmn34kq"
     },
     "com.atproto.simplespace.createSpace": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreidtjf5gvigtlyavoolvppzdm5e46e4h3mwvi4uemeztj4kswzlqfi"
     },
     "com.atproto.simplespace.defs": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreifhtuvmbsyenkwsdmz6hra6riz737zpzznjrvrbxssfttqjbnvbue"
     },
     "com.atproto.simplespace.deleteSpace": {
-      "source": "atproto",
-      "cid": "bafyreihtzi3mmvf5mexxos6rj63vgyunxu4f4p4skym5ptvlfiqcu4hrme"
+      "source": "spaces",
+      "cid": "bafyreiashtyemm5273ri5uuirmgupsvswmt3hlsfwnohiiej7jg3gkyhoy"
     },
     "com.atproto.simplespace.getSpace": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreiazf773pjxdpptzbhswmrg2pl2ilcotgtmveffnedo7e6vl2cghbq"
     },
     "com.atproto.simplespace.listMembers": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreihrcuwcwbpb4cpc5iaan32epdjvfa2eipftib72diipuwrdzjobdy"
     },
     "com.atproto.simplespace.putMember": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreicftkrr3bf5rewoufj7imiiahtd66jqznp3lafcltkbnwcjb4ec4i"
     },
     "com.atproto.simplespace.removeMember": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreihhubam22u7grhlddz2374td6zaxx2ny5oqniqryjpjdj4obksm3y"
     },
     "com.atproto.simplespace.updateSpace": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreid5w3gnbxnm3vruhgj4ltquyvt7anv57fnqp4zqk57idxvgvugcjm"
     },
     "com.atproto.space.applyWrites": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreibb3ecitkuoctwqdpe54krkgxuzkr32raxkqbex5zsmh3llpmqqni"
     },
     "com.atproto.space.createRecord": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreic3jkwdydwmi2a7kr3tdpf7xm2o2cmtulhenc5skamqd6unvuzxeq"
     },
     "com.atproto.space.defs": {
-      "source": "atproto",
-      "cid": "bafyreida6jgkdcs77auqphltobru3dx27jmpg6ev6hpzbnonqgmaek6ap4"
+      "source": "spaces",
+      "cid": "bafyreihydznpwgcxnael4hqt3r2exbmg2l3przesx7dvmyd3yiukmnwbdq"
     },
     "com.atproto.space.deleteRecord": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreifijfqb2u5y7ogmzbuv5rtfqulapfqnclbqoeurgqpjni5nhqk5mm"
     },
     "com.atproto.space.getBlob": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreiegr64tzonogmwwbqhncidzo2gh5daitqfps3zcshnyfs467ye5tq"
     },
     "com.atproto.space.getDelegationToken": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreief6zuqqkg54leye4a23h2lx7fwlc447vqfs6prou5i47ab47w3ke"
     },
     "com.atproto.space.getLatestCommit": {
-      "source": "atproto",
-      "cid": "bafyreigxqr4y3u4juvsxculgdbrpkivtm2tfijnw6433zqums6djrua3ja"
+      "source": "spaces",
+      "cid": "bafyreibj7ftu6n5piovzkgrkjpkxzxma3zg2pooqjk4fbtilosrqbsn4xe"
     },
     "com.atproto.space.getRecord": {
-      "source": "atproto",
-      "cid": "bafyreidtf7nrfzhhxbh6aa4bx4mwbhoqilbr5nvghqyefrj3g3uv7gb74e"
+      "source": "spaces",
+      "cid": "bafyreihsqginq56ip6e3gxbakyotqdlqr5juy5ciexf63fsiz3bg6nwv4m"
     },
     "com.atproto.space.getRepo": {
-      "source": "atproto",
-      "cid": "bafyreihcrwach6h4uksg6b6p6olk4n3bt74wqqs32vieotvzr5yc7fhm5m"
+      "source": "spaces",
+      "cid": "bafyreidjdq6gp34ndfll7a2yiz773ahkf2524nudesndcbbn27yzjooquq"
     },
     "com.atproto.space.getSpaceCredential": {
-      "source": "atproto",
-      "cid": "bafyreia3ewd5apt4cbfexnhv25zuofbpzclsigto7r76znyn453uozmfiu"
+      "source": "spaces",
+      "cid": "bafyreigj7mjqdlaxy2dmp6ttd7t6iohp4nyx4q4stflhdw6ly6ikfwwg4y"
     },
     "com.atproto.space.listBlobs": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreiblwxigmqor6sjwqj6pahps6d2l2wiolevzukvrplmi7r22mvejoa"
     },
     "com.atproto.space.listRecords": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreif7qig3uxwbnrgu3rv2yjpegjie3ged6driagq5car4d2uerqmxe4"
     },
     "com.atproto.space.listRepoOps": {
-      "source": "atproto",
-      "cid": "bafyreia4ngw4eeorgouksbgekz4vqa6cnknknyu4wsx6linuzjjsbyssyy"
+      "source": "spaces",
+      "cid": "bafyreiap6htoys6edmyl535mvwpewapxa57fokvou3d446ygdy2ptdc7ce"
     },
     "com.atproto.space.listRepos": {
-      "source": "atproto",
-      "cid": "bafyreidqeqpdmpdmrzscmzjwhvxfnjget67l6oa5zifkdm66lpmwv53fl4"
+      "source": "spaces",
+      "cid": "bafyreiatrz7oqk4zr7ue3lolmffez22ieslobxip6jis5bfs2qroszmumq"
     },
     "com.atproto.space.listSpaces": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreib7onexoqgdjtvv3zbcm36d46sfr75ow6prfa4ccgvexxbgtdv55i"
     },
     "com.atproto.space.notifyCredentialRevoked": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreibfnuopxn6e6fdt6oillosp6duqngkx2mo5p6edomwkbfpn7ay5ry"
     },
     "com.atproto.space.notifySpaceDeleted": {
-      "source": "atproto",
-      "cid": "bafyreiemriesauq7r3nyuwxgcsahkdzmx6kstwrva3yvsl3narmfbek6ee"
+      "source": "spaces",
+      "cid": "bafyreietzo5arzwxcgvde4yjk5xzyg22q4jmmdwesqi2tnpikbpp4peali"
     },
     "com.atproto.space.notifyWrite": {
-      "source": "atproto",
-      "cid": "bafyreidxoprv6qe6a5zat2k5pszog57s44wwretbtwz4qqxr676fp7yp2u"
+      "source": "spaces",
+      "cid": "bafyreib2vyzpclmhufprz7amie3o46ig5t5jjiqfyhtclj4hoxltgoadma"
     },
     "com.atproto.space.putRecord": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreig2k4wfadwffhyfryj7xgaj7qu7bo6wvvmkjjp23t2uleob7de3ru"
     },
     "com.atproto.space.registerNotify": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreigp3ftdi647trqqm3t53pppzk4bbztkundy6qtgb6xicv3y3svcce"
     },
     "com.atproto.space.unregisterNotify": {
-      "source": "atproto",
+      "source": "spaces",
       "cid": "bafyreigzv6oh22bqt5hwddl3gkshdcxztbjtst52xhj63tfeipuer6l5wq"
     },
     "com.atproto.sync.defs": {

@@ -1,12 +1,12 @@
 {
-  "comment": "Space delegation tokens, credentials and client attestations in the reference encoding, with the verdict owed at `now`; checked against the reference verifySpaceToken.",
+  "comment": "Space delegation tokens, credentials and client attestations in the reference encoding, with the verdict owed at `now`; checked against the reference verifySpaceToken. A credential for a public space (no delegation token, SPC-62) is the same token.",
   "cases": [
     {
       "name": "delegation token",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiJmY2RlYmFjNGQwNWM3YzU0NzBlNjZlYTcyNjM1MDNjMCJ9.8CsNscqYScyWcd_f375w0tqEUWYoAu3oNcvPcDclgF9B_hZFUAp0Q0rk2l-Oa-nQry2MZYUM7Yz3XJ2BZ7Zodw",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6ImZjZGViYWM0ZDA1YzdjNTQ3MGU2NmVhNzI2MzUwM2MwIn0.oujxxcujU23wapmsaMn5Q2sBBiaVtqzIfMo8vTSoRcIQ7Wslqom6a_T_gt90sz9QSmTilrI-GHvBES1YL95iGA",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -16,9 +16,9 @@
     {
       "name": "delegation token with the wrong key",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiJiMmIzZDU3YTc2MmYwMmMyZjUzYzE4ZjJhYzUzOTkzNSJ9.bH_grqPX949wxaCdL1nTfh7Kjzfka4TC5m4FVNXFufs1dYzRZwM2sMPBFRWbJiDjCYCdbWfVBOm_mjJwmjbIWg",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6ImIyYjNkNTdhNzYyZjAyYzJmNTNjMThmMmFjNTM5OTM1In0.vuKOApEndxQoCySVexv65pIneqrvZznD-8LjAhjpqasrdCAdr23ZlkDGFkTLkJd4XadSIPuxaTTGa51pZWFZJw",
       "signingKey": "did:key:zQ3shohTcZLcxDKSyLw9Gfi9G5xM5c1F2LtUUUAv9ucBSy83z",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -29,9 +29,9 @@
     {
       "name": "delegation token for another audience",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiJmZTI2M2JkZTZiMTM2MTA3NzNlYjY3YWQ4ZTNkMTUxYyJ9.RkOHKUsB0bUEwpQec6Ky_VFzv5h7PgAfECVwickVufRAYStnFxRGTN_DyO05Ep77xyUK0JD08YyvfXpDsTgPgw",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6ImZlMjYzYmRlNmIxMzYxMDc3M2ViNjdhZDhlM2QxNTFjIn0.s8FVA8HsLFUx_aEAu3vUR4MwYhyWNqEdQjefmtiYYztaUtsrtBUhJiMM5oK4X9wW1QKxKqOuNHCNauejTXYY7Q",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:z72i7hdynmk6r22z27h6tvur#atproto_space_host",
+      "audience": "did:plc:z72i7hdynmk6r22z27h6tvur#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -40,11 +40,25 @@
       }
     },
     {
-      "name": "delegation token for another space",
+      "name": "delegation token for the alpha audience #atproto_space_host",
       "type": "delegation",
       "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiIwMDQyZDJkODRkMTdlMTUwOTQ5MTMzYjhjOTU3MzllYyJ9.x7f8boLNpIN3aT82piLiFkUbLHZ458vZDouW2uL_vBwXa-0AsuRv3UbmDzersVtOGsj7uGTeLrTnqHhEHVJOOg",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
+      "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+      "now": 1767225600,
+      "expect": {
+        "ok": false,
+        "error": "BadJwtAudience"
+      },
+      "note": "SPC-19: the audience is the authority's #atproto_pds since the 2026-10-22 alpha."
+    },
+    {
+      "name": "delegation token for another space",
+      "type": "delegation",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6ImIwZGE3YjU1M2YwM2ZlNmYwZGUyZGNjOTA3ZGRiYmFiIn0.3hXoTYs1bhBJswNYYjSjZUFlQKnyVm9qiOL_sj4po01RYlRepUz1Dn3zQy1uW5JAJMu7VHhLRO1ptrLhGs-f3Q",
+      "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/other",
       "now": 1767225600,
       "expect": {
@@ -55,9 +69,9 @@
     {
       "name": "expired delegation token",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiJiMGRhN2I1NTNmMDNmZTZmMGRlMmRjYzkwN2RkYmJhYiJ9.kY_YO7KZdYQWM4IOuRtWGO-JZRmMo_mtE0CQqYfG0XIoDYaWYcBO-owhTFTA2YdyWxOeo84HH2LGp97dxZBoNQ",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6IjE2YzhiYzU2OTg2ZjBkODk3N2JmZDllZjZhZGVjM2U3In0.c9zbdRhQjbwB_RNjplDdSibbDtMo1anFWoxcLg1matITlQJ8QEamnlx6wktzZMEZbxSmql7qNLMDSMcWVMyzPw",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225670,
       "expect": {
@@ -68,9 +82,9 @@
     {
       "name": "delegation token just past exp, within the skew",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiIxNmM4YmM1Njk4NmYwZDg5NzdiZmQ5ZWY2YWRlYzNlNyJ9._UrvRPR-Q4Tfequ88Dm-P5SDF8As48-rwWAmCVvFnuQ7JZR9z2fnQ-17D82ykCGvZK8kv_Hh3LBa2w9bTp_51w",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6Ijg4MzM5NmY5NWQ0MWQ3ZGZmOWQ0ZmQ3NWQ0OGIwNWIzIn0.GaT8ChkgFCyQW5JVWwqMEuB-k-o1Yn4exo6EzVBVL2Nq6LK3bNetYE1yeqNHBuVrSJ1O1_VqPcSZpfV_roBkBA",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225663,
       "expect": {
@@ -80,9 +94,9 @@
     {
       "name": "tampered delegation token",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vb3RoZXIiLCJhdWQiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiNhdHByb3RvX3NwYWNlX2hvc3QiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6MTc2NzIyNTY2MCwianRpIjoiMTNmYTc3Y2NiZjA0MmUxZWEzMmZmMGI3OGFiYWUwMmUifQ.cqjatVdQVd2IeSiqqk4I_xdLtNX824cWui4o2TPBSyBYwrUNKFjD2SgAYFJgcIbm0ktmScoxLXdUVO_1mefMBg",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vb3RoZXIiLCJhdWQiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiNhdHByb3RvX3BkcyIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiJkMjY5NzJhMWRmN2I3YmIxOTFhNGViYzNkZWYwYzZiMyJ9.FdHDdu843YzHRiw_P82fywRSz0VJzqxleB_GeR6PcsYyem9ssQh4UDVkTNrlnR6-BFRNM02m0xElcVEzuL8u3A",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": null,
       "now": 1767225600,
       "expect": {
@@ -93,9 +107,9 @@
     {
       "name": "credential presented as a delegation token",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjYyMDAsImp0aSI6ImQyNjk3MmExZGY3YjdiYjE5MWE0ZWJjM2RlZjBjNmIzIn0.ann1MaVHkHaznVCtnZJjb_K5t7lVwyd-uTkgmVeIUjJ86x-pRm8svEpR6ZlXSCL5Nrgkz03aV3Nb2S3JmIvXfA",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjYyMDAsImp0aSI6IjU5OTk3YWI3Zjk3NDQ2Y2FjYzBhZWY0ZjEzYmU3NzIwIn0.8tpjGKfILC3fNCo2Ptqh5aEKI5U0l_VFnn3mwaHLEXYMuMc7BnQCeZSHTsf8jojnQWV9xsWuyCS4imOMS2VX_g",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -106,7 +120,7 @@
     {
       "name": "delegation token without aud",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiI1OTk5N2FiN2Y5NzQ0NmNhY2MwYWVmNGYxM2JlNzcyMCJ9.Al8OkZg-0vt324lDvN1PFfD6995wHVaixE1NbVqv-vcNyz8yuWPIplgSxtqHnEBJNJuAlHOxpWkhaRLc3NKQDA",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiI5ZjVlOTZjNzNiNjM4YTU3ZDk0ODQzZWNlZTU4OGM2ZCJ9.SY-R93zru_JZ1ubxUrFcms9qlux_JdayEdvn86kbp9USN4KVwUdW4_n9O7cR96MflnI2uZm-CguGMukN_LN_cg",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -119,9 +133,9 @@
     {
       "name": "delegation token without jti",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwfQ.aDP9oyqzrBlRtaRc272cQI2T6XAGaOOxPdAvX5OAKbRcAhvNLBMrE2P0mhbQzZ320O88znW_kFNeM_UOSB75ww",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjB9.rF1SeAtky2vZvqFpLmCB3xaiyLTOTJTLl83Eyz2-z_1v6O6VJ6dKy3rF9sVlEfKTjzwW8VgEeQJmy6gQyhBOlQ",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -130,11 +144,39 @@
       }
     },
     {
+      "name": "delegation token with kid #other_key",
+      "type": "delegation",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI290aGVyX2tleSJ9.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6ImEwNTlkOWQwYWMxMTY1M2VmZjJkNWMwZDlkNWUxNWVlIn0.DtzMGIqyWvzTFKLJNOJxLZb9VQ77UPNQgHXukwP6jZshYAUsygGbWoQ631QErTL4SQDgjjbqyQOEojygN065Ag",
+      "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
+      "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+      "now": 1767225600,
+      "expect": {
+        "ok": false,
+        "error": "BadJwt"
+      },
+      "note": "SPC-19: kid is exactly #atproto."
+    },
+    {
+      "name": "delegation token without kid",
+      "type": "delegation",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0In0.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6IjQ4NTI1YmQ4OWY4ZWM1MDMxOGUxYjlhMWM1NDc5ZjJmIn0.APP941pYryPJr7UEJonvT8OGM7JPRyaph8ZcX-PIB-Q8rITrnP1sLXObvgKqhVuGBvFuA8JhMSQz33t5Eo6nbw",
+      "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
+      "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+      "now": 1767225600,
+      "expect": {
+        "ok": false,
+        "error": "BadJwt"
+      },
+      "note": "SPC-19: kid is exactly #atproto."
+    },
+    {
       "name": "malformed token onlyonepart",
       "type": "delegation",
       "token": "onlyonepart",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -147,7 +189,7 @@
       "type": "delegation",
       "token": "a.b.c.d",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -160,7 +202,7 @@
       "type": "delegation",
       "token": "!!!.!!!.!!!",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -173,7 +215,7 @@
       "type": "delegation",
       "token": "e30.WzFd.AAAA",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -184,9 +226,9 @@
     {
       "name": "delegation token expiring in the last representable second",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoyNTM0MDIzMDA3OTksImp0aSI6IjRiYzY5ODMyOWNiMjQwMzhlOTMyODU4ZWNjZDY0NmE4In0.8siEUJ7iX1gA0pA_oH8Vy9kt1lgBkd7XvwAuSFcvyL8BIXgmEGkbj9hA7sb2qwqD3MTR1KQWLw8Tw5bzVBb3yg",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjI1MzQwMjMwMDc5OSwianRpIjoiZTIyMmEzMmNjMTdjMmFhOGMyNTRkZjY4MDVkOTA1MzcifQ.4F_KMfBwLXB_Bh6jSrVgcu7DVDpZi79nqNn5hhtiCTt8QNEmWD2P_8NiPfcHz9nxHIT79pxTMQcrvdf9Sdq_sQ",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -196,9 +238,9 @@
     {
       "name": "delegation token exp 253402300800 outside the representable range",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoyNTM0MDIzMDA4MDAsImp0aSI6ImEwNTlkOWQwYWMxMTY1M2VmZjJkNWMwZDlkNWUxNWVlIn0.5Jz0hY-V9Wi12hSjO57K268x7TaqUDxN9Zcc4NN7jY4-0CG0PflPMe4GOSJULY3RT5Fgw55je74gzv--_KUHzw",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjI1MzQwMjMwMDgwMCwianRpIjoiNTIwZDBjNDhlOWUxYjc5NDYwMTM0ZDhiYWZhNjE5MmMifQ.XXh584RCrhQagqpS3xXBhuZVk_EmRbQ98BGCRNRrxqcsZ_IdkookPTO29wrnRDQoeh4uYevZW_sqqzkMMeCxGg",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -208,14 +250,15 @@
       "beyondReference": true,
       "reference": {
         "ok": true
-      }
+      },
+      "note": "SPC-20: time claims outside the representable range are refused."
     },
     {
       "name": "delegation token exp 9223372036854775807 outside the representable range",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjo5MjIzMzcyMDM2ODU0Nzc1ODA3LCJqdGkiOiI0ODUyNWJkODlmOGVjNTAzMThlMWI5YTFjNTQ3OWYyZiJ9.MKywIny-Uja4eXxwccsXulO5TfrSBxX5Y44AEaxk2KNpJvkMs9edEiTz7acAHmssWbFM2GigIxG8fRGwf5cuug",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjkyMjMzNzIwMzY4NTQ3NzU4MDcsImp0aSI6IjAwYzFmODBlMTc5ZDY2YTdhNDc4NDliYmJlOGU5OGQ3In0.BY7yE10sp2ipdAewZn0un1n5QHz0EcliWUaQ6bTtuBFlOP26yXrj4UhbLBFC4rfwpwIDQw30DHYZvp8hYCxJ-A",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -225,14 +268,15 @@
       "beyondReference": true,
       "reference": {
         "ok": true
-      }
+      },
+      "note": "SPC-20: time claims outside the representable range are refused."
     },
     {
       "name": "delegation token exp -9223372036854775808 outside the representable range",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjotOTIyMzM3MjAzNjg1NDc3NTgwOCwianRpIjoiZTIyMmEzMmNjMTdjMmFhOGMyNTRkZjY4MDVkOTA1MzcifQ.NttHh8MwItuZy-hZ-WcwiwggE-f-RY0S95yF0ZgSPRM5mgji_M2QPI0jMibviBfZP7FGEHOrIGsvMKy5xVXSEg",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOi05MjIzMzcyMDM2ODU0Nzc1ODA4LCJqdGkiOiI0ZWVkZTQxYjFhYmNjOTNlMjE0N2YwODVmYjg5YjkyMCJ9.KDt4_hWNK2kdjTXiHBMt8nsrB-jKMokinLv7NshEPwUSM1oUcYyEaO0ULgV0UeLWrTEJBsz7jzmfVeW9-urnqQ",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -243,14 +287,15 @@
       "reference": {
         "ok": false,
         "error": "JwtExpired"
-      }
+      },
+      "note": "SPC-20: time claims outside the representable range are refused."
     },
     {
       "name": "delegation token iat 253402300800 outside the representable range",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MjUzNDAyMzAwODAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6IjUyMGQwYzQ4ZTllMWI3OTQ2MDEzNGQ4YmFmYTYxOTJjIn0.ZYmbRRsIgo_F3oSHHqcp6WUnIeUzkj_tqN6sVZxs-pIcHAogjnyPY_Olb2NrOiNU7v4e0c8nkNK58L1Rnd2nrA",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoyNTM0MDIzMDA4MDAsImV4cCI6MTc2NzIyNTY2MCwianRpIjoiNDg2Yjg0YTU2M2Y2YWU4MjljMTU5MzgzNjVlMGVlYTIifQ.WAQdztaqoumrxC68YUyV4FRzzgABIkCy9ecJEqFUeN4a2eY_tTIYXKeTqe43zA-UeZeRNwYwa7awY_ROH8KkoQ",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -260,14 +305,15 @@
       "beyondReference": true,
       "reference": {
         "ok": true
-      }
+      },
+      "note": "SPC-20: time claims outside the representable range are refused."
     },
     {
       "name": "delegation token iat -62135596801 outside the representable range",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6LTYyMTM1NTk2ODAxLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6IjAwYzFmODBlMTc5ZDY2YTdhNDc4NDliYmJlOGU5OGQ3In0.o9FrCdFoGJdv0zcWMkldubCa35t16IuhG3HtZndiK1hjR2a9gXxs1Afu10G2p2NpWgCVMdCPhixnUYDYcRDCRA",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjotNjIxMzU1OTY4MDEsImV4cCI6MTc2NzIyNTY2MCwianRpIjoiNjE0MzE5NmM1N2M0ZDAxYjAwNThkM2ZiNTIyYWM2YmQifQ.v70T4j2eKJW-m5ZXrp_akon1lHb0U6jQExGHB1VJ9rFv6f-4G2vgH3RUDF_5kGC17rZS0GFqhUemPDWW0H_ncA",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -277,14 +323,15 @@
       "beyondReference": true,
       "reference": {
         "ok": true
-      }
+      },
+      "note": "SPC-20: time claims outside the representable range are refused."
     },
     {
       "name": "delegation token jti \" \" that cannot be spent",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiIgIn0.59V5Ks9ZYDc8EXVmjblen3aex1sY9Ddu7I-gh_-aehdndwFEhvhHM6qbR0otrksNCMBEbTyMRb9NoyNTR27Hog",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6IiAifQ.UUXUmgvus6tOH1lq9VWoZtdX91cQ5EA4BNr9g-rdZyJ3WfhErJqL-u-MZfhHW8Y2DUSvRy1bJGqfTaXkekCmNA",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -294,14 +341,15 @@
       "beyondReference": true,
       "reference": {
         "ok": true
-      }
+      },
+      "note": "SPC-19: jti is 128-bit hex."
     },
     {
       "name": "delegation token jti \"\\t\\t\" that cannot be spent",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiJcdFx0In0.473EJlxjlYXmz_MMc1cpwx8W0dMNbS1KfvAZfsRt3rEyfS0HfO2c9qN4cPpMO2gQgrhNV4h24zjqnzoFrQQRTw",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6Ilx0XHQifQ.1aNYJMpCPJQZdJHbdQExCtodHHCXJo0Zc30ME0l9okBwza-W7yZ5napoO1R4CY84mP5tfDg0YGA5hnZxJH4tdg",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -311,14 +359,15 @@
       "beyondReference": true,
       "reference": {
         "ok": true
-      }
+      },
+      "note": "SPC-19: jti is 128-bit hex."
     },
     {
       "name": "delegation token jti \"a\\u0000b\" that cannot be spent",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiJhXHUwMDAwYiJ9.HTgiqciXIKW9Lp1WKGWG1ylJ_HtkKpUqnEfzRr45VcEni1pPWv1iA6USBus8V-lsNkQtAmFHSmMAFYbtyO9giw",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6ImFcdTAwMDBiIn0.BsyBJCaJ1hQybHf7DCjDG9SlwFwu8SoOCWYACbesx8VW46hrOH4iJpSZIu2LFWFIVsqaPAAJFAXrQFN0dUQZqA",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -328,14 +377,15 @@
       "beyondReference": true,
       "reference": {
         "ok": true
-      }
+      },
+      "note": "SPC-19: jti is 128-bit hex."
     },
     {
       "name": "delegation token with an overlong jti",
       "type": "delegation",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fc3BhY2VfaG9zdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiJhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhIn0.zT1qIeM24q2mCEzDYEek0M5f400Q4IPWFngIM0MEBekrHLfvmtOv5gE_4TpZC4qnx_EKuSRo46SBWO3T_ZLvmw",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWRlbGVnYXRpb24rand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImF1ZCI6ImRpZDpwbGM6ZXd2aTdueHp5b3VuNnpoeHJoczY0b2l6I2F0cHJvdG9fcGRzIiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEifQ.-UUYJH3HBDCJicwWLDdnb5gn52yI8pg8vcj3ITwUcoNlUFwsxTfTbJc7t3m-ewCvr-FcHHREB77IeSf5b50yUw",
       "signingKey": "did:key:zQ3shsbspk5FjwzYEv1BbNerjYL4KRPsAkD6SdQ9WG3UEvLYv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
       "now": 1767225600,
       "expect": {
@@ -345,12 +395,13 @@
       "beyondReference": true,
       "reference": {
         "ok": true
-      }
+      },
+      "note": "SPC-19: jti is 128-bit hex."
     },
     {
       "name": "credential",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjYyMDAsImp0aSI6IjE5MmJjOGVjMDdmMTFiNjBjMDgxYjUxODUwNmQ4MTQ0In0.eq9vLZWGMyk2BFnMwZ0_FNFkuKAMoqu1H0fhWf4oo9Bpv5PWmn2Yb5rBt7zKQigpYZPwLUST43bRqdlqagAc7g",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjYyMDAsImp0aSI6ImRlYTYyNzMxMGZjNjBjMThjYzc1MGNhOTg3MTczNWE3In0.UnTfhesBiQiLqGfF0jMal-GdzQgp51WfVanJ-jK9XrRLjM4Q5UtedqInE_tXXOTukI_9T1a_oEpEcKtsxWCc-A",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -362,7 +413,7 @@
     {
       "name": "credential bound by jkt",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJqa3QiOiJ0aHVtYnByaW50In0sImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI2MjAwLCJqdGkiOiIzMjEzODdjN2UzMDdhNTI5ZmUxNWU5YjA3OWFiMDVhOSJ9.ASyqfYireCUk3jOBizXFPPVugDEGHHbnpg5LDubOy8Z0WaeHBYBJv663pWrBtRCNgpZiAEwltA0ABYwy7zR5CA",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJqa3QiOiJ0aHVtYnByaW50In0sImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI2MjAwLCJqdGkiOiI4YzA0NTU0MzE5YTEzNjA4Y2JkNzZhZDMwODk0NmY5ZiJ9.2JIW8q_DmK7-3EnDVzAEAJ7bSbxRSnkxadFvWrTCzIdiU2QU_b2PqrIHLBBvNmElyC3a0FkMznE3nnSfwMzkgg",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -375,7 +426,7 @@
     {
       "name": "credential bound by another member",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJvdGhlciI6ImRpZDprZXk6ekRuYWVhb0FOS1U5ZVM0a3BidW1RMk1IYmY0Sktjb2Zmdk1ENUxiNjV5N3pLQW5XYyJ9LCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6MTc2NzIyNjIwMCwianRpIjoiNjAwMGI3NGRmZmFmYTRiZjgxN2VlMzIyNTZhOTA3ODMifQ.ynCoiQ6yE39RNye5Ahz0NYookxPNH0wIFB8E0podiBh9bxxRmwy_GjepYKugNZDypSot21hC4CBBkusIbyDObA",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJvdGhlciI6ImRpZDprZXk6ekRuYWVhb0FOS1U5ZVM0a3BidW1RMk1IYmY0Sktjb2Zmdk1ENUxiNjV5N3pLQW5XYyJ9LCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6MTc2NzIyNjIwMCwianRpIjoiYjNmN2U3ZWRiZmZiMTgwMDRjMzhiOGU0YzBhODI4OWIifQ.xECZeXv52NiCH1_m8s0geRY63cZhqHJ2ehF4_cw-xSgEx05gsG8gkxyqf5ge--h43e-MA-yLIB63IzY9FGuSTA",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -388,7 +439,7 @@
     {
       "name": "credential without a binding",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI2MjAwLCJqdGkiOiJkZWE2MjczMTBmYzYwYzE4Y2M3NTBjYTk4NzE3MzVhNyJ9.I984JwM5OAEmcNDxtCvq6bzrg-qg4MYQJWKREaq6bmEVunC6133Rw7M6MnCMSvZY7b-c6UROO519FRpUAMog9g",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI2MjAwLCJqdGkiOiJjNDRjNjYwZGRhOWUxMjZlNGQwNDM5Yzg1ZmQxZjc5ZCJ9.9UT95Au7Kd8dsQ0GTS3UGcVLuOQ-WVjxGnxMyYR_mBdT2MsPwHxQG_ODmeIkt-iiw9ds9n8-tqXxwA7g1KK7BA",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -397,6 +448,70 @@
         "ok": false,
         "error": "BadJwtCnf"
       }
+    },
+    {
+      "name": "credential bound to a DID that is not a did:key",
+      "type": "credential",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6cGxjOno3Mmk3aGR5bm1rNnIyMnoyN2g2dHZ1ciJ9LCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6MTc2NzIyNjIwMCwianRpIjoiZjBiYTc3YWJiZGExODVlNjIyNTJkMjI4YTllYzgwYmMifQ.pmwI5_E2IiY7R-IU_Scb91Wr8ssoMIiCGDRWWK9q2PcxGtmO1hGpY7ckD4hM5oOA3jUHups4pMMaEahL69RNEg",
+      "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
+      "audience": null,
+      "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+      "now": 1767225600,
+      "expect": {
+        "ok": false,
+        "error": "BadJwtCnf"
+      },
+      "beyondReference": true,
+      "reference": {
+        "ok": true
+      },
+      "note": "SPC-19: cnf.kid is a P-256 did:key; the reference checks only that it is a DID (the request signature check refuses it later)."
+    },
+    {
+      "name": "credential bound to a K-256 did:key",
+      "type": "credential",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpRM3Noc2JzcGs1Rmp3ellFdjFCYk5lcmpZTDRLUlBzQWtENlNkUTlXRzNVRXZMWXYifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjYyMDAsImp0aSI6IjA0NzgxNDBjZDc3ZGI4NzZiYzMxMGUzM2E1OGVjNzRkIn0.GteZezzOmn8qPb9FnlfF2KhLBDh7D28RbjX_cPM5uOV5HNSYZfvskr-pYgf_i7nDubx-K25XlNHBGw0jk2exuw",
+      "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
+      "audience": null,
+      "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+      "now": 1767225600,
+      "expect": {
+        "ok": false,
+        "error": "BadJwtCnf"
+      },
+      "beyondReference": true,
+      "reference": {
+        "ok": true
+      },
+      "note": "SPC-19: cnf.kid is a P-256 did:key; the reference checks only that it is a DID (the request signature check refuses it later)."
+    },
+    {
+      "name": "credential with kid #atproto_space",
+      "type": "credential",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG9fc3BhY2UifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjYyMDAsImp0aSI6IjhmZmY4ODc1M2MwYmJlZGNkNDg2MDlmOWFjOWMyM2MzIn0.EEpcrI2BTmJg2Zv7npZI2Hg3cyhf1KcKpwP_2jSeerZFK7PQNLZOohnCrB_txGpcPmFxAconD6HVBEu8qj1Sag",
+      "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
+      "audience": null,
+      "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+      "now": 1767225600,
+      "expect": {
+        "ok": false,
+        "error": "BadJwt"
+      },
+      "note": "SPC-19: kid is exactly #atproto; the 2026-10-15 reference honoured a dedicated #atproto_space key."
+    },
+    {
+      "name": "credential without kid",
+      "type": "credential",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0In0.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjYyMDAsImp0aSI6IjE0ZjYxNTUxM2FmYWEzNTRiMDNhZTdiNmExMzUwNDgwIn0.2QBNkGL6cmLSxOm7uIAktID5nDkumHYJMpG1PgZOcglZ04THR-psWipdXd2cOY3bUY8cvMbIeG1OmZAeomS9DQ",
+      "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
+      "audience": null,
+      "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
+      "now": 1767225600,
+      "expect": {
+        "ok": false,
+        "error": "BadJwt"
+      },
+      "note": "SPC-19: kid is exactly #atproto."
     },
     {
       "name": "credential with an empty jti",
@@ -426,12 +541,13 @@
       "beyondReference": true,
       "reference": {
         "ok": true
-      }
+      },
+      "note": "SPC-19: jti is 128-bit hex."
     },
     {
       "name": "credential without iat",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiZXhwIjoxNzY3MjI2MjAwLCJqdGkiOiJjNDRjNjYwZGRhOWUxMjZlNGQwNDM5Yzg1ZmQxZjc5ZCJ9.RcMrmoH_nonIJJ0Om5ZFrvyIKfuo6c0J0qkbi7lAoO0voDUGSEp8VFmlyZnhlbXMTS-heXdwFs62xsK50PfsXA",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiZXhwIjoxNzY3MjI2MjAwLCJqdGkiOiI5YTNhNjA3YmFmNDFjMDQ3ZmNhN2UwMjMzY2Y4ZDU5OCJ9.-ly5CZREkk69jPpqgWa5lksgQQSu6W_EdeJpn5rPcOdVSyuyy0HUwasTfN_BP52-s_BcINXBodZrrq6suqhcNA",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -444,7 +560,7 @@
     {
       "name": "credential lasting 0 s",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2MDAsImp0aSI6ImYwYmE3N2FiYmRhMTg1ZTYyMjUyZDIyOGE5ZWM4MGJjIn0.FntmwiSuB33hwGkkHudYZ4Czf7H191p29j9iGKWgfPZhhOnH-TGy0eVahYgP4JAS7DWXChKGBMsXtHnfvyh3lQ",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2MDAsImp0aSI6IjExZTA0ZGM1MWFmMzRiNjM3ZDc0MjQ5ZTJhYzY3NWQwIn0.ItTCFHCeeyhH2IbXjuqgfnuMCZXe30C206vkAd0Fx7UdYZXb2kpSwXNz0gKCK0tC0OZP4laGMO55KL4-0wuDOA",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -457,7 +573,7 @@
     {
       "name": "credential lasting -1 s",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU1OTksImp0aSI6IjA0NzgxNDBjZDc3ZGI4NzZiYzMxMGUzM2E1OGVjNzRkIn0.WS86uabSqA2HHHKXVnkVOXx_cfxnwOr3Vvm69s1Ga1IgxwL1lBs_CSrZFpoKXuEXvIhSS429oISy6_dZsqXcaA",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU1OTksImp0aSI6ImM4MjgyMmViYjNhY2UxNmQxODZhNTYzZGRlNmYxMGVjIn0.OYAMYlyz5oMNb0b5usnDG7j_iCURqk_alj31XKZzqbpYNVAhyVPMKVVyhPk93yI-m-Qgf7hS7wrZHgWenp03Eg",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -470,7 +586,7 @@
     {
       "name": "credential lasting 3601 s",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjkyMDEsImp0aSI6IjhmZmY4ODc1M2MwYmJlZGNkNDg2MDlmOWFjOWMyM2MzIn0.ioDYuH8XacN3o6qXSamtQsjdiXm3XY6igGQPA9uMdghzndYM9gZeAxdJO2zANyMntfxYTnvbUQ-1eTAKkOdrCQ",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjkyMDEsImp0aSI6ImZkMDEwNGQ0NmI4ZmUxYzUwNmRmNmM2YjAzMmI5OWMxIn0.-p7zBW_aqP-XJv_HIQQa8jLRjTFzBAp3ILeqXKTrJjVfLqXRbzggHgpHD6QpSm51c-0os7pp5SitkAFb-kuvcg",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -483,7 +599,7 @@
     {
       "name": "credential lasting exactly an hour",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjkyMDAsImp0aSI6IjE0ZjYxNTUxM2FmYWEzNTRiMDNhZTdiNmExMzUwNDgwIn0.F7T_3tJROmCA7PbVFKAgbhjD_craElsJbiLKvyHunNdFKMQykAiIfMCshhjODbLBvfGLQe-Raf_I5iH7ImpNIQ",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjkyMDAsImp0aSI6ImM3MWM5M2UwZjA4YTZhY2NhNTkwNmU5MWM2ZTMwMDAxIn0.b0YJOcHfdoAlni3GltPopwI4vadlhVX3ICIWeumwYGFN2xmW0oTmF8oqLKiyx0uqQuJN-4p5ghrxiwn6SectvQ",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -495,7 +611,7 @@
     {
       "name": "credential issued 4 s ahead",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjA0LCJleHAiOjE3NjcyMjYyMDQsImp0aSI6IjljMGRmMjRiM2E3OTZkZTMxNWE0ZWY3ZjFhMTk3ZmRmIn0.bMvdYag0Yj_z-4H2P4ff73Q_OrLkNkuN5hhQR9UYgYwumB6MXO7dk4DhFvclFh_hlg_ydiBbHzfQtZUziG_LuA",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjA0LCJleHAiOjE3NjcyMjYyMDQsImp0aSI6ImQzOGRjYmVjZDQ4ZmM3ZDQ2N2VmZTg2OWVlNjg0MTQ1In0.VYzmrhbrGP49E-fmIACF8lf8djH4or4nkqpD3PqS3L1YhRAikm7ZM8VfHnsdppn8WldnHiq-8QX0pr4d0iQAKg",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -507,7 +623,7 @@
     {
       "name": "credential issued 6 s ahead",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjA2LCJleHAiOjE3NjcyMjYyMDYsImp0aSI6IjY0OWFkNGU0MzkzODQxNThlN2M2ZTQzY2U5Mzg5YWE4In0.CB6ZeinhNBf9WgBoZEQnvALrM5tK8HzyPdQ7Bued7KwrZHvvMcAcRM6Ia4MKrKCZ7pEHATLCzoc11uKRe_EUbA",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjA2LCJleHAiOjE3NjcyMjYyMDYsImp0aSI6IjE2MTIwYjgzYzlhY2Y2OGNlZjkyYmM1NTcxMjVhMmU1In0.9s_ST8E-qAQsungvhQN-wSSjGaazUir5xVM9zk_FZ7QAhTZ5JMNXotvFiqxzLQkakZopQFro36BaRdcXRnLLiw",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -520,7 +636,7 @@
     {
       "name": "credential issued 600 s ahead",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI2MjAwLCJleHAiOjE3NjcyMjY4MDAsImp0aSI6IjlhM2E2MDdiYWY0MWMwNDdmY2E3ZTAyMzNjZjhkNTk4In0.mvTrr6iNt121r81vFMgfvX1aIjtWZORhasS-C5Stss9KDI1SwPp7kDcScZd8UKslF8tm3WmfVCucLlKvx5d4hg",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI2MjAwLCJleHAiOjE3NjcyMjY4MDAsImp0aSI6IjZmNWFkMTU5M2I0YmQyNTA0MjgwOGFjODlhMTAzNTBmIn0.OeatBJcVk3oJ7UEDYHNuo3D03EBBsAQrnSmPK_0xPxovlRvmy73DotPTw5PM8Be9MUYCLih1lsvpHfKVOkkHBA",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -533,7 +649,7 @@
     {
       "name": "credential with the wrong key",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjYyMDAsImp0aSI6IjExZTA0ZGM1MWFmMzRiNjM3ZDc0MjQ5ZTJhYzY3NWQwIn0.6xWKOh__YvCrUyNNTY8kFtWfBm8JLrqWNSqIN_oyU0ZuYB2pHRMkAxLqltk_AqpuIM3KW082vH-M5TjkQwm7lw",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjYyMDAsImp0aSI6IjE1MDZiMDljNDY4YTJlODVkYTdhODZmZWRiODI3ZjJmIn0.ZrdddhEBuoslA0oHoUHMfpae7lI9GjFJVz0qeb0CcotZcOyLs16X7eX4kue3crxco1aL0-i9zWbePWuh-dFISw",
       "signingKey": "did:key:zQ3shohTcZLcxDKSyLw9Gfi9G5xM5c1F2LtUUUAv9ucBSy83z",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -546,7 +662,7 @@
     {
       "name": "expired credential",
       "type": "credential",
-      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjYyMDAsImp0aSI6ImM4MjgyMmViYjNhY2UxNmQxODZhNTYzZGRlNmYxMGVjIn0.t3vo0PpmFvCzfxcC0q8PYqkhI4p9WxA8kyW3JGUq-UhCKG6cdSKpOEzz1YEt2r3Lv4iNw5yKPTqgHgl-q-XsdQ",
+      "token": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJhdHByb3RvLXNwYWNlLWNyZWRlbnRpYWwrand0Iiwia2lkIjoiI2F0cHJvdG8ifQ.eyJpc3MiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiIsInN1YiI6ImF0Oi8vZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXovc3BhY2UvY29tLmF0bW9ib2FyZHMuZm9ydW0vZGVmYXVsdCIsImNuZiI6eyJraWQiOiJkaWQ6a2V5OnpEbmFlYW9BTktVOWVTNGtwYnVtUTJNSGJmNEpLY29mZnZNRDVMYjY1eTd6S0FuV2MifSwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjYyMDAsImp0aSI6ImEzMDRkYzA3YzU1OTJhNTk4MGMzYmFiODNiMmVhMTZiIn0.STUKo02dTsXKjsc2JADC6Z0eqjiyMWu5XTPSj38JcywR8HdjT8igJDzZCpJYupClysccVr1XLd2YahrFreteGw",
       "signingKey": "did:key:zQ3shubct26YdBg592QpAdqCExwKNghuQYq4Rf8bBXn48WHxP",
       "audience": null,
       "subject": "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/space/com.atmoboards.forum/default",
@@ -559,9 +675,9 @@
     {
       "name": "client attestation",
       "type": "clientAttestation",
-      "token": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tY2xpZW50LWF0dGVzdGF0aW9uK2p3dCJ9.eyJpc3MiOiJodHRwczovL2FwcC5leGFtcGxlLmNvbS9jbGllbnQtbWV0YWRhdGEuanNvbiIsInN1YiI6Imh0dHBzOi8vYXBwLmV4YW1wbGUuY29tL2NsaWVudC1tZXRhZGF0YS5qc29uIiwiYXVkIjoiZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXojYXRwcm90b19zcGFjZV9ob3N0IiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6ImZkMDEwNGQ0NmI4ZmUxYzUwNmRmNmM2YjAzMmI5OWMxIn0.07rQXhqATBPgJ9Gd2eH9ZQObzH0F6lsuqyyXsiUh3OYmUSTmL0uWgtElM7UTrx2TVm5rHzxstDcJJtjEaF6WUg",
+      "token": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tY2xpZW50LWF0dGVzdGF0aW9uK2p3dCJ9.eyJpc3MiOiJodHRwczovL2FwcC5leGFtcGxlLmNvbS9jbGllbnQtbWV0YWRhdGEuanNvbiIsInN1YiI6Imh0dHBzOi8vYXBwLmV4YW1wbGUuY29tL2NsaWVudC1tZXRhZGF0YS5qc29uIiwiYXVkIjoiZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXojYXRwcm90b19wZHMiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6MTc2NzIyNTY2MCwianRpIjoiNzhjY2ExYTAxNTkwZTA1YmM1NTZjNWQ2N2YzZjFlY2MifQ.DfSgcBZxqD23LvzfVKcHcfUWVKUJXViZbyxtgdoO6ORzN1Ywcef4uwjk-EFJVD1BY1XjPtqOHp7IOCsz71zMrg",
       "signingKey": "did:key:zDnaepsUFbMwJ2iikZPqgV3Ur9suPFw3BjqHoyNe1K9nsomyv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": null,
       "now": 1767225600,
       "expect": {
@@ -571,14 +687,40 @@
     {
       "name": "client attestation with another subject",
       "type": "clientAttestation",
-      "token": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tY2xpZW50LWF0dGVzdGF0aW9uK2p3dCJ9.eyJpc3MiOiJodHRwczovL2FwcC5leGFtcGxlLmNvbS9jbGllbnQtbWV0YWRhdGEuanNvbiIsInN1YiI6Imh0dHBzOi8vb3RoZXIuZXhhbXBsZS5jb20vY2xpZW50LW1ldGFkYXRhLmpzb24iLCJhdWQiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiNhdHByb3RvX3NwYWNlX2hvc3QiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6MTc2NzIyNTY2MCwianRpIjoiYzcxYzkzZTBmMDhhNmFjY2E1OTA2ZTkxYzZlMzAwMDEifQ.87GbcNL68GV_YgRYlvCkGbDded60yO42fhT_dTcGxs0d3CSOLPSpMmvQEXP3e2WEztO9E6LB2JFG8GBVCG6D7A",
+      "token": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tY2xpZW50LWF0dGVzdGF0aW9uK2p3dCJ9.eyJpc3MiOiJodHRwczovL2FwcC5leGFtcGxlLmNvbS9jbGllbnQtbWV0YWRhdGEuanNvbiIsInN1YiI6Imh0dHBzOi8vb3RoZXIuZXhhbXBsZS5jb20vY2xpZW50LW1ldGFkYXRhLmpzb24iLCJhdWQiOiJkaWQ6cGxjOmV3dmk3bnh6eW91bjZ6aHhyaHM2NG9peiNhdHByb3RvX3BkcyIsImlhdCI6MTc2NzIyNTYwMCwiZXhwIjoxNzY3MjI1NjYwLCJqdGkiOiIyOWVkMzA1ZGEyNWE5MDU2YmRlMWJlODdkMThmMGE0ZCJ9.lMrLNk3oEeNbuLSC0ZxGEK2BpND4iZtPo6SvZwXlzaFXQMNQVpBzBfZlRnbiUssL77UviWP3T9a_VjBEIQHFJw",
       "signingKey": "did:key:zDnaepsUFbMwJ2iikZPqgV3Ur9suPFw3BjqHoyNe1K9nsomyv",
-      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_space_host",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
       "subject": null,
       "now": 1767225600,
       "expect": {
         "ok": false,
         "error": "BadJwtIss"
+      }
+    },
+    {
+      "name": "client attestation with a kid",
+      "type": "clientAttestation",
+      "token": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tY2xpZW50LWF0dGVzdGF0aW9uK2p3dCIsImtpZCI6ImNsaWVudC1rZXktMSJ9.eyJpc3MiOiJodHRwczovL2FwcC5leGFtcGxlLmNvbS9jbGllbnQtbWV0YWRhdGEuanNvbiIsInN1YiI6Imh0dHBzOi8vYXBwLmV4YW1wbGUuY29tL2NsaWVudC1tZXRhZGF0YS5qc29uIiwiYXVkIjoiZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXojYXRwcm90b19wZHMiLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6MTc2NzIyNTY2MCwianRpIjoiZmE2M2UxOGM2ZDlkNjUzYTIwZjYzNzI1NmFjNTQ1NzkifQ.F4zU-H4iRO5diPNLj3ZdyXU1pEW9ePy4LLlA4nMs5IR3iC2s63OituxaDty2h6dBjd7-amzuzxa7sQqRm5A_pA",
+      "signingKey": "did:key:zDnaepsUFbMwJ2iikZPqgV3Ur9suPFw3BjqHoyNe1K9nsomyv",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
+      "subject": null,
+      "now": 1767225600,
+      "expect": {
+        "ok": true
+      },
+      "note": "The reference mints and accepts a kid on a client attestation (the key of the client's JWKS); SPC-19 says an attestation has none."
+    },
+    {
+      "name": "client attestation for the alpha audience #atproto_space_host",
+      "type": "clientAttestation",
+      "token": "eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tY2xpZW50LWF0dGVzdGF0aW9uK2p3dCJ9.eyJpc3MiOiJodHRwczovL2FwcC5leGFtcGxlLmNvbS9jbGllbnQtbWV0YWRhdGEuanNvbiIsInN1YiI6Imh0dHBzOi8vYXBwLmV4YW1wbGUuY29tL2NsaWVudC1tZXRhZGF0YS5qc29uIiwiYXVkIjoiZGlkOnBsYzpld3ZpN254enlvdW42emh4cmhzNjRvaXojYXRwcm90b19zcGFjZV9ob3N0IiwiaWF0IjoxNzY3MjI1NjAwLCJleHAiOjE3NjcyMjU2NjAsImp0aSI6IjVmMjRjMmI5ZWQ5ZGQ5ZTgyZGM4NzA3MmEzYTA1NDAxIn0.7is6N0p2WewuaRYHgAbHQsb0kLKoVoXBBBJoivRcR-ge5XlWxp8baNB1cv5Mfz_dVaufCIdiV9FprFgHBOYX_Q",
+      "signingKey": "did:key:zDnaepsUFbMwJ2iikZPqgV3Ur9suPFw3BjqHoyNe1K9nsomyv",
+      "audience": "did:plc:ewvi7nxzyoun6zhxrhs64oiz#atproto_pds",
+      "subject": null,
+      "now": 1767225600,
+      "expect": {
+        "ok": false,
+        "error": "BadJwtAudience"
       }
     }
   ]

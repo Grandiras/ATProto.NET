@@ -466,7 +466,9 @@ Recorded by phase 2 (#240).
    the new tree, as every edit does on a persistent tree, rather than an `MstEdit`. `Insert` of a
    present key throws whatever the value; leaving a key at its value changes nothing through `Apply`
    (REP-17). `MemoryBlockStore.Blocks` lists the blocks. `MstIncompleteException.Cid` names the
-   missing node. `AtProtoException` is the abstract base of the hierarchy (AG-19), added here as its
+   missing node; it derives from `Exception`, not `AtProtoException`, as the sketch has it: it signals
+   that the caller's store does not reach what it asked for, which verification entry points turn into
+   `RepoVerificationException(Incomplete)` or `MissingBlock`. `AtProtoException` is the abstract base of the hierarchy (AG-19), added here as its
    first user.
 3. **Lookups walk by key order alone,** as the reference `get` does, not by layer: a node's layer
    could prove some keys absent without descending, but REP-36 says a walk that needs an absent

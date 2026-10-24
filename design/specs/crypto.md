@@ -546,6 +546,10 @@ records the outcome here in the same PR.
   - `HttpSignatureParameters` and `HttpSignatureRequirements` gain `Tag` (CRY-54/55): space
     credential signatures carry and require `tag="atproto-space-credential"`.
 
+  *Phase 2 (#240):* both changes are made. `SharedSecret.ComputeMac(message, destination)`
+  (`MacLength` 32) replaces `DeriveKey`; `HttpSignatureParameters.Tag` is written last among the
+  parameters, and `HttpSignatureRequirements.Tag` refuses a signature without exactly that tag.
+
   The wire form of an encapsulation is a P-256 `did:key` (compressed); converting it to and from
   the 65-byte ciphertext is Spaces code (SPC-55), not a KEM API change.
 - *Deviations from the sketch.* Layer 0 may not use `System.Net.Http` (architecture tests), so

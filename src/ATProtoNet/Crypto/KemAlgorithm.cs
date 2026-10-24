@@ -33,10 +33,10 @@ public sealed class KemEncapsulation(SharedSecret secret, ReadOnlyMemory<byte> c
     public void Deconstruct(out SharedSecret secret, out ReadOnlyMemory<byte> ciphertext) => (secret, ciphertext) = (Secret, Ciphertext);
 }
 
-/// <summary>A secret shared through a KEM; only HKDF reads it, and it is zeroed on disposal.</summary>
+/// <summary>A secret shared through a KEM; it is only ever an HMAC key, and it is zeroed on disposal.</summary>
 /// <remarks>
-/// A shared secret is never a MAC key itself: consumers derive their keys with <see cref="DeriveKey"/>, bound to a
-/// context string their spec defines. See <see href="https://www.rfc-editor.org/rfc/rfc5869"/>.
+/// The KEM output is already an HKDF result, so it keys HMAC-SHA256 directly; a consumer binds its context into the
+/// message it MACs, as the Spaces commitment does. See <see href="https://www.rfc-editor.org/rfc/rfc2104"/>.
 /// </remarks>
 public sealed class SharedSecret : IDisposable
 {
@@ -45,14 +45,19 @@ public sealed class SharedSecret : IDisposable
 
     internal SharedSecret(byte[] secret) => _secret = secret;
 
-    /// <summary>Derives key material with HKDF-Expand (SHA-256) over <paramref name="info"/>.</summary>
-    /// <param name="info">The context the key is bound to.</param>
-    /// <param name="destination">The derived key, at most 8,160 bytes.</param>
+    /// <summary>The length of a MAC, in bytes.</summary>
+    public const int MacLength = HMACSHA256.HashSizeInBytes;
+
+    /// <summary>HMAC-SHA256 keyed by the secret over <paramref name="message"/>.</summary>
+    /// <param name="message">The message, framed by the consumer (context, then data).</param>
+    /// <param name="destination">Receives the <see cref="MacLength"/>-byte MAC.</param>
+    /// <exception cref="ArgumentException"><paramref name="destination"/> is shorter than <see cref="MacLength"/>.</exception>
     /// <exception cref="ObjectDisposedException">The secret is disposed.</exception>
-    public void DeriveKey(ReadOnlySpan<byte> info, Span<byte> destination)
+    public void ComputeMac(ReadOnlySpan<byte> message, Span<byte> destination)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        HKDF.Expand(HashAlgorithmName.SHA256, _secret, destination, info);
+        ArgumentOutOfRangeException.ThrowIfLessThan(destination.Length, MacLength, nameof(destination));
+        HMACSHA256.HashData(_secret, message, destination);
     }
 
     /// <summary>Zeroes the secret.</summary>

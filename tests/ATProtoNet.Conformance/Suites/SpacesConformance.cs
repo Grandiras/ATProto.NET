@@ -7,9 +7,9 @@ namespace ATProtoNet.Conformance.Suites;
 /// <summary>
 /// The Spaces primitives against the pinned reference implementation (<c>spaces/</c>): BLAKE3's
 /// official vectors and long outputs, LtHash, RFC 9421 request signatures, RFC 8941 structured
-/// fields, and space tokens.
+/// fields and space tokens; the KEM, MACs and repository exports are in the other part.
 /// </summary>
-public abstract class SpacesConformance<TAdapter> : ConformanceSuite<TAdapter> where TAdapter : IProtocolAdapter, new()
+public abstract partial class SpacesConformance<TAdapter> : ConformanceSuite<TAdapter> where TAdapter : IProtocolAdapter, new()
 {
     private const string Blake3File = "spaces/blake3_test_vectors.json";
     private const string SignatureFile = "spaces/http-signatures.json";
@@ -91,33 +91,33 @@ public abstract class SpacesConformance<TAdapter> : ConformanceSuite<TAdapter> w
             Assert.Equal((string)expected!, Convert.ToHexStringLower(state));
     }
 
-    /// <summary>A request or exchange signature is accepted with its key, or refused.</summary>
+    /// <summary>A credentialed request signature is accepted with its key, or refused.</summary>
     [Theory]
-    [Trait("Spec", "SPC-22")]
+    [Trait("Spec", "SPC-22"), Trait("Spec", "SPC-24")]
     [MemberData(nameof(Signatures))]
     public void VerifySpaceSignature_Vector_MatchesExpectation(string vectorId)
     {
         Vector(vectorId);
         var vector = SignatureCases[vectorId];
-        var request = (string)vector["mode"]! == "request";
 
-        var key = Adapter.VerifySpaceSignature((string)vector["authorization"]!, request ? (string)vector["audience"]! : null,
-            (string)vector["signatureInput"]!, (string)vector["signature"]!, request ? (string)vector["keyId"]! : null);
+        var key = Adapter.VerifySpaceSignature((string?)vector["authorization"], (string?)vector["audience"],
+            (string?)vector["signatureInput"], (string?)vector["signature"], (string)vector["keyId"]!);
 
         Assert.Equal((bool)vector["expect"]!["ok"]! ? (string)vector["expect"]!["key"]! : null, key);
     }
 
     /// <summary>Signing produces the reference signature input and a P-256 signature over the reference base; other keys are refused.</summary>
     [Theory]
-    [Trait("Spec", "SPC-22")]
+    [Trait("Spec", "SPC-22"), Trait("Spec", "SPC-24")]
     [MemberData(nameof(Signing))]
     public void SignSpaceRequest_Vector_SignsTheReferenceBase(string vectorId)
     {
+        const string Label = "atproto-space-credential=:";
         Vector(vectorId);
         var vector = SigningCases[vectorId];
         var curve = (string)vector["curve"]!;
 
-        var signed = Adapter.SignSpaceRequest(curve, (string)SignatureKeys[curve]!["privateKey"]!, (string)vector["authorization"]!, (string?)vector["audience"]);
+        var signed = Adapter.SignSpaceRequest(curve, (string)SignatureKeys[curve]!["privateKey"]!, (string)vector["authorization"]!, (string)vector["audience"]!);
 
         if (vector["signatureInput"] is not { } input)
         {
@@ -127,8 +127,8 @@ public abstract class SpacesConformance<TAdapter> : ConformanceSuite<TAdapter> w
 
         Assert.NotNull(signed);
         Assert.Equal((string)input!, signed.Value.SignatureInput);
-        Assert.StartsWith("atproto-space=:", signed.Value.Signature, StringComparison.Ordinal);
-        var signature = Convert.FromBase64String(signed.Value.Signature["atproto-space=:".Length..^1]);
+        Assert.StartsWith(Label, signed.Value.Signature, StringComparison.Ordinal);
+        var signature = Convert.FromBase64String(signed.Value.Signature[Label.Length..^1]);
         using var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         ecdsa.ImportParameters(new ECParameters { Curve = ECCurve.NamedCurves.nistP256, D = Convert.FromHexString((string)SignatureKeys[curve]!["privateKey"]!) });
         Assert.True(ecdsa.VerifyData(Encoding.UTF8.GetBytes((string)vector["base"]!), signature, HashAlgorithmName.SHA256), "The signature does not cover the reference base.");

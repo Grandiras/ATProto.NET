@@ -178,9 +178,10 @@ Specs: [repo](specs/repo.md), [spaces](specs/spaces.md) (space repositories). On
 `IBlockStore`; space repository state (LtHash), the KEM-based commitment and MACs, space token
 formats and their verification. **~4k lines.**
 
-**First: the Spaces re-pin** (SPC-1/2), before any Spaces work of this phase, taken after the
-2026-10-29 release so it covers both. It moves the pin to that text and reference commit
-(at least proposal `b89d0b04`, reference `3a0b8c66`), re-vendors the Spaces Lexicons and
+**First: the Spaces re-pin** (SPC-1/2), before any Spaces work of this phase. It moves the pin to
+the 2026-10-22 release text and reference commit (proposal `b89d0b04`, reference `3a0b8c66`);
+the maintainer chose (2026-10-24) not to wait for the 2026-10-29 release, which then arrives as
+its own small re-pin change set. The re-pin re-vendors the Spaces Lexicons and
 regenerates the vectors (HTTP signatures for the `atproto-space-credential` label and `tag`; new
 STAR, KEM and MAC vectors from the reference's tests). It also adjusts what phase 1 built against
 the drafts: `SharedSecret.DeriveKey` becomes `ComputeMac` (CRY-52), the HTTP signature API gains
@@ -385,7 +386,7 @@ migration guide.
 |---|---|---|
 | The rewrite stalls halfway, leaving two codebases | High | Bottom-up phases that each leave a usable, tested layer. A preview can ship as soon as phase 8 passes, with hosting following. |
 | The Spaces GA specification differs from the text the specs track | Medium | The 2026-10-22 alpha release (STAR, KEM commitment, public spaces, DID document keys) is in the spec; each later release is one re-pin change set (SPC-2), and phase 10 re-validates against GA. Open points name what is still in flux (URI scheme, updatable policy). |
-| Spaces reaches only beta, not GA, before 0.9.0 ships | Medium | Upstream plans beta for the end of November 2026 with no GA date. D-08's fallback applies: the Spaces APIs ship with `[Experimental("ATPROTO001")]` until the 0.9.x release after GA. |
+| Spaces reaches only beta, not GA, before 0.9.0 ships | Low | Upstream plans beta, meaning production on Bluesky's PDSes, for the end of November 2026; D-08 (update 2026-10-24) treats it as GA, so the Spaces APIs ship stable. The `ATPROTO001` fallback applies only if 0.9.0 ships before the beta. |
 | Behaviour lost in translation | High | Conformance suite green on 0.8 *before* phase 1. Requirement IDs on tests. Regression corpus in [04 — Testing](04-testing.md#regression-corpus). |
 | The generator cannot match hand-written quality | Medium | Phase 3's gate requires generating and compiling all vendored Lexicons, plus golden output review, before anything depends on it. |
 | Roslyn analyzer packaging problems (System.Text.Json in the compiler) | Medium | Spike first in phase 3, with an MSBuild-task fallback. First-party code is checked in, so the SDK never depends on the analyzer. |

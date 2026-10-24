@@ -74,11 +74,13 @@ def copy_network(source):
         path.write_text(json.dumps(ordered, indent=2, ensure_ascii=False) + "\n")
 
 
+# The most specific source wins: com.atproto.space.* is the spaces source's, not atproto's.
 def source_of(nsid, sources):
-    for name, source in sources.items():
-        if any(nsid.startswith(ns.replace("/", ".") + ".") for ns in source.get("namespaces", [])): return name
-        if "prefix" in source and nsid.startswith(source["prefix"]): return name
-    raise LookupError(f"{nsid} has no source")
+    matches = [(len(ns), name) for name, source in sources.items()
+               for ns in [n.replace("/", ".") + "." for n in source.get("namespaces", [])] + ([source["prefix"]] if "prefix" in source else [])
+               if nsid.startswith(ns)]
+    if not matches: raise LookupError(f"{nsid} has no source")
+    return max(matches)[1]
 
 
 def main():

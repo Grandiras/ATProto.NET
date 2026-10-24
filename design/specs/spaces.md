@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted (maintainer, 2026-10-17) · **stable surface**, targeting the general-availability (GA) protocol (upstream plans beta for the end of November 2026; see *Protocol status*). Fallback only: if the GA spec is not published when 0.9.0 ships, the Spaces APIs ship with `[Experimental("ATPROTO001")]` and lose it in the 0.9.x release that follows GA ([D-08](../06-decisions.md#d-08-spaces-is-a-first-class-part-of-the-protocol)). |
+| **Status** | Accepted (maintainer, 2026-10-17) · **stable surface**, targeting the general-availability (GA) protocol (upstream plans beta for the end of November 2026; see *Protocol status*). The beta ("in production on bsky PDSes with real users") counts as GA here. Fallback only: if neither is published when 0.9.0 ships, the Spaces APIs ship with `[Experimental("ATPROTO001")]` and lose it in the 0.9.x release that follows the beta ([D-08](../06-decisions.md#d-08-spaces-is-a-first-class-part-of-the-protocol)). |
 | **Packages and namespaces** | `ATProtoNet`, across the layers ([02 — Architecture](../02-architecture.md#layers-inside-atprotonet)): **layer 0:** `SpaceUri`/`SpaceRecordUri` (root namespace), `ATProtoNet.Data.Star` (STAR reader/writer), `ATProtoNet.Crypto` (BLAKE3, key-encapsulation keys) and `ATProtoNet.Crypto.HttpSignatures` (RFC 9421 and RFC 8941), `ATProtoNet.Spaces` (LtHash, space repo state, MAC computation, token formats and verification). **Layer 1:** `ATProtoNet.Identity` (the key-encapsulation key entry of DID documents). **Layer 2:** `ATProtoNet.Spaces.Access` (credential provider and issuer, signed-request handler, space-scoped client), generated `ATProtoNet.Lexicons.Com.AtProto.Space.*` and `…SimpleSpace.*`. **Layer 3:** `ATProtoNet.Spaces.Sync` (syncer, notification handling, checkpoints). **Layer 4:** `ATProtoNet.Hosting` (`AddSpaces(…)` on the builder). `ATProtoNet.AspNetCore` (namespace `ATProtoNet.AspNetCore.Spaces`): space authority, repo host, `simplespace` and notification-receiver endpoints. `ATProtoNet.EntityFrameworkCore`: the Spaces stores. |
 | **Phases** | 1 primitives (`SpaceUri`, STAR, BLAKE3, KEM keys, HTTP signatures) · 2 space repos (LtHash state, MAC) · 3 generated Lexicons · 4 DID document entries · 5–6 client, credentials, signed requests · 7 sync · 9 server roles and stores · 10 end-to-end and interop against the GA reference PDS |
 | **Depends on** | [syntax](syntax.md), [data-model](data-model.md) (`DrislReader`, `Cid`, bounded readers), [crypto](crypto.md) (`SigningKey`, `VerificationKey`, `DidKey`, JOSE), [identity](identity.md) (`IIdentityResolver`, DID document lookups), [xrpc-client](xrpc-client.md) (`AtProtoClient`, `IXrpcHandler`, `XrpcInvoker`, records API), [auth](auth.md) (`ScopeSet`, `ServiceAuthVerifier`, `IReplayStore`), [streaming](streaming.md) (`#account`/`#identity` events), [server](server.md), [stores](stores.md), [hosting](hosting.md) |
@@ -201,7 +201,7 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   token). Neither the reference nor the proposal has STAR or KEM-commitment vectors yet. The
   pin moves to the GA specification when it is published (SPC-2).
 
-  *Next pin (alpha release 2026-10-22):* proposal 0016 at
+  *Pin (phase 2, 2026-10-24, #240), from the alpha release 2026-10-22:* proposal 0016 at
   [`b89d0b04`](https://github.com/bluesky-social/proposals/blob/b89d0b04495a62e0e22f1ab04c665a9c4e1c655d/0016-permissioned-data/README.md)
   (proposals #125: #114 STAR, #120 public access, #122 shared secret, #123 DID document keys, #124
   deletion) and the reference `permissioned-data` at `3a0b8c66`, whose `packages/space` now has
@@ -212,6 +212,9 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   gains `tag` ([crypto.md](crypto.md#open-points)), and the conformance adapter's space-signature
   label, components and vectors change (SPC-22…24). The KEM derivation, BLAKE3, the RFC
   9421/8941 core and the STAR reader stand unchanged.
+  The pin moved in phase 2 as described, without waiting for the 2026-10-29 release (maintainer,
+  2026-10-24), which comes as its own re-pin. It is recorded as `AssemblyMetadata`
+  (`ATProtoNet.Spaces.Proposal`, `ATProtoNet.Spaces.Reference`) and in `docs/spaces.md`.
 - **SPC-2** (MUST) Moving to a new protocol revision is one change set. It updates the pin, the
   vendored Spaces Lexicons, the reference vectors (regenerated from the reference
   implementation) and the affected requirements of this spec.
@@ -408,10 +411,12 @@ public interface ISpacePolicy { /* read/write decisions per space (SPC-71, SPC-7
   expected is rejected.
   *Source:* Proposal 0016 · 0.8 `SpaceTokens.cs:127-133` · tests `SpaceTokensTests`
 - **SPC-19** (MUST) Claims:
-  - **Every token** has `iss`, `sub`, `exp` and `jti` (128-bit, hex).
+  - **Every token** has `iss`, `sub`, `exp` and `jti`. The SDK issues 128-bit hex; it accepts 1 to
+    128 visible ASCII characters (phase 2).
   - **Delegation tokens and attestations** also have `aud`: the authority's host,
     `{authority}#atproto_pds`.
-  - **An attestation** has `iss` = `sub` = the client ID, and no `kid`.
+  - **An attestation** has `iss` = `sub` = the client ID, and no fixed `kid`: a `kid`, when present,
+    names the client's key in its JWKS (phase 2, following the reference).
   - **Delegation tokens and credentials** have `kid` exactly `#atproto`, the issuer's signing
     key (SPC-31).
   - **A credential** has `cnf.kid` set to a P-256 `did:key` (the key the credential is bound to)
@@ -859,6 +864,32 @@ members, notification, sync, recovery, revocation and deletion.
 | `Atproto-Space-Credential` scheme and `tag`ged `atproto-space-credential` signatures | upstream rename (proposals #120) |
 | `simplespace` with independent read/write policies, open write, app access, pluggable `ISpacePolicy` | upstream policy model (PR #105, PR #119) |
 | `LtHash` drops value equality; settable limits become options; three exception types instead of five | correctness and AG-7 |
+
+## Phase 2 outcomes
+
+Recorded by phase 2 (#240): the layer-0 Spaces code (`ATProtoNet.Spaces`) and the re-pin.
+
+1. **Types.** `LtHash`, `SpaceCommit` (with its STAR metadata codec), `SpaceMac` and
+   `SpaceMacRequest` (MACs, both headers, KEM encapsulation and decapsulation), `SpaceRepoExport`
+   (verify and write), `SpaceToken` with `SpaceCredentialClaims` and `ClientAttestationClaims`,
+   `SpaceVerificationException` and `SpaceTokenException`. Token *formats* landed here; consuming
+   and issuing credentials over XRPC stays in phase 6. A token's audience and subject are compared
+   by the caller (the verifier of phase 6), which knows what it expects.
+2. **Following the reference.** `SpaceCommit.Rev` is the string as read (the SDK writes TIDs): the
+   reference reads any string and its own fixtures use non-TID revisions, and the MAC covers the
+   text as sent. `SpaceMacRequest.Parse` takes any `key_share` string and `Accept` checks it is a
+   P-256 `did:key`, as the reference's decapsulation does. The commit MAC context is always
+   `atproto-space-repo-v1`; `ver` is checked before the MAC, not covered by it.
+3. **Stricter than the reference** (SPC-17, SPC-19, SPC-20; the vectors mark these
+   `beyondReference`): records must be canonical DRISL (no floats, no `undefined`, keys in DRISL
+   order); `cnf.kid` must be a P-256 `did:key`; a present but unrepresentable `iat` is refused; a
+   `jti` is 1 to `MaxJtiLength` (128) visible ASCII characters; `LtHash.FromState` refuses a state
+   that is not 2,048 bytes (`Empty()` is the empty state).
+4. **Bounds.** A commit's `rev` longer than 65,535 UTF-8 bytes is malformed metadata, since it
+   cannot be framed in a MAC context (`MaxSpaceContextFieldBytes`).
+5. **Known difference.** For a token that is malformed in several ways at once (a header without
+   `typ` and `alg` and an array payload), the SDK reports `BadJwt` and the reference `BadJwtType`;
+   both refuse it.
 
 ## Open points
 

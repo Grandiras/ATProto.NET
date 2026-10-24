@@ -1,0 +1,170 @@
+{
+  "comment": "DHKEM(P-256, HKDF-SHA256) from the reference kem.ts: encapsulation with a fixed ephemeral key (its did:key is the key_share), decapsulation with the author's #atproto_kem private key, and refused keys. Private keys are hex scalars; *Uncompressed are SEC1 points (0x04 ‖ x ‖ y).",
+  "cases": [
+    {
+      "name": "author 1, ephemeral 1",
+      "note": "SPC-54/55: encapsulate with this ephemeral key gives keyShare and sharedSecret; decapsulate gives the same secret.",
+      "authorPrivateKey": "942dea92a8c58f08b6c75c67b56ba0f8cea21e003e50890319be68b56b41d775",
+      "authorKey": "did:key:zDnaexzrT7aaqY7oRfLD9d9noB5pVp8DqEwnLs1kmJpqyqsZF",
+      "authorKeyUncompressed": "04e3e2b0f290139b27e0775ec2975f32ccd1542c71bdb22ff57e6623b47ac10b966ecfc0594acbac9253cb96007950f595c7b816f42ae758f898c110c3f4c1598d",
+      "ephemeralPrivateKey": "5e49d6485ca5d997fb658f8d56197336c39c87643fcd751fbb36210d2cef9502",
+      "keyShare": "did:key:zDnaeVqnvw3SwNAP9aSbFR1xrNG7GYHKiBiCtFAKtsv6RPig2",
+      "keyShareUncompressed": "045064efb87e3e38cc8bee5d163870379c88ddcf5501a6e4ca83ec55e9d35b0bebb3b9dfc62525fe519eb9fb81c7b9fdc415d9edeef49b91a0d1c38b1ef324215a",
+      "sharedSecret": "d9572771473cb38f6735013f5f0267a643b48d031a766ad2f445908c0115eb6f"
+    },
+    {
+      "name": "author 1, ephemeral 2",
+      "note": "SPC-54/55: encapsulate with this ephemeral key gives keyShare and sharedSecret; decapsulate gives the same secret.",
+      "authorPrivateKey": "942dea92a8c58f08b6c75c67b56ba0f8cea21e003e50890319be68b56b41d775",
+      "authorKey": "did:key:zDnaexzrT7aaqY7oRfLD9d9noB5pVp8DqEwnLs1kmJpqyqsZF",
+      "authorKeyUncompressed": "04e3e2b0f290139b27e0775ec2975f32ccd1542c71bdb22ff57e6623b47ac10b966ecfc0594acbac9253cb96007950f595c7b816f42ae758f898c110c3f4c1598d",
+      "ephemeralPrivateKey": "8041e3c24f5e57dfab33a75d5b9e3adcf24e16653ee34ae10c2e4cbdee47e844",
+      "keyShare": "did:key:zDnaeu8ez9pNUxegWaZvLfYD4MTCXqUa9LoSBaJJmKWP935sc",
+      "keyShareUncompressed": "04aa73a06a180ed3d5493c504f39c88b5bfcf270dda7d031df096c2139b6429cd7ec33762ef42c9645a75d5f4952f74baf8491c656cc6df2cbeb4ae430570a9ecf",
+      "sharedSecret": "74bf6c75d16898d91d4cc85579bb5415ad1e117585453a91b6ecec0f10073743"
+    },
+    {
+      "name": "author 1, ephemeral 3",
+      "note": "SPC-54/55: encapsulate with this ephemeral key gives keyShare and sharedSecret; decapsulate gives the same secret.",
+      "authorPrivateKey": "942dea92a8c58f08b6c75c67b56ba0f8cea21e003e50890319be68b56b41d775",
+      "authorKey": "did:key:zDnaexzrT7aaqY7oRfLD9d9noB5pVp8DqEwnLs1kmJpqyqsZF",
+      "authorKeyUncompressed": "04e3e2b0f290139b27e0775ec2975f32ccd1542c71bdb22ff57e6623b47ac10b966ecfc0594acbac9253cb96007950f595c7b816f42ae758f898c110c3f4c1598d",
+      "ephemeralPrivateKey": "ce82f12ec097ddfb575cdc5ed5cd18bd761da73539f4f93d978208968472225e",
+      "keyShare": "did:key:zDnaeqaNyRGToRE7zp5MAikGqXrBWhs5XNJCfpburJJpPoRo1",
+      "keyShareUncompressed": "04759bdfd803063ca49bc392c2abfe64d2cf47a168137d637cb5ece3f80c10867c8da5b723920b1a4a2700e6b761d1f99621bb3e1d3d6d485bd498864c21e74687",
+      "sharedSecret": "69ac7b8da7f25f5d545e6ee0953b09446e69dea70f81cdc2afe0b3f286b37ca0"
+    },
+    {
+      "name": "author 2, ephemeral 1",
+      "note": "SPC-54: the same key share under another author key gives another secret.",
+      "authorPrivateKey": "e90c386abec5d255391f6633db1b7d2c69ef73faf328f71c9d3d10d60f38dbdb",
+      "authorKey": "did:key:zDnaeqJuRi5cVuhtiQ4DuAnqWyJ2oxgofmUu8Vw9V8zWii5Xw",
+      "authorKeyUncompressed": "0471a503dbb22ea85c1e680540ec3c6b4f255ebeb5b8329955d8361a8dcff3586aa3dba0e8d042d297d7505308d26e970f1e1069d18fd907d12d96b0ee16fa5e4d",
+      "ephemeralPrivateKey": "5e49d6485ca5d997fb658f8d56197336c39c87643fcd751fbb36210d2cef9502",
+      "keyShare": "did:key:zDnaeVqnvw3SwNAP9aSbFR1xrNG7GYHKiBiCtFAKtsv6RPig2",
+      "keyShareUncompressed": "045064efb87e3e38cc8bee5d163870379c88ddcf5501a6e4ca83ec55e9d35b0bebb3b9dfc62525fe519eb9fb81c7b9fdc415d9edeef49b91a0d1c38b1ef324215a",
+      "sharedSecret": "0838b2518dce444f8f633a9bc326cdf3b6943bdbe43482d2becdafc68943357e"
+    },
+    {
+      "name": "RFC 9180 A.3.1",
+      "note": "CRY-51: RFC 9180 §A.3.1 DHKEM(P-256, HKDF-SHA256): skRm is the author key, skEm the ephemeral key; shared_secret as published.",
+      "authorPrivateKey": "f3ce7fdae57e1a310d87f1ebbde6f328be0a99cdbcadf4d6589cf29de4b8ffd2",
+      "authorKey": "did:key:zDnaehZcWNiMpYyo7gCCtx84NUhUkcbAWMTmLBZwqCYrggX9K",
+      "authorKeyUncompressed": "04fe8c19ce0905191ebc298a9245792531f26f0cece2460639e8bc39cb7f706a826a779b4cf969b8a0e539c7f62fb3d30ad6aa8f80e30f1d128aafd68a2ce72ea0",
+      "ephemeralPrivateKey": "4995788ef4b9d6132b249ce59a77281493eb39af373d236a1fe415cb0c2d7beb",
+      "keyShare": "did:key:zDnaebpGXaFZF3cYQKsq7KiB7ToEhU959gHqp4q2P91FQzJ6k",
+      "keyShareUncompressed": "04a92719c6195d5085104f469a8b9814d5838ff72b60501e2c4466e5e67b325ac98536d7b61a1af4b78e5b7f951c0900be863c403ce65c9bfcb9382657222d18c4",
+      "sharedSecret": "c0d26aeab536609a572b07695d933b589dcf363ff9d93c93adea537aeabb8cb8"
+    }
+  ],
+  "refusals": [
+    {
+      "name": "key share a did:plc",
+      "note": "SPC-55/56: key_share is a compressed P-256 did:key; anything else is an invalid key (BadSpaceMac).",
+      "operation": "decapsulate",
+      "authorPrivateKey": "942dea92a8c58f08b6c75c67b56ba0f8cea21e003e50890319be68b56b41d775",
+      "keyShare": "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+      "expect": {
+        "ok": false
+      },
+      "referenceError": "SpaceMacError: invalid KEM key"
+    },
+    {
+      "name": "key share did:key:nope",
+      "note": "SPC-55/56: key_share is a compressed P-256 did:key; anything else is an invalid key (BadSpaceMac).",
+      "operation": "decapsulate",
+      "authorPrivateKey": "942dea92a8c58f08b6c75c67b56ba0f8cea21e003e50890319be68b56b41d775",
+      "keyShare": "did:key:nope",
+      "expect": {
+        "ok": false
+      },
+      "referenceError": "SpaceMacError: invalid KEM key"
+    },
+    {
+      "name": "key share empty",
+      "note": "SPC-55/56: key_share is a compressed P-256 did:key; anything else is an invalid key (BadSpaceMac).",
+      "operation": "decapsulate",
+      "authorPrivateKey": "942dea92a8c58f08b6c75c67b56ba0f8cea21e003e50890319be68b56b41d775",
+      "keyShare": "",
+      "expect": {
+        "ok": false
+      },
+      "referenceError": "SpaceMacError: invalid KEM key"
+    },
+    {
+      "name": "key share garbage",
+      "note": "SPC-55/56: key_share is a compressed P-256 did:key; anything else is an invalid key (BadSpaceMac).",
+      "operation": "decapsulate",
+      "authorPrivateKey": "942dea92a8c58f08b6c75c67b56ba0f8cea21e003e50890319be68b56b41d775",
+      "keyShare": "!!!",
+      "expect": {
+        "ok": false
+      },
+      "referenceError": "SpaceMacError: invalid KEM key"
+    },
+    {
+      "name": "key share a K-256 did:key",
+      "note": "SPC-55/56: key_share is a compressed P-256 did:key; anything else is an invalid key (BadSpaceMac).",
+      "operation": "decapsulate",
+      "authorPrivateKey": "942dea92a8c58f08b6c75c67b56ba0f8cea21e003e50890319be68b56b41d775",
+      "keyShare": "did:key:zQ3shVfKDU2jLYrCVtiEjFagvjQMzASR62rgGY7Cb6MwW1XW6",
+      "expect": {
+        "ok": false
+      },
+      "referenceError": "SpaceMacError: KEM key must be a P-256 did:key"
+    },
+    {
+      "name": "key share an Ed25519 did:key",
+      "note": "SPC-55/56: key_share is a compressed P-256 did:key; anything else is an invalid key (BadSpaceMac).",
+      "operation": "decapsulate",
+      "authorPrivateKey": "942dea92a8c58f08b6c75c67b56ba0f8cea21e003e50890319be68b56b41d775",
+      "keyShare": "did:key:z6Mkma1oBZUZtbGDrcGJxqREJCfcJTz65AENZ79CFHkxnHbX",
+      "expect": {
+        "ok": false
+      },
+      "referenceError": "SpaceMacError: invalid KEM key"
+    },
+    {
+      "name": "key share a P-256 x-coordinate off the curve",
+      "note": "SPC-55/56: key_share is a compressed P-256 did:key; anything else is an invalid key (BadSpaceMac).",
+      "operation": "decapsulate",
+      "authorPrivateKey": "942dea92a8c58f08b6c75c67b56ba0f8cea21e003e50890319be68b56b41d775",
+      "keyShare": "did:key:zDnaeQRy3dcKsKa1zmKtVKsTy3m2HYoQnFnfKuxD6HfSTQgYg",
+      "expect": {
+        "ok": false
+      },
+      "referenceError": "SpaceMacError: invalid KEM key"
+    },
+    {
+      "name": "key share an uncompressed P-256 did:key",
+      "note": "SPC-55/56: key_share is a compressed P-256 did:key; anything else is an invalid key (BadSpaceMac).",
+      "operation": "decapsulate",
+      "authorPrivateKey": "942dea92a8c58f08b6c75c67b56ba0f8cea21e003e50890319be68b56b41d775",
+      "keyShare": "did:key:z4oJ8bPPoELpLRTZDAAh635iaEAJebQJvpePrvNHdW4Sj1XA79uyGppuKsqAC467EDw5gw9gbMtJ6F5JCGNYSwyhjrBWR",
+      "expect": {
+        "ok": false
+      },
+      "referenceError": "SpaceMacError: invalid KEM key"
+    },
+    {
+      "name": "author key that is K-256",
+      "note": "SPC-54: #atproto_kem is a P-256 Multikey.",
+      "operation": "encapsulate",
+      "authorKey": "did:key:zQ3shVfKDU2jLYrCVtiEjFagvjQMzASR62rgGY7Cb6MwW1XW6",
+      "expect": {
+        "ok": false
+      },
+      "referenceError": "SpaceMacError: KEM key must be a P-256 did:key"
+    },
+    {
+      "name": "author key that is not a did:key",
+      "note": "SPC-54: #atproto_kem is a P-256 Multikey.",
+      "operation": "encapsulate",
+      "authorKey": "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+      "expect": {
+        "ok": false
+      },
+      "referenceError": "SpaceMacError: invalid KEM key"
+    }
+  ]
+}

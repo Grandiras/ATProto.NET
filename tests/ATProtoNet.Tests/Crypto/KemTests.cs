@@ -22,8 +22,8 @@ public sealed class KemTests
         using var secret = key.Decapsulate(Convert.FromHexString(RfcEnc));
 
         Assert.Equal(VerificationKey.FromUncompressedPoint(KeyCurve.P256, Convert.FromHexString(RfcPkRm)).DidKey.Multikey, key.PublicKey.Multikey);
-        // Only HKDF reads a secret, so compare what both secrets derive.
-        Assert.Equal(HKDF.Expand(HashAlgorithmName.SHA256, Convert.FromHexString(RfcSharedSecret), 32, []), Expand(secret));
+        // A secret is only ever an HMAC key, so compare the MACs both key.
+        Assert.Equal(HMACSHA256.HashData(Convert.FromHexString(RfcSharedSecret), Array.Empty<byte>()), Expand(secret));
     }
 
     [Fact]
@@ -46,16 +46,21 @@ public sealed class KemTests
 
     [Fact]
     [Trait("Spec", "CRY-52")]
-    public void DeriveKey_DifferentContexts_GiveDifferentKeys()
+    public void ComputeMac_IsHmacSha256KeyedByTheSecret()
     {
         using var key = KemPrivateKey.Generate(KemAlgorithm.Default);
-        using var secret = key.PublicKey.Encapsulate().Secret;
-        var (first, second) = (new byte[32], new byte[32]);
+        var (sent, ciphertext) = key.PublicKey.Encapsulate();
+        using var secret = sent;
+        using var received = key.Decapsulate(ciphertext.Span);
+        var (first, second, other) = (new byte[SharedSecret.MacLength], new byte[SharedSecret.MacLength], new byte[SharedSecret.MacLength]);
 
-        secret.DeriveKey("context one"u8, first);
-        secret.DeriveKey("context two"u8, second);
+        secret.ComputeMac("context and message"u8, first);
+        received.ComputeMac("context and message"u8, second);
+        secret.ComputeMac("another message"u8, other);
 
-        Assert.NotEqual(first, second);
+        Assert.Equal(first, second);
+        Assert.NotEqual(first, other);
+        Assert.Throws<ArgumentOutOfRangeException>(() => secret.ComputeMac([], new byte[31]));
     }
 
     [Fact]
@@ -67,7 +72,7 @@ public sealed class KemTests
 
         Assert.Equal("SharedSecret([redacted])", secret.ToString());
         secret.Dispose();
-        Assert.Throws<ObjectDisposedException>(() => secret.DeriveKey([], new byte[32]));
+        Assert.Throws<ObjectDisposedException>(() => secret.ComputeMac([], new byte[32]));
     }
 
     [Fact]
@@ -151,9 +156,9 @@ public sealed class KemTests
 
     private static byte[] Expand(SharedSecret secret)
     {
-        var derived = new byte[32];
-        secret.DeriveKey([], derived);
-        return derived;
+        var mac = new byte[SharedSecret.MacLength];
+        secret.ComputeMac([], mac);
+        return mac;
     }
 
     private static byte[] Pkcs8(string scalarHex)

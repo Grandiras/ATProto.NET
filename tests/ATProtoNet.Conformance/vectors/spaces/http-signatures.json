@@ -1,5 +1,5 @@
 {
-  "comment": "RFC 9421 space request signatures and the verdicts owed, checked against the reference verifySpaceSignature.",
+  "comment": "RFC 9421 space credential signatures (label and tag atproto-space-credential, covering (\"authorization\" \"atproto-space-audience\")) and the verdicts owed, checked against the reference verifyCredentialSig(headers, cnf.kid). A null field is an absent header.",
   "keys": {
     "P-256": {
       "privateKey": "decdb69fa3e2d875ad5af4e0fd3c328c96acde6d6fec51ca7225f62b01d02851",
@@ -12,12 +12,11 @@
   },
   "cases": [
     {
-      "name": "reference request signature",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "reference signature",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": true,
@@ -26,24 +25,11 @@
       "reference": true
     },
     {
-      "name": "reference exchange signature",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": true,
-        "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
-      },
-      "reference": true
-    },
-    {
-      "name": "high-S request signature",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "high-S signature",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pP0BP+0PXqZceubyn6Cdiu/DUmoI4y8+iifm3KcuA1xvg==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsSaoCD5zSc7Gu6whMc8wWwjRZsOSTqsFtf9N50N22ZbCA==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": true,
@@ -53,11 +39,23 @@
     },
     {
       "name": "optional parameters and other labels",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "other=(\"authorization\");keyid=\"other\", atproto-space=(\"authorization\" \"atproto-space-audience\");alg=\"ecdsa-p256-sha256\";keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
-      "signature": "other=:YWJj:, atproto-space=:RP1GzeKEeoo6nbEFV79relUTq9+0znynm/MsejW8SM1Iro48zrMxYHlEwBDv6D226zuPQHb41nWGnJLqoOpzGw==:",
+      "signatureInput": "other=(\"authorization\");keyid=\"other\", atproto-space-credential=(\"authorization\" \"atproto-space-audience\");alg=\"ecdsa-p256-sha256\";keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\";tag=\"atproto-space-credential\"",
+      "signature": "other=:YWJj:, atproto-space-credential=:CfGSOIejCqBYkqT32IntPwFkItaVtHDZvGtgO+HuyewPqJ9NdH6CLtVUcLiuhsJ8IZc5ixHqaBahzVz1idnHRQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": true,
+        "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
+      },
+      "reference": true
+    },
+    {
+      "name": "tag before the other parameters",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\";keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\";alg=\"ecdsa-p256-sha256\"",
+      "signature": "atproto-space-credential=:borr5toX4Hgm0iIzER1Uc54qXzv3E1xvJ5N2emQ76jxa0kE/Q+fOoGO+qOIyxr9nMX2xtwNVjYECWOU9h4ptnA==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": true,
@@ -67,11 +65,10 @@
     },
     {
       "name": "input spelled loosely, signed canonically",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(  \"authorization\"   \"atproto-space-audience\"  );  keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\";alg=\"ecdsa-p256-sha256\"",
-      "signature": "atproto-space=:fFS8K19Z5q5npJDUMlONqvHVCEBwUGj/MfQCe9Ufvl4/LxNFPvoQZDMH6CV958IJKCBMgNyxmU5bewsabBSKCw==:",
+      "signatureInput": "atproto-space-credential=(  \"authorization\"   \"atproto-space-audience\"  );  keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\";tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:LhUIEjqEYKK2s6axOIeBTaJpnOVuzkmBiohq0ExfAn9Co8ktXID3XqA8qp3rJAwtiQ5NhxwurGxPiy8ruHcVaQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": true,
@@ -81,10 +78,11 @@
     },
     {
       "name": "every parameter type, signed in canonical form",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\";created=1618884473;nonce=\"a\\\"b\\\\c\";tag=tok;flag;b=:YWJj:;d=1.50",
-      "signature": "atproto-space=:js2fWnFHG5zngTwyuK97JQvBz1Kla9qZwNjvY4FylZEdlKc8gMeveIrK6cpFRlu6sfabAf0l5HjswO9/m9zGmg==:",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\";created=1618884473;nonce=\"a\\\"b\\\\c\";tag=\"atproto-space-credential\";t=tok;flag;b=:YWJj:;d=1.50",
+      "signature": "atproto-space-credential=:DO0dJH2UgBNB5ogNjS3Kym1aNtIMq76Gy49GqPs8Li5DfLNN0rolp053zxG2snyyMZswfHaVJicUO3FesZ/zyQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": true,
         "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
@@ -93,11 +91,10 @@
     },
     {
       "name": "the same signature again",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": true,
@@ -106,753 +103,807 @@
       "reference": true
     },
     {
-      "name": "changed authorization",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln-changed",
+      "name": "scheme in lower case, signed as sent",
+      "authorization": "atproto-space-credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:IIpT6mzis3Ed+XKE2Ol01sDoVrmVZghP/5jX0Lqi+GEeQg1jxoejWQzhWY7O6i39g/bdUezPVynPo3Qkg/WjFQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": true,
+        "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
+      },
+      "reference": true,
+      "note": "SPC-24: the scheme is matched case-insensitively by the receiver, but the base covers the field value as received."
+    },
+    {
+      "name": "scheme case changed after signing",
+      "authorization": "atproto-space-credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: invalid HTTP message signature",
+      "note": "SPC-24: the base covers the field value as received."
+    },
+    {
+      "name": "fields with surrounding whitespace",
+      "authorization": " Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln  ",
+      "audience": "\tdid:plc:repoowner ",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": true,
+        "key": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW"
+      },
+      "reference": true,
+      "note": "RFC 9421 §2.1: leading and trailing whitespace is stripped from field values in the base."
+    },
+    {
+      "name": "changed authorization",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln-changed",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: invalid HTTP message signature"
     },
     {
       "name": "another credential",
-      "mode": "request",
-      "authorization": "Atproto-Space another.credential.jwt",
+      "authorization": "Atproto-Space-Credential another.credential.jwt",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: invalid HTTP message signature"
     },
     {
       "name": "changed audience",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:someoneelse",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: invalid HTTP message signature"
     },
     {
       "name": "another signing key",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaeWu1aHomnSsmn6xRi87CaZakB58U8ykmwFQ2B1jr56Y9J",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: invalid HTTP message signature"
     },
     {
       "name": "keyid differing from the credential key",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");keyid=\"did:key:zDnaeWu1aHomnSsmn6xRi87CaZakB58U8ykmwFQ2B1jr56Y9J\"",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");keyid=\"did:key:zDnaeWu1aHomnSsmn6xRi87CaZakB58U8ykmwFQ2B1jr56Y9J\";tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:ikeUEYhRAxXOf8gkbuyNWY6RCPWavd2iNs55SV/veYdKlAf41KJ2r1Lev8Sm9T6Woyy+P0gDMRoKcFcH/ORW2w==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature keyid does not match the credential key"
     },
     {
       "name": "keyid keyid=1 that is not a string",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");keyid=1",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\";keyid=1",
+      "signature": "atproto-space-credential=:LVhsZQcJa/CjyMiH79sCzsRASxKhCwOoLWmPERk4RkhRMqCEVSkvfXJ9z4qFr2B2bPHFkk1VxV4mYzxqgETPNg==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature keyid does not match the credential key"
     },
     {
       "name": "keyid keyid that is not a string",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");keyid",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\";keyid",
+      "signature": "atproto-space-credential=:0WQmiro3okNH4IfbChy/3cl3sqxe+f8cqF7LxPbd1vJVyIaL+j7nqsRhljueBjh/RSQ6MzrHkcDT++B76uU5iQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature keyid does not match the credential key"
     },
     {
       "name": "keyid keyid=tok that is not a string",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");keyid=tok",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\";keyid=tok",
+      "signature": "atproto-space-credential=:w3IczI/vY/BRSK9OxWuNy+XnpAmTpyv9keXZVpYcFex1xcjXUKLQEWabr8ifWDQJh/WdOdvpUwroy+XIVOXUjA==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature keyid does not match the credential key"
     },
     {
       "name": "a signature parameter added after signing",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");alg=\"ecdsa-p256-sha256\"",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\";alg=\"ecdsa-p256-sha256\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: invalid HTTP message signature"
+    },
+    {
+      "name": "without a tag",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\")",
+      "signature": "atproto-space-credential=:3FDYhTx+zaWtbWJYAtfpT5jmoB+EcyC4B/gjIB/NGfxjRcHuf5hasAbkDsKu8vLylNn6TdVWm1XaA2x3j7xozg==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature tag must be \"atproto-space-credential\""
+    },
+    {
+      "name": "another tag",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space\"",
+      "signature": "atproto-space-credential=:NZaAXQGXJJfvqg1FZn6f+KnZWCGp00Tpv6WLxZ+RkDs28dF62yGC7RM3fjzIcz6UaLo+d4/XQnWVBZLAdlrk4g==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature tag must be \"atproto-space-credential\""
+    },
+    {
+      "name": "tag as a token",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=atproto-space-credential",
+      "signature": "atproto-space-credential=:TbVQUVIeK/Ib5RuzbH5tJR2TfWFOhKCD6+iV9KviTDNSgQ43U4nSzmqj2sLKP47py8erIjOKKluzljAs0WOS7A==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature tag must be \"atproto-space-credential\""
+    },
+    {
+      "name": "tag in upper case",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"ATPROTO-SPACE-CREDENTIAL\"",
+      "signature": "atproto-space-credential=:WwRUDwYyZMq5m82cZcUaT8VwDwynzUsoIr5ySBYDprJmlV+Xu0PfeLzFjhJk8yhXr1VlevWy6k2iv5U3kd3CJw==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature tag must be \"atproto-space-credential\""
+    },
+    {
+      "name": "the alpha label atproto-space",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
+    },
+    {
+      "name": "label only in the signature input",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "other=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
       "name": "audience not covered by the signature",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
-      "signature": "atproto-space=:K4so4NZ+iBuq0zbng0cjiJ9Dboa/GqxGJYL9sZVwBNJawO1JtzOz+k3foMfR+Y0DB4nYGeNs25VOUuimuf2qIQ==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:3bF8R76Unqi8Z/jCozWxhD0c30uQB/6atvg4W4qySfhtLwRHXwVyA57rRcI/f+wh68xBGmy7H9GSAslMVK387w==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature must cover exactly (\"authorization\" \"atproto-space-audience\"), in order"
     },
     {
       "name": "components (\"atproto-space-audience\")",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature must cover exactly (\"authorization\" \"atproto-space-audience\"), in order"
     },
     {
       "name": "components (\"atproto-space-audience\" \"authorization\")",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"atproto-space-audience\" \"authorization\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"atproto-space-audience\" \"authorization\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature must cover exactly (\"authorization\" \"atproto-space-audience\"), in order"
     },
     {
       "name": "components (\"authorization\" \"atproto-space-audience\" \"content-type\")",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\" \"content-type\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\" \"content-type\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature must cover exactly (\"authorization\" \"atproto-space-audience\"), in order"
     },
     {
       "name": "components (\"authorization\" \"authorization\" \"atproto-space-audience\")",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature must cover exactly (\"authorization\" \"atproto-space-audience\"), in order"
     },
     {
       "name": "components (\"authorization\";sf \"atproto-space-audience\")",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\";sf \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\";sf \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature must cover exactly (\"authorization\" \"atproto-space-audience\"), in order"
     },
     {
       "name": "components (authorization \"atproto-space-audience\")",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(authorization \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(authorization \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature must cover exactly (\"authorization\" \"atproto-space-audience\"), in order"
     },
     {
       "name": "components (\"Authorization\" \"atproto-space-audience\")",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"Authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"Authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature must cover exactly (\"authorization\" \"atproto-space-audience\"), in order"
     },
     {
       "name": "components (\"@method\" \"atproto-space-audience\")",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"@method\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"@method\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature must cover exactly (\"authorization\" \"atproto-space-audience\"), in order"
     },
     {
       "name": "components ()",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=()",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=();tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature must cover exactly (\"authorization\" \"atproto-space-audience\"), in order"
     },
     {
       "name": "signature input \"not-a-list\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
       "signatureInput": "not-a-list",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
       "name": "signature input \"\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
       "signatureInput": "",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
-      "name": "signature input \"atproto-space\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "signature input \"atproto-space-credential\"",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
-      "name": "signature input \"atproto-space=1\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "signature input \"atproto-space-credential=1\"",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=1",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=1",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
-      "name": "signature input \"atproto-space=\\\"authorization\\\"\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "signature input \"atproto-space-credential=\\\"authorization\\\"\"",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=\"authorization\"",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=\"authorization\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
-      "name": "signature input \"other=(\\\"authorization\\\" \\\"atproto-space-audience\\\")\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "signature input \"other=(\\\"authorization\\\" \\\"atproto-space-audience\\\");tag=\\\"atproto-space-credential\\\"\"",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "other=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "other=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
       "name": "signature \"\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
       "signature": "",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
       "name": "signature \"not-a-byte-sequence\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
       "signature": "not-a-byte-sequence",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
-      "name": "signature \"atproto-space=not-a-byte-sequence\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "signature \"atproto-space-credential=not-a-byte-sequence\"",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=not-a-byte-sequence",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=not-a-byte-sequence",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
-      "name": "signature \"atproto-space=:YWJj:\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "signature \"atproto-space-credential=:YWJj:\"",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:YWJj:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:YWJj:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: invalid HTTP message signature"
     },
     {
-      "name": "signature \"atproto-space=:!!!:\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "signature \"atproto-space-credential=:!!!:\"",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:!!!:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:!!!:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed signature headers"
     },
     {
-      "name": "signature \"atproto-space=1\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "signature \"atproto-space-credential=1\"",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=1",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=1",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
       "name": "signature \"other=:YWJj:\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
       "signature": "other=:YWJj:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
-      "name": "signature \"atproto-space=:YWJj:;x=1\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "signature \"atproto-space-credential=(:YWJj:)\"",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:YWJj:;x=1",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=(:YWJj:)",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
-      "name": "signature \"atproto-space=(:YWJj:)\"",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "signature with a parameter",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=(:YWJj:)",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:;x=1",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed atproto-space-credential signature"
     },
     {
       "name": "DER-encoded signature",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:MEQCIBla6386JcBTACNEi8ZEnzqu9RKeEpFDWi0wGfUkadaTAiAL+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:MEQCICdqnzsUDwj5lB9ZsGPS2gCjPl0mWWVELCpdkxmOu1rEAiBlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: invalid HTTP message signature"
     },
     {
       "name": "signature of zeros",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: invalid HTTP message signature"
     },
     {
       "name": "signature of ones",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=://///////////////////////////////////////////////////////////////////////////////////w==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=://///////////////////////////////////////////////////////////////////////////////////w==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: invalid HTTP message signature"
     },
     {
       "name": "algorithm ecdsa-p384-sha384",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");alg=\"ecdsa-p384-sha384\"",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");alg=\"ecdsa-p384-sha384\";tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:Hs55VO9djd41J/GF9DuwC4oJcP1+WsPOOL5Bn6TGHz17yGgj/TdfjMOJJ2NYdtvtag8MRMgzn/tmsM8GYfrBog==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature algorithm must be ecdsa-p256-sha256"
     },
     {
       "name": "algorithm ed25519",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");alg=\"ed25519\"",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");alg=\"ed25519\";tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:55zfrj2tXR4EWWUqm8JI+bIFmsMg4hc4qEwmmJQM6wRkH8VS0nkkKlii2wuaJL/O1/6bkBEnC+ZnxqrBtQiPXQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature algorithm must be ecdsa-p256-sha256"
     },
     {
       "name": "algorithm rsa-pss-sha512",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");alg=\"rsa-pss-sha512\"",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");alg=\"rsa-pss-sha512\";tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:cxSvG2vt9jrI2m5rs7jYzgvJE6KA2LN6gkkHc7biJjoY3lTA0e6Q6JizXO8Vdx0Xdj8NfWcRfwMl6VggwMhygA==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature algorithm must be ecdsa-p256-sha256"
     },
     {
       "name": "algorithm as a token",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\");alg=ecdsa-p256-sha256",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");alg=ecdsa-p256-sha256;tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:8jT3T/pWAskpiyU3vQZ2zjGjotNiD8eAZ+QCqpWdE5ANI9EqNt0Guo77mzwrs+qVX8mLJsddANKmphpRdrzGMQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature algorithm must be ecdsa-p256-sha256"
     },
     {
-      "name": "request key that is not P-256",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "name": "credential key that is not P-256",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zQ3shVfKDU2jLYrCVtiEjFagvjQMzASR62rgGY7Cb6MwW1XW6",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature key must be a P-256 did:key"
     },
     {
-      "name": "empty request authorization",
-      "mode": "request",
+      "name": "credential key that is not a did:key",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
+      "keyId": "did:plc:repoowner",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: signature key must be a P-256 did:key"
+    },
+    {
+      "name": "empty authorization",
       "authorization": "",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
-      "reference": false
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed \"authorization\" field"
+    },
+    {
+      "name": "without authorization",
+      "authorization": null,
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed \"authorization\" field"
+    },
+    {
+      "name": "empty audience",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed \"atproto-space-audience\" field"
+    },
+    {
+      "name": "without audience",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": null,
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed \"atproto-space-audience\" field"
+    },
+    {
+      "name": "without Signature-Input",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": null,
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed signature headers"
+    },
+    {
+      "name": "without Signature",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "audience": "did:plc:repoowner",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": null,
+      "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
+      "expect": {
+        "ok": false
+      },
+      "reference": false,
+      "referenceError": "SpaceSignatureError: missing or malformed signature headers"
     },
     {
       "name": "label repeated in the signature input",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\"), atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\", atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
       "reference": true,
-      "beyondReference": true
+      "beyondReference": true,
+      "note": "SPC-22 refuses a repeated label; the reference (structured-headers 1.0.1) takes the last member."
     },
     {
       "name": "label repeated in the signature",
-      "mode": "request",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:, atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "signature": "atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:, atproto-space-credential=:J2qfOxQPCPmUH1mwY9LaAKM+XSZZZUQsKl2TGY67WsRlX98FMtjE5hFPezjDPpPcd0vsZGxrh6z2gi21IPzKSQ==:",
       "keyId": "did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW",
       "expect": {
         "ok": false
       },
       "reference": true,
-      "beyondReference": true
-    },
-    {
-      "name": "credential signature on the exchange",
-      "mode": "exchange",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "signature": "atproto-space=:GVrrfzolwFMAI0SLxkSfOq71Ep4SkUNaLTAZ9SRp1pML+wBKwoVmjxRkNYF9idRAr51SihpapFxUHlgmRFWzkw==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
-    },
-    {
-      "name": "exchange algorithm ecdsa-p384-sha384",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\";alg=\"ecdsa-p384-sha384\"",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
-    },
-    {
-      "name": "exchange key that is not P-256",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zQ3shVfKDU2jLYrCVtiEjFagvjQMzASR62rgGY7Cb6MwW1XW6\"",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
-    },
-    {
-      "name": "exchange keyid \"\"",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\")",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
-    },
-    {
-      "name": "exchange keyid \";keyid\"",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\");keyid",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
-    },
-    {
-      "name": "exchange keyid \";keyid=123\"",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=123",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
-    },
-    {
-      "name": "exchange keyid \";keyid=\\\"not-a-key\\\"\"",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"not-a-key\"",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
-    },
-    {
-      "name": "exchange keyid \";keyid=\\\"did:key:z\\\"\"",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:z\"",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
-    },
-    {
-      "name": "exchange keyid \";keyid=\\\"did:web:example.com\\\"\"",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:web:example.com\"",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
-    },
-    {
-      "name": "exchange signed by a key other than its keyid",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaeWu1aHomnSsmn6xRi87CaZakB58U8ykmwFQ2B1jr56Y9J\"",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
-    },
-    {
-      "name": "changed delegation token",
-      "mode": "exchange",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2lnx",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
-    },
-    {
-      "name": "empty exchange authorization",
-      "mode": "exchange",
-      "authorization": "",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
-      "signature": "atproto-space=:CLjYMdudKnilQaMTbySLMwviYwKs2S93frm4q29MIEckBviUGogVBZ4SogYQBBbHl9ycIkR/WxaiEyn34TW9Xg==:",
-      "expect": {
-        "ok": false
-      },
-      "reference": false
+      "beyondReference": true,
+      "note": "SPC-22 refuses a repeated label; the reference (structured-headers 1.0.1) takes the last member."
     }
   ],
   "signing": [
     {
       "name": "request",
       "curve": "P-256",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": "atproto-space=(\"authorization\" \"atproto-space-audience\")",
-      "base": "\"authorization\": Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln\n\"atproto-space-audience\": did:plc:repoowner\n\"@signature-params\": (\"authorization\" \"atproto-space-audience\")"
-    },
-    {
-      "name": "exchange",
-      "curve": "P-256",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": "atproto-space=(\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\"",
-      "base": "\"authorization\": Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln\n\"@signature-params\": (\"authorization\");keyid=\"did:key:zDnaehpewypegZXBqk8rh1EGpfU5c2vmdP6bXvg7sE2B2XiCW\""
+      "signatureInput": "atproto-space-credential=(\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\"",
+      "base": "\"authorization\": Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln\n\"atproto-space-audience\": did:plc:repoowner\n\"@signature-params\": (\"authorization\" \"atproto-space-audience\");tag=\"atproto-space-credential\""
     },
     {
       "name": "request with a K-256 key",
       "curve": "K-256",
-      "authorization": "Atproto-Space eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
+      "authorization": "Atproto-Space-Credential eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtY3JlZGVudGlhbCtqd3QifQ.eyJzdWIiOiJhdDovL2RpZDpwbGM6YXV0aG9yaXR5L3NwYWNlL2NvbS5leGFtcGxlLmZvcnVtL2RlZmF1bHQifQ.c2ln",
       "audience": "did:plc:repoowner",
-      "signatureInput": null
-    },
-    {
-      "name": "exchange with a K-256 key",
-      "curve": "K-256",
-      "authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6ImF0cHJvdG8tc3BhY2UtZGVsZWdhdGlvbitqd3QifQ.eyJhdWQiOiJkaWQ6cGxjOmF1dGhvcml0eSNhdHByb3RvX3NwYWNlX2hvc3QifQ.c2ln",
-      "signatureInput": null
+      "signatureInput": null,
+      "referenceError": "SpaceSignatureError: signature key must be a P-256 did:key"
     }
   ]
 }

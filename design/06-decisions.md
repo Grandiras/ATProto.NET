@@ -237,6 +237,13 @@ and the specs follow them; DID documents gain only `#atproto_kem`, since authori
 2026-10-29, a November shakeout and **beta at the end of November 2026**, with no GA date. The
 decision stands; the experimental fallback is now the likely path if 0.9.0 ships before GA.
 
+**Update (2026-10-24, maintainer).** The beta counts as GA for this decision. Upstream defines it
+as "in-production on bsky PDSes with real users" (Daniel Holmgren, Bluesky, 2026-10-12), with no
+major breaking changes planned after the 2026-10-29 release. If the beta specification is
+published when 0.9.0 ships, the Spaces APIs ship without `[Experimental]`, pinned to the beta text,
+and later revisions are absorbed by re-pins (SPC-2). The `ATPROTO001` fallback applies only if
+0.9.0 ships before the beta.
+
 ## D-09 Blazor components
 
 **Status: Accepted** (maintainer, 2026-10-17; Q-1).
@@ -359,7 +366,7 @@ store contract includes compare-and-swap (D-22). Details: [specs/stores.md](spec
 
 | ID | Surface |
 |---|---|
-| `ATPROTO001` | Spaces, only as a fallback if the GA specification is not published when 0.9.0 ships (D-08) |
+| `ATPROTO001` | Spaces, only as a fallback if neither the beta nor the GA specification is published when 0.9.0 ships (D-08) |
 | `ATPROTO002` | Bluesky `app.bsky.unspecced.*` endpoints |
 | `ATPROTO003` | Jetstream v2 archive API |
 | `ATPROTO004` | Lexicon runtime resolution (`com.atproto.lexicon.*`, until the spec settles) |

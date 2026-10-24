@@ -20,6 +20,7 @@ public static class HttpMessageSigner
         if (parameters.Created is { } created) signed.Add(new("created", created.ToUnixTimeSeconds()));
         if (parameters.Expires is { } expires) signed.Add(new("expires", expires.ToUnixTimeSeconds()));
         if (parameters.KeyId is { } keyId) signed.Add(new("keyid", keyId));
+        if (parameters.Tag is { } tag) signed.Add(new("tag", tag));
         var covered = new StructuredInnerList([.. parameters.Components.Select(c => new StructuredItem(c))], signed);
         var signatureBase = request.SignatureBase(covered, out var error) ?? throw new ArgumentException(error, nameof(request));
         var signature = new StructuredItem((ReadOnlyMemory<byte>)key.Sign(signatureBase));
@@ -42,6 +43,9 @@ public sealed record HttpSignatureRequirements
 
     /// <summary>The tolerance of the time checks.</summary>
     public TimeSpan ClockSkew { get; init; }
+
+    /// <summary>The <c>tag</c> the signature must carry, exactly; <see langword="null"/> accepts any or none.</summary>
+    public string? Tag { get; init; }
 }
 
 /// <summary>Verifies RFC 9421 HTTP message signatures made with an ES256 or ES256K key.</summary>
@@ -91,6 +95,7 @@ public static class HttpMessageSignatureVerifier
         if (!signatures.TryGetValue(label, out var member) || member is not StructuredItem { Value: ReadOnlyMemory<byte> signature, Parameters.Count: 0 })
             return Refuse($"The \"{label}\" signature is missing or not a bare byte sequence.");
         if (!TryRead(label, covered, out var parameters, out var algorithm)) return Refuse("A signature parameter has the wrong type.");
+        if (requirements.Tag is { } tag && parameters.Tag != tag) return Refuse($"The signature's tag is not \"{tag}\".");
         if (requirements.Components.Except(parameters.Components, StringComparer.Ordinal).FirstOrDefault() is { } missing)
             return Refuse($"The signature does not cover \"{missing}\".");
         var now = requirements.Time?.GetUtcNow();
@@ -120,6 +125,9 @@ public static class HttpMessageSignatureVerifier
                 case ("keyid", string keyId):
                     parameters = parameters with { KeyId = keyId };
                     break;
+                case ("tag", string tag):
+                    parameters = parameters with { Tag = tag };
+                    break;
                 case ("alg", string alg):
                     algorithm = alg;
                     break;
@@ -129,7 +137,7 @@ public static class HttpMessageSignatureVerifier
                 case ("expires", long seconds) when TryTime(seconds, out var at):
                     parameters = parameters with { Expires = at };
                     break;
-                case ("keyid" or "alg" or "created" or "expires", _):
+                case ("keyid" or "tag" or "alg" or "created" or "expires", _):
                     return false;
             }
         }

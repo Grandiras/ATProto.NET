@@ -113,6 +113,23 @@ public sealed class HttpMessageSignatureTests
     }
 
     [Theory]
+    [InlineData("atproto-space-credential", "atproto-space-credential", true)]
+    [InlineData(null, "atproto-space-credential", false)]
+    [InlineData("other", "atproto-space-credential", false)]
+    [InlineData("other", null, true)]
+    [Trait("Spec", "CRY-54"), Trait("Spec", "CRY-55")]
+    public void Verify_RequiredTag_MustBeTheSignaturesExactly(string? signed, string? required, bool accepted)
+    {
+        using var key = SigningKey.Generate(KeyCurve.P256);
+        var fields = HttpMessageSigner.Sign(Request(), Parameters(key) with { Tag = signed }, key);
+
+        var verdict = HttpMessageSignatureVerifier.Verify(Request(fields), Requirements() with { Tag = required }, key.PublicKey);
+
+        Assert.Equal(accepted, verdict is HttpSignatureVerdict.Accepted { Parameters.Tag: var tag } && tag == signed);
+        if (signed is not null) Assert.EndsWith($";tag=\"{signed}\"", fields.SignatureInput, StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData(KeyCurve.P256, "ecdsa-p256-sha256", true)]
     [InlineData(KeyCurve.P256, "ecdsa-p384-sha384", false)]
     [InlineData(KeyCurve.K256, "ecdsa-p256-sha256", false)]
