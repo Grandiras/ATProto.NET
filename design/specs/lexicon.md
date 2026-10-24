@@ -1092,13 +1092,69 @@ records the outcome here in the same PR.
 
 | # | Question | Default |
 |---|---|---|
-| LEX-O1 | Align `lexicons.json` exactly with `@atproto/lex`'s manifest (`version`, `lexicons`, `resolvers`, `resolutions`) so one manifest serves several SDKs? | Yes where the formats overlap; our extra fields (CID-in-record-form, provenance) go under an `x-atprotonet` key. Verify against `@atproto/lex-installer` at phase 3 start. *Phase 0:* `scripts/vendor-lexicons.py` writes it in the SDK's own shape for now (`version`, `sources` with repository, commit and licence, `lexicons` → `{source, cid}`); its CIDs (LEX-23) reproduce the published `site.standard` record CIDs. |
+| LEX-O1 | Align `lexicons.json` exactly with `@atproto/lex`'s manifest (`version`, `lexicons`, `resolvers`, `resolutions`) so one manifest serves several SDKs? | Yes where the formats overlap; our extra fields (CID-in-record-form, provenance) go under an `x-atprotonet` key. Verify against `@atproto/lex-installer` at phase 3 start. *Phase 0:* `scripts/vendor-lexicons.py` writes it in the SDK's own shape for now (`version`, `sources` with repository, commit and licence, `lexicons` → `{source, cid}`); its CIDs (LEX-23) reproduce the published `site.standard` record CIDs. *Phase 3:* `atproto-lexgen` keeps that shape (adding an optional `provided` list, TOO-17); aligning with `@atproto/lex`'s manifest moves to phase 8, where its `resolutions` matter for network installs. |
 | LEX-O2 | Closed `enum` as an open struct (LEX-47) or a C# `enum`? | Open struct, lenient read, validator-enforced; a C# enum breaks readers when upstream breaks the rule. |
-| LEX-O3 | Exact extension-data property type (`IDictionary<string, JsonElement>` vs `JsonObject`) under STJ source generation with `init`. | Whichever STJ source generation supports with `init` and no reflection; decided in the phase 3 spike. |
+| LEX-O3 | Exact extension-data property type (`IDictionary<string, JsonElement>` vs `JsonObject`) under STJ source generation with `init`. | Whichever STJ source generation supports with `init` and no reflection; decided in the phase 3 spike. *Phase 3:* `IDictionary<string, JsonElement>?` with `init` works under source generation. |
 | ~~LEX-O4~~ | ~~Union membership of SDK types in users' unions: derived records or wrapper adapters?~~ | **Resolved** by C# 15 unions (D-18 revised): any type can be a case of any union, so neither is needed. |
 | LEX-O5 | Generate `Enumerate*Async` for every paginated query (LEX-71) or only listed ones? | Every one. |
 | LEX-O6 | Direct DRISL-CBOR binding for generated types (skipping `DataModelValue`)? | Later optimisation behind the same API (D-10). |
 | LEX-O7 | Should `app.bsky.unspecced.*` be generated at all? | Yes, marked `ATPROTO002`. |
-| LEX-O8 | C# 15 union details (syntax, null semantics, runtime types) may still change before .NET 11 GA (November 2026). | Re-check against the GA compiler at phase 3 start. The emitter isolates the union shape, so a change is a regeneration, not a redesign. |
+| LEX-O8 | C# 15 union details (syntax, null semantics, runtime types) may still change before .NET 11 GA (November 2026). | Re-check against the GA compiler at phase 3 start. The emitter isolates the union shape, so a change is a regeneration, not a redesign. *Phase 3:* checked on the .NET 11 RC2 compiler (`11.0.100-rc.2`); re-check on GA. |
 | LEX-O9 | System.Text.Json's built-in union support cannot express `$type` discriminators today (LEX-51). | Keep the generated converters; revisit if a later System.Text.Json adds discriminator-based union classification and per-case contracts. |
 | LEX-O10 | How does the generator know which `at-uri` fields may hold space addresses (LEX-88)? | The `addressFields` option, reviewed at each Spaces pin; switch to a Lexicon-level marker if the GA specification defines one. |
+
+### Phase 3 outcomes
+
+- **LEX-27, the spike: the MSBuild-task fallback.** The generator loads and runs in `dotnet build`, but Roslyn never feeds
+  one generator's output to another, so System.Text.Json's generator never sees the generated `JsonSerializerContext` and
+  the build fails (CS0534). Users therefore get the fallback in phase 8: a task in `ATProtoNet`'s `build/` targets that runs
+  the same emitter before `CoreCompile`. `tests/ATProtoNet.Lexicon.Tests` already builds this way (it runs the CLI over
+  every vendored Lexicon before compiling). LEX-25's byte-identity then holds by construction (one emitter, one entry
+  point, `LexiconGenerator.Generate`); LEX-83's `ATLEX009` belongs to the task.
+- **LEX-26.** The linked model files declare their types without an accessibility modifier; `LexiconModel.Public.cs`,
+  compiled only into `ATProtoNet`, adds `public` through partial declarations (the two enums use `#if LEXICON_CODEGEN`).
+  `ATProtoNet.Nsid` needs static abstract interface members that compiler hosts cannot load, so CodeGen carries an
+  internal, syntax-only `Nsid`. `ComputeRecordCid`, validation and compatibility are not linked.
+- **LEX-3 over LEX-7.** A named `ref` def is a parse error, so no document can hold an alias chain: the catalog resolves
+  refs directly and `MaxRefAliasDepth` is gone.
+- **LEX-28.** The `com.atproto.*` family (with `space` and `simplespace`) is checked in under `src/ATProtoNet/Generated/AtProto/`
+  and excluded from `ATProtoNet`'s compilation until phase 5 brings the XRPC types; `tests/ATProtoNet.Lexicon.Tests`
+  compiles every family against `Stubs/XrpcStubs.cs`, and `./build.sh lexicons` fails when the checked-in code is stale.
+  The stubs fix what phase 5 implements: descriptor constructors take named arguments `nsid`, `inputEncoding`, `input`,
+  `outputEncoding`, `output`, `message`, `errors` and `defaultProxy` (the proxy as text); the client has `QueryAsync` and
+  the three `ProcedureAsync` overloads of the sketch; `Pagination.EnumerateAsync` and `PermissionSetRef.Include` as sketched.
+  Phase 5 must also settle one clash: the `client.Space` accessor (LEX-31) and the `Space(SpaceUri)` view (XRC-59) share a name (#247).
+- **LEX-30.** The NSID → type table is the `[LexiconDefinition]` attributes, which generators read from metadata; a runtime
+  table of `Type`s would root every generated type for the trimmer. The serialization context is internal and exposed as
+  `{Name}Lexicons.Resolver`; contract names are the type's full name below the root namespace with `_` for `.`.
+- **LEX-31.** Two options were added: `units` (unit name → NSID globs; one `{Name}Lexicons`, context and output folder
+  each) and `proxyExclude` (globs `proxies` skips). `lexgen.json` allows comments, which carry each rename's reason. Paths
+  are `nsid#def` (`nsid` alone also names `main`), `nsid#def.property.property` for inline schemas, and
+  `nsid#parameters|input|output|message` for a method's parts; a path to an inline union, known-values or object schema
+  renames that type, otherwise the member.
+- **LEX-32.** The word table is `atproto` → `AtProto`, `simplespace` → `SimpleSpace`, `ageassurance` → `AgeAssurance`,
+  `richtext` → `RichText`, `safelink` → `SafeLink`.
+- **LEX-35, LEX-42, LEX-46.** A member that would clash with a nested type or a generated member (`ExtensionData`,
+  `LexiconType`, …) also gets the `Value` suffix. An internal `$type` property absorbs an incoming `$type` (so it never
+  lands in `ExtensionData`) and writes a record's own first. Required members never get `[Obsolete]` (CS9042); their
+  docs still carry the deprecation.
+- **LEX-37, LEX-89.** A type named like its namespace is reported as information (`ATLEX003`), not a warning, so the gate
+  of zero naming warnings holds with `Label` and its siblings. Union and other inline types use their definition path in
+  `[LexiconDefinition]` (`app.bsky.feed.post#main.embed`).
+- **LEX-63.** `IXrpcParameters<TSelf>`, `XrpcParameterWriter` and `XrpcParameterReader` live in `ATProtoNet.Lexicon.Runtime`:
+  parameters need no HTTP.
+- **LEX-89–91, the review.** The first-party `renames` table has 23 entries, each with its reason: fourteen inline unions
+  that collided across methods or with their method class, four whose names absorbed into their owner, three names over
+  40 characters, and two names that clashed with their enclosing type (`app.bsky.embed.external#external` → `ExternalInfo`,
+  `app.bsky.actor.status#main.status` → `StatusKind`). `Generated/TypeNames.txt` lists every family's names; against 0.8, merged shapes are gone (LEX-38) and view types
+  keep 0.8's names (`PostView`, `FeedViewPost`, `ThreadViewPost`), while union names follow LEX-34 instead of 0.8's hand-picked ones.
+- **Diagnostic IDs.** `ATLEX001` type-name collision, `ATLEX002` naming rule, `ATLEX003` type named like its namespace
+  (info), `ATLEX004` invalid `fieldTypes` entry, `ATLEX005` format without a type, `ATLEX006` ref into an excluded Lexicon,
+  `ATLEX007` NSID defined twice, `ATLEX008` unused `renames` or `fieldTypes` entry, `ATLEX009` C# 15 / .NET 11 required,
+  `ATLEX010` invalid `lexgen.json`, `ATLEX011` a `unionExtensions` entry naming no known union. Lexicon rules are `LXL001`–`LXL042` (`LexiconRules`).
+- **Validation.** A record's `$type` may also be `nsid#main`, as upstream accepts. The interop vector "full" has a `$bytes`
+  value with non-zero spare bits, which the reference implementations accept and `StrictBase64` refuses; the conformance
+  adapter clears them, and whether the data model should accept them is left to #231.
+- **LEX-17.** The suggested revision is the baseline's revision (or 1) plus 1, and none when the current document already
+  has a higher revision.
+

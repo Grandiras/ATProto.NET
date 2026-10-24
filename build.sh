@@ -41,11 +41,13 @@ job_test() {
   done
 }
 
-# Phase 0: the vendored files must match lexicons.json. Phase 3 adds regenerating the
-# first-party code with `git diff --exit-code` and compiling every vendored Lexicon.
+# The vendored files must match their CIDs in lexicons.json and the checked-in com.atproto code must
+# be current (LEX-23, LEX-28). Compiling every vendored Lexicon is part of `test`
+# (tests/ATProtoNet.Lexicon.Tests).
 job_lexicons() {
-  python3 scripts/vendor-lexicons.py
-  git diff --exit-code -- lexicons.json || { echo "lexicons.json does not match lexicons/: run scripts/vendor-lexicons.py"; exit 1; }
+  dotnet build tools/ATProtoNet.Lexicon.Cli -c "$CONFIG" -warnaserror
+  dotnet "tools/ATProtoNet.Lexicon.Cli/bin/$CONFIG/net11.0/ATProtoNet.Lexicon.Cli.dll" generate --unit AtProto --out src/ATProtoNet/Generated --check \
+    || { echo "src/ATProtoNet/Generated is stale: run atproto-lexgen generate --unit AtProto --out src/ATProtoNet/Generated --clean"; exit 1; }
 }
 
 job_integration-pds() { integration "Requirement=Pds|Requirement=PdsAdmin"; }

@@ -474,6 +474,424 @@ ATProtoNet.Language
 ATProtoNet.Language.CompareTo(ATProtoNet.Language? other) -> int
 ATProtoNet.Language.Equals(ATProtoNet.Language? other) -> bool
 ATProtoNet.Language.Value.get -> string!
+ATProtoNet.Lexicon.ExternalDefinition
+ATProtoNet.Lexicon.ExternalDefinition.<Clone>$() -> ATProtoNet.Lexicon.ExternalDefinition!
+ATProtoNet.Lexicon.ExternalDefinition.Deconstruct(out ATProtoNet.Lexicon.LexRefTarget Target, out string! TypeName, out ATProtoNet.Lexicon.ExternalDefinitionKind Kind) -> void
+ATProtoNet.Lexicon.ExternalDefinition.Equals(ATProtoNet.Lexicon.ExternalDefinition? other) -> bool
+ATProtoNet.Lexicon.ExternalDefinition.ExternalDefinition(ATProtoNet.Lexicon.LexRefTarget Target, string! TypeName, ATProtoNet.Lexicon.ExternalDefinitionKind Kind) -> void
+ATProtoNet.Lexicon.ExternalDefinition.Kind.get -> ATProtoNet.Lexicon.ExternalDefinitionKind
+ATProtoNet.Lexicon.ExternalDefinition.Kind.init -> void
+ATProtoNet.Lexicon.ExternalDefinition.Target.get -> ATProtoNet.Lexicon.LexRefTarget
+ATProtoNet.Lexicon.ExternalDefinition.Target.init -> void
+ATProtoNet.Lexicon.ExternalDefinition.TypeName.get -> string!
+ATProtoNet.Lexicon.ExternalDefinition.TypeName.init -> void
+ATProtoNet.Lexicon.ExternalDefinitionKind
+ATProtoNet.Lexicon.ExternalDefinitionKind.KnownValues = 3 -> ATProtoNet.Lexicon.ExternalDefinitionKind
+ATProtoNet.Lexicon.ExternalDefinitionKind.Object = 0 -> ATProtoNet.Lexicon.ExternalDefinitionKind
+ATProtoNet.Lexicon.ExternalDefinitionKind.Other = 5 -> ATProtoNet.Lexicon.ExternalDefinitionKind
+ATProtoNet.Lexicon.ExternalDefinitionKind.Record = 1 -> ATProtoNet.Lexicon.ExternalDefinitionKind
+ATProtoNet.Lexicon.ExternalDefinitionKind.Token = 2 -> ATProtoNet.Lexicon.ExternalDefinitionKind
+ATProtoNet.Lexicon.ExternalDefinitionKind.Union = 4 -> ATProtoNet.Lexicon.ExternalDefinitionKind
+ATProtoNet.Lexicon.IExternalLexicons
+ATProtoNet.Lexicon.IExternalLexicons.TryResolve(ATProtoNet.Lexicon.LexRefTarget target, out ATProtoNet.Lexicon.ExternalDefinition? definition) -> bool
+ATProtoNet.Lexicon.LexArray
+ATProtoNet.Lexicon.LexArray.Equals(ATProtoNet.Lexicon.LexArray? other) -> bool
+ATProtoNet.Lexicon.LexArray.Items.get -> ATProtoNet.Lexicon.LexSchema!
+ATProtoNet.Lexicon.LexArray.Items.init -> void
+ATProtoNet.Lexicon.LexArray.LexArray() -> void
+ATProtoNet.Lexicon.LexArray.MaxLength.get -> long?
+ATProtoNet.Lexicon.LexArray.MaxLength.init -> void
+ATProtoNet.Lexicon.LexArray.MinLength.get -> long?
+ATProtoNet.Lexicon.LexArray.MinLength.init -> void
+ATProtoNet.Lexicon.LexBlob
+ATProtoNet.Lexicon.LexBlob.Accept.get -> System.Collections.Generic.IReadOnlyList<string!>?
+ATProtoNet.Lexicon.LexBlob.Accept.init -> void
+ATProtoNet.Lexicon.LexBlob.Equals(ATProtoNet.Lexicon.LexBlob? other) -> bool
+ATProtoNet.Lexicon.LexBlob.LexBlob() -> void
+ATProtoNet.Lexicon.LexBlob.MaxSize.get -> long?
+ATProtoNet.Lexicon.LexBlob.MaxSize.init -> void
+ATProtoNet.Lexicon.LexBody
+ATProtoNet.Lexicon.LexBody.<Clone>$() -> ATProtoNet.Lexicon.LexBody!
+ATProtoNet.Lexicon.LexBody.Description.get -> string?
+ATProtoNet.Lexicon.LexBody.Description.init -> void
+ATProtoNet.Lexicon.LexBody.Encoding.get -> string!
+ATProtoNet.Lexicon.LexBody.Encoding.init -> void
+ATProtoNet.Lexicon.LexBody.Equals(ATProtoNet.Lexicon.LexBody? other) -> bool
+ATProtoNet.Lexicon.LexBody.LexBody() -> void
+ATProtoNet.Lexicon.LexBody.Schema.get -> ATProtoNet.Lexicon.LexSchema?
+ATProtoNet.Lexicon.LexBody.Schema.init -> void
+ATProtoNet.Lexicon.LexBoolean
+ATProtoNet.Lexicon.LexBoolean.Const.get -> bool?
+ATProtoNet.Lexicon.LexBoolean.Const.init -> void
+ATProtoNet.Lexicon.LexBoolean.Default.get -> bool?
+ATProtoNet.Lexicon.LexBoolean.Default.init -> void
+ATProtoNet.Lexicon.LexBoolean.Equals(ATProtoNet.Lexicon.LexBoolean? other) -> bool
+ATProtoNet.Lexicon.LexBoolean.LexBoolean() -> void
+ATProtoNet.Lexicon.LexBytes
+ATProtoNet.Lexicon.LexBytes.Equals(ATProtoNet.Lexicon.LexBytes? other) -> bool
+ATProtoNet.Lexicon.LexBytes.LexBytes() -> void
+ATProtoNet.Lexicon.LexBytes.MaxLength.get -> long?
+ATProtoNet.Lexicon.LexBytes.MaxLength.init -> void
+ATProtoNet.Lexicon.LexBytes.MinLength.get -> long?
+ATProtoNet.Lexicon.LexBytes.MinLength.init -> void
+ATProtoNet.Lexicon.LexCidLink
+ATProtoNet.Lexicon.LexCidLink.Equals(ATProtoNet.Lexicon.LexCidLink? other) -> bool
+ATProtoNet.Lexicon.LexCidLink.LexCidLink() -> void
+ATProtoNet.Lexicon.LexError
+ATProtoNet.Lexicon.LexError.<Clone>$() -> ATProtoNet.Lexicon.LexError!
+ATProtoNet.Lexicon.LexError.Deconstruct(out string! Name, out string? Description) -> void
+ATProtoNet.Lexicon.LexError.Description.get -> string?
+ATProtoNet.Lexicon.LexError.Description.init -> void
+ATProtoNet.Lexicon.LexError.Equals(ATProtoNet.Lexicon.LexError? other) -> bool
+ATProtoNet.Lexicon.LexError.LexError(string! Name, string? Description) -> void
+ATProtoNet.Lexicon.LexError.Name.get -> string!
+ATProtoNet.Lexicon.LexError.Name.init -> void
+ATProtoNet.Lexicon.LexInteger
+ATProtoNet.Lexicon.LexInteger.Const.get -> long?
+ATProtoNet.Lexicon.LexInteger.Const.init -> void
+ATProtoNet.Lexicon.LexInteger.Default.get -> long?
+ATProtoNet.Lexicon.LexInteger.Default.init -> void
+ATProtoNet.Lexicon.LexInteger.Enum.get -> System.Collections.Generic.IReadOnlyList<long>?
+ATProtoNet.Lexicon.LexInteger.Enum.init -> void
+ATProtoNet.Lexicon.LexInteger.Equals(ATProtoNet.Lexicon.LexInteger? other) -> bool
+ATProtoNet.Lexicon.LexInteger.LexInteger() -> void
+ATProtoNet.Lexicon.LexInteger.Maximum.get -> long?
+ATProtoNet.Lexicon.LexInteger.Maximum.init -> void
+ATProtoNet.Lexicon.LexInteger.Minimum.get -> long?
+ATProtoNet.Lexicon.LexInteger.Minimum.init -> void
+ATProtoNet.Lexicon.LexObject
+ATProtoNet.Lexicon.LexObject.Equals(ATProtoNet.Lexicon.LexObject? other) -> bool
+ATProtoNet.Lexicon.LexObject.LexObject() -> void
+ATProtoNet.Lexicon.LexObject.Nullable.get -> System.Collections.Generic.IReadOnlyList<string!>!
+ATProtoNet.Lexicon.LexObject.Nullable.init -> void
+ATProtoNet.Lexicon.LexObject.Properties.get -> System.Collections.Generic.IReadOnlyDictionary<string!, ATProtoNet.Lexicon.LexSchema!>!
+ATProtoNet.Lexicon.LexObject.Properties.init -> void
+ATProtoNet.Lexicon.LexObject.Required.get -> System.Collections.Generic.IReadOnlyList<string!>!
+ATProtoNet.Lexicon.LexObject.Required.init -> void
+ATProtoNet.Lexicon.LexParams
+ATProtoNet.Lexicon.LexParams.Equals(ATProtoNet.Lexicon.LexParams? other) -> bool
+ATProtoNet.Lexicon.LexParams.LexParams() -> void
+ATProtoNet.Lexicon.LexParams.Properties.get -> System.Collections.Generic.IReadOnlyDictionary<string!, ATProtoNet.Lexicon.LexSchema!>!
+ATProtoNet.Lexicon.LexParams.Properties.init -> void
+ATProtoNet.Lexicon.LexParams.Required.get -> System.Collections.Generic.IReadOnlyList<string!>!
+ATProtoNet.Lexicon.LexParams.Required.init -> void
+ATProtoNet.Lexicon.LexPermission
+ATProtoNet.Lexicon.LexPermission.<Clone>$() -> ATProtoNet.Lexicon.LexPermission!
+ATProtoNet.Lexicon.LexPermission.Equals(ATProtoNet.Lexicon.LexPermission? other) -> bool
+ATProtoNet.Lexicon.LexPermission.LexPermission() -> void
+ATProtoNet.Lexicon.LexPermission.Raw.get -> System.Text.Json.JsonElement
+ATProtoNet.Lexicon.LexPermission.Raw.init -> void
+ATProtoNet.Lexicon.LexPermission.Resource.get -> string?
+ATProtoNet.Lexicon.LexPermission.Resource.init -> void
+ATProtoNet.Lexicon.LexPermissionSet
+ATProtoNet.Lexicon.LexPermissionSet.Detail.get -> string?
+ATProtoNet.Lexicon.LexPermissionSet.Detail.init -> void
+ATProtoNet.Lexicon.LexPermissionSet.DetailLang.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+ATProtoNet.Lexicon.LexPermissionSet.DetailLang.init -> void
+ATProtoNet.Lexicon.LexPermissionSet.Equals(ATProtoNet.Lexicon.LexPermissionSet? other) -> bool
+ATProtoNet.Lexicon.LexPermissionSet.LexPermissionSet() -> void
+ATProtoNet.Lexicon.LexPermissionSet.Permissions.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.LexPermission!>!
+ATProtoNet.Lexicon.LexPermissionSet.Permissions.init -> void
+ATProtoNet.Lexicon.LexPermissionSet.Title.get -> string?
+ATProtoNet.Lexicon.LexPermissionSet.Title.init -> void
+ATProtoNet.Lexicon.LexPermissionSet.TitleLang.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+ATProtoNet.Lexicon.LexPermissionSet.TitleLang.init -> void
+ATProtoNet.Lexicon.LexProcedure
+ATProtoNet.Lexicon.LexProcedure.Equals(ATProtoNet.Lexicon.LexProcedure? other) -> bool
+ATProtoNet.Lexicon.LexProcedure.Errors.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.LexError!>!
+ATProtoNet.Lexicon.LexProcedure.Errors.init -> void
+ATProtoNet.Lexicon.LexProcedure.Input.get -> ATProtoNet.Lexicon.LexBody?
+ATProtoNet.Lexicon.LexProcedure.Input.init -> void
+ATProtoNet.Lexicon.LexProcedure.LexProcedure() -> void
+ATProtoNet.Lexicon.LexProcedure.Output.get -> ATProtoNet.Lexicon.LexBody?
+ATProtoNet.Lexicon.LexProcedure.Output.init -> void
+ATProtoNet.Lexicon.LexProcedure.Parameters.get -> ATProtoNet.Lexicon.LexParams?
+ATProtoNet.Lexicon.LexProcedure.Parameters.init -> void
+ATProtoNet.Lexicon.LexQuery
+ATProtoNet.Lexicon.LexQuery.Equals(ATProtoNet.Lexicon.LexQuery? other) -> bool
+ATProtoNet.Lexicon.LexQuery.Errors.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.LexError!>!
+ATProtoNet.Lexicon.LexQuery.Errors.init -> void
+ATProtoNet.Lexicon.LexQuery.LexQuery() -> void
+ATProtoNet.Lexicon.LexQuery.Output.get -> ATProtoNet.Lexicon.LexBody?
+ATProtoNet.Lexicon.LexQuery.Output.init -> void
+ATProtoNet.Lexicon.LexQuery.Parameters.get -> ATProtoNet.Lexicon.LexParams?
+ATProtoNet.Lexicon.LexQuery.Parameters.init -> void
+ATProtoNet.Lexicon.LexRecord
+ATProtoNet.Lexicon.LexRecord.Equals(ATProtoNet.Lexicon.LexRecord? other) -> bool
+ATProtoNet.Lexicon.LexRecord.Key.get -> ATProtoNet.Lexicon.RecordKeyType!
+ATProtoNet.Lexicon.LexRecord.Key.init -> void
+ATProtoNet.Lexicon.LexRecord.LexRecord() -> void
+ATProtoNet.Lexicon.LexRecord.Record.get -> ATProtoNet.Lexicon.LexObject!
+ATProtoNet.Lexicon.LexRecord.Record.init -> void
+ATProtoNet.Lexicon.LexRef
+ATProtoNet.Lexicon.LexRef.Equals(ATProtoNet.Lexicon.LexRef? other) -> bool
+ATProtoNet.Lexicon.LexRef.LexRef() -> void
+ATProtoNet.Lexicon.LexRef.Ref.get -> string!
+ATProtoNet.Lexicon.LexRef.Ref.init -> void
+ATProtoNet.Lexicon.LexRefTarget
+ATProtoNet.Lexicon.LexRefTarget.Deconstruct(out ATProtoNet.Nsid! Nsid, out string! DefName) -> void
+ATProtoNet.Lexicon.LexRefTarget.DefName.get -> string!
+ATProtoNet.Lexicon.LexRefTarget.DefName.init -> void
+ATProtoNet.Lexicon.LexRefTarget.Equals(ATProtoNet.Lexicon.LexRefTarget other) -> bool
+ATProtoNet.Lexicon.LexRefTarget.LexRefTarget() -> void
+ATProtoNet.Lexicon.LexRefTarget.LexRefTarget(ATProtoNet.Nsid! Nsid, string! DefName) -> void
+ATProtoNet.Lexicon.LexRefTarget.Nsid.get -> ATProtoNet.Nsid!
+ATProtoNet.Lexicon.LexRefTarget.Nsid.init -> void
+ATProtoNet.Lexicon.LexSchema
+ATProtoNet.Lexicon.LexSchema.Description.get -> string?
+ATProtoNet.Lexicon.LexSchema.Description.init -> void
+ATProtoNet.Lexicon.LexSchema.LexSchema() -> void
+ATProtoNet.Lexicon.LexSchema.LexSchema(ATProtoNet.Lexicon.LexSchema! original) -> void
+ATProtoNet.Lexicon.LexSchema.Raw.get -> System.Text.Json.JsonElement
+ATProtoNet.Lexicon.LexSchema.Raw.init -> void
+ATProtoNet.Lexicon.LexSpace
+ATProtoNet.Lexicon.LexSpace.Collections.get -> System.Collections.Generic.IReadOnlyList<string!>!
+ATProtoNet.Lexicon.LexSpace.Collections.init -> void
+ATProtoNet.Lexicon.LexSpace.Equals(ATProtoNet.Lexicon.LexSpace? other) -> bool
+ATProtoNet.Lexicon.LexSpace.Key.get -> string?
+ATProtoNet.Lexicon.LexSpace.Key.init -> void
+ATProtoNet.Lexicon.LexSpace.LexSpace() -> void
+ATProtoNet.Lexicon.LexSpace.Name.get -> string?
+ATProtoNet.Lexicon.LexSpace.Name.init -> void
+ATProtoNet.Lexicon.LexSpace.NameLang.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+ATProtoNet.Lexicon.LexSpace.NameLang.init -> void
+ATProtoNet.Lexicon.LexString
+ATProtoNet.Lexicon.LexString.Const.get -> string?
+ATProtoNet.Lexicon.LexString.Const.init -> void
+ATProtoNet.Lexicon.LexString.Default.get -> string?
+ATProtoNet.Lexicon.LexString.Default.init -> void
+ATProtoNet.Lexicon.LexString.Enum.get -> System.Collections.Generic.IReadOnlyList<string!>?
+ATProtoNet.Lexicon.LexString.Enum.init -> void
+ATProtoNet.Lexicon.LexString.Equals(ATProtoNet.Lexicon.LexString? other) -> bool
+ATProtoNet.Lexicon.LexString.Format.get -> string?
+ATProtoNet.Lexicon.LexString.Format.init -> void
+ATProtoNet.Lexicon.LexString.KnownValues.get -> System.Collections.Generic.IReadOnlyList<string!>?
+ATProtoNet.Lexicon.LexString.KnownValues.init -> void
+ATProtoNet.Lexicon.LexString.LexString() -> void
+ATProtoNet.Lexicon.LexString.MaxGraphemes.get -> long?
+ATProtoNet.Lexicon.LexString.MaxGraphemes.init -> void
+ATProtoNet.Lexicon.LexString.MaxLength.get -> long?
+ATProtoNet.Lexicon.LexString.MaxLength.init -> void
+ATProtoNet.Lexicon.LexString.MinGraphemes.get -> long?
+ATProtoNet.Lexicon.LexString.MinGraphemes.init -> void
+ATProtoNet.Lexicon.LexString.MinLength.get -> long?
+ATProtoNet.Lexicon.LexString.MinLength.init -> void
+ATProtoNet.Lexicon.LexSubscription
+ATProtoNet.Lexicon.LexSubscription.Equals(ATProtoNet.Lexicon.LexSubscription? other) -> bool
+ATProtoNet.Lexicon.LexSubscription.Errors.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.LexError!>!
+ATProtoNet.Lexicon.LexSubscription.Errors.init -> void
+ATProtoNet.Lexicon.LexSubscription.LexSubscription() -> void
+ATProtoNet.Lexicon.LexSubscription.Message.get -> ATProtoNet.Lexicon.LexBody?
+ATProtoNet.Lexicon.LexSubscription.Message.init -> void
+ATProtoNet.Lexicon.LexSubscription.Parameters.get -> ATProtoNet.Lexicon.LexParams?
+ATProtoNet.Lexicon.LexSubscription.Parameters.init -> void
+ATProtoNet.Lexicon.LexToken
+ATProtoNet.Lexicon.LexToken.Equals(ATProtoNet.Lexicon.LexToken? other) -> bool
+ATProtoNet.Lexicon.LexToken.LexToken() -> void
+ATProtoNet.Lexicon.LexUnion
+ATProtoNet.Lexicon.LexUnion.Closed.get -> bool
+ATProtoNet.Lexicon.LexUnion.Closed.init -> void
+ATProtoNet.Lexicon.LexUnion.Equals(ATProtoNet.Lexicon.LexUnion? other) -> bool
+ATProtoNet.Lexicon.LexUnion.LexUnion() -> void
+ATProtoNet.Lexicon.LexUnion.Refs.get -> System.Collections.Generic.IReadOnlyList<string!>!
+ATProtoNet.Lexicon.LexUnion.Refs.init -> void
+ATProtoNet.Lexicon.LexUnknown
+ATProtoNet.Lexicon.LexUnknown.Equals(ATProtoNet.Lexicon.LexUnknown? other) -> bool
+ATProtoNet.Lexicon.LexUnknown.LexUnknown() -> void
+ATProtoNet.Lexicon.LexUnknownType
+ATProtoNet.Lexicon.LexUnknownType.Equals(ATProtoNet.Lexicon.LexUnknownType? other) -> bool
+ATProtoNet.Lexicon.LexUnknownType.LexUnknownType() -> void
+ATProtoNet.Lexicon.LexUnknownType.TypeName.get -> string!
+ATProtoNet.Lexicon.LexUnknownType.TypeName.init -> void
+ATProtoNet.Lexicon.LexUserType
+ATProtoNet.Lexicon.LexUserType.LexUserType() -> void
+ATProtoNet.Lexicon.LexUserType.LexUserType(ATProtoNet.Lexicon.LexUserType! original) -> void
+ATProtoNet.Lexicon.LexiconCatalog
+ATProtoNet.Lexicon.LexiconCatalog.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.LexiconDiagnostic!>!
+ATProtoNet.Lexicon.LexiconCatalog.Documents.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.LexiconDocument!>!
+ATProtoNet.Lexicon.LexiconCatalog.TryGetDocument(ATProtoNet.Nsid! nsid, out ATProtoNet.Lexicon.LexiconDocument? document) -> bool
+ATProtoNet.Lexicon.LexiconCatalog.TryResolve(ATProtoNet.Lexicon.LexRefTarget target, out ATProtoNet.Lexicon.ResolvedDefinition? definition) -> bool
+ATProtoNet.Lexicon.LexiconCatalog.TryResolve(string! reference, ATProtoNet.Nsid! context, out ATProtoNet.Lexicon.ResolvedDefinition? definition) -> bool
+ATProtoNet.Lexicon.LexiconChange
+ATProtoNet.Lexicon.LexiconChange.<Clone>$() -> ATProtoNet.Lexicon.LexiconChange!
+ATProtoNet.Lexicon.LexiconChange.Classification.get -> ATProtoNet.Lexicon.LexiconChangeClassification
+ATProtoNet.Lexicon.LexiconChange.Classification.init -> void
+ATProtoNet.Lexicon.LexiconChange.Deconstruct(out ATProtoNet.Nsid! Nsid, out string! Pointer, out ATProtoNet.Lexicon.LexiconChangeKind Kind, out ATProtoNet.Lexicon.LexiconChangeClassification Classification, out string! Message) -> void
+ATProtoNet.Lexicon.LexiconChange.Equals(ATProtoNet.Lexicon.LexiconChange? other) -> bool
+ATProtoNet.Lexicon.LexiconChange.IsBreaking.get -> bool
+ATProtoNet.Lexicon.LexiconChange.Kind.get -> ATProtoNet.Lexicon.LexiconChangeKind
+ATProtoNet.Lexicon.LexiconChange.Kind.init -> void
+ATProtoNet.Lexicon.LexiconChange.LexiconChange(ATProtoNet.Nsid! Nsid, string! Pointer, ATProtoNet.Lexicon.LexiconChangeKind Kind, ATProtoNet.Lexicon.LexiconChangeClassification Classification, string! Message) -> void
+ATProtoNet.Lexicon.LexiconChange.Message.get -> string!
+ATProtoNet.Lexicon.LexiconChange.Message.init -> void
+ATProtoNet.Lexicon.LexiconChange.Nsid.get -> ATProtoNet.Nsid!
+ATProtoNet.Lexicon.LexiconChange.Nsid.init -> void
+ATProtoNet.Lexicon.LexiconChange.Pointer.get -> string!
+ATProtoNet.Lexicon.LexiconChange.Pointer.init -> void
+ATProtoNet.Lexicon.LexiconChangeClassification
+ATProtoNet.Lexicon.LexiconChangeClassification.Breaking = 1 -> ATProtoNet.Lexicon.LexiconChangeClassification
+ATProtoNet.Lexicon.LexiconChangeClassification.Compatible = 0 -> ATProtoNet.Lexicon.LexiconChangeClassification
+ATProtoNet.Lexicon.LexiconChangeKind
+ATProtoNet.Lexicon.LexiconChangeKind.Added = 0 -> ATProtoNet.Lexicon.LexiconChangeKind
+ATProtoNet.Lexicon.LexiconChangeKind.Changed = 2 -> ATProtoNet.Lexicon.LexiconChangeKind
+ATProtoNet.Lexicon.LexiconChangeKind.Removed = 1 -> ATProtoNet.Lexicon.LexiconChangeKind
+ATProtoNet.Lexicon.LexiconChangeReport
+ATProtoNet.Lexicon.LexiconChangeReport.<Clone>$() -> ATProtoNet.Lexicon.LexiconChangeReport!
+ATProtoNet.Lexicon.LexiconChangeReport.Changes.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.LexiconChange!>!
+ATProtoNet.Lexicon.LexiconChangeReport.Changes.init -> void
+ATProtoNet.Lexicon.LexiconChangeReport.Deconstruct(out System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.LexiconChange!>! Changes, out System.Collections.Generic.IReadOnlyDictionary<ATProtoNet.Nsid!, int>! SuggestedRevisions) -> void
+ATProtoNet.Lexicon.LexiconChangeReport.Equals(ATProtoNet.Lexicon.LexiconChangeReport? other) -> bool
+ATProtoNet.Lexicon.LexiconChangeReport.HasBreakingChanges.get -> bool
+ATProtoNet.Lexicon.LexiconChangeReport.LexiconChangeReport(System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.LexiconChange!>! Changes, System.Collections.Generic.IReadOnlyDictionary<ATProtoNet.Nsid!, int>! SuggestedRevisions) -> void
+ATProtoNet.Lexicon.LexiconChangeReport.SuggestedRevisions.get -> System.Collections.Generic.IReadOnlyDictionary<ATProtoNet.Nsid!, int>!
+ATProtoNet.Lexicon.LexiconChangeReport.SuggestedRevisions.init -> void
+ATProtoNet.Lexicon.LexiconCompatibility
+ATProtoNet.Lexicon.LexiconDiagnostic
+ATProtoNet.Lexicon.LexiconDiagnostic.<Clone>$() -> ATProtoNet.Lexicon.LexiconDiagnostic!
+ATProtoNet.Lexicon.LexiconDiagnostic.Deconstruct(out string! RuleId, out ATProtoNet.Lexicon.LexiconSeverity Severity, out string! Message, out string? DocumentId, out string! Pointer) -> void
+ATProtoNet.Lexicon.LexiconDiagnostic.DocumentId.get -> string?
+ATProtoNet.Lexicon.LexiconDiagnostic.DocumentId.init -> void
+ATProtoNet.Lexicon.LexiconDiagnostic.Equals(ATProtoNet.Lexicon.LexiconDiagnostic? other) -> bool
+ATProtoNet.Lexicon.LexiconDiagnostic.LexiconDiagnostic(string! RuleId, ATProtoNet.Lexicon.LexiconSeverity Severity, string! Message, string? DocumentId, string! Pointer) -> void
+ATProtoNet.Lexicon.LexiconDiagnostic.Message.get -> string!
+ATProtoNet.Lexicon.LexiconDiagnostic.Message.init -> void
+ATProtoNet.Lexicon.LexiconDiagnostic.Pointer.get -> string!
+ATProtoNet.Lexicon.LexiconDiagnostic.Pointer.init -> void
+ATProtoNet.Lexicon.LexiconDiagnostic.RuleId.get -> string!
+ATProtoNet.Lexicon.LexiconDiagnostic.RuleId.init -> void
+ATProtoNet.Lexicon.LexiconDiagnostic.Severity.get -> ATProtoNet.Lexicon.LexiconSeverity
+ATProtoNet.Lexicon.LexiconDiagnostic.Severity.init -> void
+ATProtoNet.Lexicon.LexiconDocument
+ATProtoNet.Lexicon.LexiconDocument.ComputeRecordCid() -> ATProtoNet.Cid!
+ATProtoNet.Lexicon.LexiconDocument.Defs.get -> System.Collections.Generic.IReadOnlyDictionary<string!, ATProtoNet.Lexicon.LexUserType!>!
+ATProtoNet.Lexicon.LexiconDocument.Description.get -> string?
+ATProtoNet.Lexicon.LexiconDocument.Id.get -> ATProtoNet.Nsid!
+ATProtoNet.Lexicon.LexiconDocument.LexiconVersion.get -> int
+ATProtoNet.Lexicon.LexiconDocument.Main.get -> ATProtoNet.Lexicon.LexUserType?
+ATProtoNet.Lexicon.LexiconDocument.Raw.get -> System.Text.Json.JsonElement
+ATProtoNet.Lexicon.LexiconDocument.Revision.get -> int?
+ATProtoNet.Lexicon.LexiconDocument.SourceUtf8.get -> System.ReadOnlyMemory<byte>
+ATProtoNet.Lexicon.LexiconLimits
+ATProtoNet.Lexicon.LexiconLint
+ATProtoNet.Lexicon.LexiconRules
+ATProtoNet.Lexicon.LexiconSeverity
+ATProtoNet.Lexicon.LexiconSeverity.Error = 1 -> ATProtoNet.Lexicon.LexiconSeverity
+ATProtoNet.Lexicon.LexiconSeverity.Warning = 0 -> ATProtoNet.Lexicon.LexiconSeverity
+ATProtoNet.Lexicon.RecordKeyType
+ATProtoNet.Lexicon.RecordKeyType.<Clone>$() -> ATProtoNet.Lexicon.RecordKeyType!
+ATProtoNet.Lexicon.RecordKeyType.Equals(ATProtoNet.Lexicon.RecordKeyType? other) -> bool
+ATProtoNet.Lexicon.RecordKeyType.Literal.get -> string?
+ATProtoNet.Lexicon.RecordKeyType.Text.get -> string!
+ATProtoNet.Lexicon.ResolvedDefinition
+ATProtoNet.Lexicon.ResolvedDefinition.<Clone>$() -> ATProtoNet.Lexicon.ResolvedDefinition!
+ATProtoNet.Lexicon.ResolvedDefinition.Deconstruct(out ATProtoNet.Lexicon.LexRefTarget Target, out ATProtoNet.Lexicon.LexiconDocument? Document, out ATProtoNet.Lexicon.LexUserType? Definition, out ATProtoNet.Lexicon.ExternalDefinition? External) -> void
+ATProtoNet.Lexicon.ResolvedDefinition.Definition.get -> ATProtoNet.Lexicon.LexUserType?
+ATProtoNet.Lexicon.ResolvedDefinition.Definition.init -> void
+ATProtoNet.Lexicon.ResolvedDefinition.Document.get -> ATProtoNet.Lexicon.LexiconDocument?
+ATProtoNet.Lexicon.ResolvedDefinition.Document.init -> void
+ATProtoNet.Lexicon.ResolvedDefinition.Equals(ATProtoNet.Lexicon.ResolvedDefinition? other) -> bool
+ATProtoNet.Lexicon.ResolvedDefinition.External.get -> ATProtoNet.Lexicon.ExternalDefinition?
+ATProtoNet.Lexicon.ResolvedDefinition.External.init -> void
+ATProtoNet.Lexicon.ResolvedDefinition.ResolvedDefinition(ATProtoNet.Lexicon.LexRefTarget Target, ATProtoNet.Lexicon.LexiconDocument? Document, ATProtoNet.Lexicon.LexUserType? Definition, ATProtoNet.Lexicon.ExternalDefinition? External) -> void
+ATProtoNet.Lexicon.ResolvedDefinition.Target.get -> ATProtoNet.Lexicon.LexRefTarget
+ATProtoNet.Lexicon.ResolvedDefinition.Target.init -> void
+ATProtoNet.Lexicon.Runtime.IAtProtoRecord
+ATProtoNet.Lexicon.Runtime.IAtProtoRecord.Collection.get -> ATProtoNet.Nsid!
+ATProtoNet.Lexicon.Runtime.IAtProtoRecord.KeyType.get -> ATProtoNet.Lexicon.RecordKeyType!
+ATProtoNet.Lexicon.Runtime.IAtProtoRecord<TSelf>
+ATProtoNet.Lexicon.Runtime.ICreatedAtRecord<TSelf>
+ATProtoNet.Lexicon.Runtime.ICreatedAtRecord<TSelf>.CreatedAt.get -> ATProtoNet.AtDatetime?
+ATProtoNet.Lexicon.Runtime.ICreatedAtRecord<TSelf>.WithCreatedAt(TSelf record, ATProtoNet.AtDatetime! createdAt) -> TSelf
+ATProtoNet.Lexicon.Runtime.ICursorPage<T>
+ATProtoNet.Lexicon.Runtime.ICursorPage<T>.Cursor.get -> string?
+ATProtoNet.Lexicon.Runtime.ICursorPage<T>.Items.get -> System.Collections.Generic.IReadOnlyList<T>!
+ATProtoNet.Lexicon.Runtime.ICursorParameters<TSelf>
+ATProtoNet.Lexicon.Runtime.ICursorParameters<TSelf>.Cursor.get -> string?
+ATProtoNet.Lexicon.Runtime.ICursorParameters<TSelf>.Cursor.init -> void
+ATProtoNet.Lexicon.Runtime.IKnownValue<TSelf>
+ATProtoNet.Lexicon.Runtime.IKnownValue<TSelf>.Create(string! value) -> TSelf
+ATProtoNet.Lexicon.Runtime.IKnownValue<TSelf>.IsKnown.get -> bool
+ATProtoNet.Lexicon.Runtime.IKnownValue<TSelf>.Value.get -> string!
+ATProtoNet.Lexicon.Runtime.ILexiconObject
+ATProtoNet.Lexicon.Runtime.ILexiconObject.ExtensionData.get -> System.Collections.Generic.IDictionary<string!, System.Text.Json.JsonElement>?
+ATProtoNet.Lexicon.Runtime.ILexiconType<TSelf>
+ATProtoNet.Lexicon.Runtime.ILexiconType<TSelf>.JsonTypeInfo.get -> System.Text.Json.Serialization.Metadata.JsonTypeInfo<TSelf>!
+ATProtoNet.Lexicon.Runtime.ILexiconType<TSelf>.LexiconType.get -> string!
+ATProtoNet.Lexicon.Runtime.IXrpcParameters<TSelf>
+ATProtoNet.Lexicon.Runtime.IXrpcParameters<TSelf>.ReadFrom(ATProtoNet.Lexicon.Runtime.XrpcParameterReader! reader) -> TSelf
+ATProtoNet.Lexicon.Runtime.IXrpcParameters<TSelf>.WriteTo(ATProtoNet.Lexicon.Runtime.XrpcParameterWriter! writer) -> void
+ATProtoNet.Lexicon.Runtime.KnownValueJsonConverter<T>
+ATProtoNet.Lexicon.Runtime.KnownValueJsonConverter<T>.KnownValueJsonConverter() -> void
+ATProtoNet.Lexicon.Runtime.LexiconAssemblyAttribute
+ATProtoNet.Lexicon.Runtime.LexiconAssemblyAttribute.LexiconAssemblyAttribute(System.Type! lexiconsClass) -> void
+ATProtoNet.Lexicon.Runtime.LexiconAssemblyAttribute.LexiconsClass.get -> System.Type!
+ATProtoNet.Lexicon.Runtime.LexiconDefinitionAttribute
+ATProtoNet.Lexicon.Runtime.LexiconDefinitionAttribute.LexiconDefinitionAttribute(string! reference) -> void
+ATProtoNet.Lexicon.Runtime.LexiconDefinitionAttribute.Reference.get -> string!
+ATProtoNet.Lexicon.Runtime.LexiconFormatTypeAttribute
+ATProtoNet.Lexicon.Runtime.LexiconFormatTypeAttribute.Format.get -> string!
+ATProtoNet.Lexicon.Runtime.LexiconFormatTypeAttribute.LexiconFormatTypeAttribute(string! format, System.Type! type) -> void
+ATProtoNet.Lexicon.Runtime.LexiconFormatTypeAttribute.Type.get -> System.Type!
+ATProtoNet.Lexicon.Runtime.LexiconRecordExtensions
+ATProtoNet.Lexicon.Runtime.LexiconRecordExtensions.extension(ATProtoNet.Data.DataModelValue!)
+ATProtoNet.Lexicon.Runtime.LexiconRecordExtensions.extension(ATProtoNet.Data.DataModelValue!).As<T>() -> T!
+ATProtoNet.Lexicon.Runtime.LexiconRecordExtensions.extension(ATProtoNet.Data.DataModelValue!).AsKnownRecord(ATProtoNet.Lexicon.Runtime.LexiconTypeRegistry! registry) -> ATProtoNet.Lexicon.Runtime.IAtProtoRecord?
+ATProtoNet.Lexicon.Runtime.LexiconRecordExtensions.extension(ATProtoNet.Data.DataModelValue!).TryAs<T>(out T? record) -> bool
+ATProtoNet.Lexicon.Runtime.LexiconRequiredUnionConverter<TUnion>
+ATProtoNet.Lexicon.Runtime.LexiconRequiredUnionConverter<TUnion>.LexiconRequiredUnionConverter() -> void
+ATProtoNet.Lexicon.Runtime.LexiconTypeRegistry
+ATProtoNet.Lexicon.Runtime.LexiconTypeRegistry.AddRecord<TRecord>() -> void
+ATProtoNet.Lexicon.Runtime.LexiconTypeRegistry.LexiconTypeRegistry() -> void
+ATProtoNet.Lexicon.Runtime.LexiconTypeRegistry.TryGetRecordType(ATProtoNet.Nsid! collection, out System.Text.Json.Serialization.Metadata.JsonTypeInfo? typeInfo) -> bool
+ATProtoNet.Lexicon.Runtime.LexiconUnionConverter<TUnion>
+ATProtoNet.Lexicon.Runtime.LexiconUnionConverter<TUnion>.LexiconUnionConverter(System.Func<ATProtoNet.Lexicon.Runtime.LexiconUnknown!, TUnion>? unknown, params System.ReadOnlySpan<ATProtoNet.Lexicon.Runtime.LexiconUnionConverter<TUnion>.UnionCase!> cases) -> void
+ATProtoNet.Lexicon.Runtime.LexiconUnionConverter<TUnion>.UnionCase
+ATProtoNet.Lexicon.Runtime.LexiconUnknown
+ATProtoNet.Lexicon.Runtime.LexiconUnknown.LexiconUnknown(System.Text.Json.JsonElement raw) -> void
+ATProtoNet.Lexicon.Runtime.LexiconUnknown.Raw.get -> System.Text.Json.JsonElement
+ATProtoNet.Lexicon.Runtime.LexiconUnknown.TryAs<T>(out T? value) -> bool
+ATProtoNet.Lexicon.Runtime.LexiconUnknown.Type.get -> string!
+ATProtoNet.Lexicon.Runtime.Optional<T>
+ATProtoNet.Lexicon.Runtime.Optional<T>.Equals(ATProtoNet.Lexicon.Runtime.Optional<T> other) -> bool
+ATProtoNet.Lexicon.Runtime.Optional<T>.HasValue.get -> bool
+ATProtoNet.Lexicon.Runtime.Optional<T>.Optional() -> void
+ATProtoNet.Lexicon.Runtime.Optional<T>.Optional(T value) -> void
+ATProtoNet.Lexicon.Runtime.Optional<T>.Value.get -> T
+ATProtoNet.Lexicon.Runtime.OptionalJsonConverter<T>
+ATProtoNet.Lexicon.Runtime.OptionalJsonConverter<T>.OptionalJsonConverter() -> void
+ATProtoNet.Lexicon.Runtime.XrpcParameterReader
+ATProtoNet.Lexicon.Runtime.XrpcParameterReader.Get<T>(string! name, System.Func<string!, T!>! parse) -> T?
+ATProtoNet.Lexicon.Runtime.XrpcParameterReader.GetAll<T>(string! name, System.Func<string!, T>! parse) -> System.Collections.Generic.IReadOnlyList<T>?
+ATProtoNet.Lexicon.Runtime.XrpcParameterReader.GetString(string! name) -> string?
+ATProtoNet.Lexicon.Runtime.XrpcParameterReader.GetValue<T>(string! name, System.Func<string!, T>! parse) -> T?
+ATProtoNet.Lexicon.Runtime.XrpcParameterReader.XrpcParameterReader(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! pairs) -> void
+ATProtoNet.Lexicon.Runtime.XrpcParameterWriter
+ATProtoNet.Lexicon.Runtime.XrpcParameterWriter.Add(string! name, bool? value) -> void
+ATProtoNet.Lexicon.Runtime.XrpcParameterWriter.Add(string! name, long? value) -> void
+ATProtoNet.Lexicon.Runtime.XrpcParameterWriter.Add(string! name, string? value) -> void
+ATProtoNet.Lexicon.Runtime.XrpcParameterWriter.AddAll<T>(string! name, System.Collections.Generic.IEnumerable<T>? values, System.Func<T, string!>! format) -> void
+ATProtoNet.Lexicon.Runtime.XrpcParameterWriter.Pairs.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, string!>>!
+ATProtoNet.Lexicon.Runtime.XrpcParameterWriter.XrpcParameterWriter() -> void
+ATProtoNet.Lexicon.Validation.LexiconValidationException
+ATProtoNet.Lexicon.Validation.LexiconValidationException.LexiconValidationException(System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.Validation.LexiconViolation!>! violations) -> void
+ATProtoNet.Lexicon.Validation.LexiconValidationException.Violations.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.Validation.LexiconViolation!>!
+ATProtoNet.Lexicon.Validation.LexiconValidationResult
+ATProtoNet.Lexicon.Validation.LexiconValidationResult.IsValid.get -> bool
+ATProtoNet.Lexicon.Validation.LexiconValidationResult.ThrowIfInvalid() -> void
+ATProtoNet.Lexicon.Validation.LexiconValidationResult.Violations.get -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.Validation.LexiconViolation!>!
+ATProtoNet.Lexicon.Validation.LexiconValidator
+ATProtoNet.Lexicon.Validation.LexiconValidator.LexiconValidator(ATProtoNet.Lexicon.LexiconCatalog! catalog) -> void
+ATProtoNet.Lexicon.Validation.LexiconValidator.Validate(ATProtoNet.Lexicon.LexRefTarget definition, ATProtoNet.Data.DataModelValue! value) -> ATProtoNet.Lexicon.Validation.LexiconValidationResult!
+ATProtoNet.Lexicon.Validation.LexiconValidator.ValidateRecord(ATProtoNet.Nsid! collection, ATProtoNet.RecordKey! rkey, ATProtoNet.Data.DataModelValue! value) -> ATProtoNet.Lexicon.Validation.LexiconValidationResult!
+ATProtoNet.Lexicon.Validation.LexiconViolation
+ATProtoNet.Lexicon.Validation.LexiconViolation.<Clone>$() -> ATProtoNet.Lexicon.Validation.LexiconViolation!
+ATProtoNet.Lexicon.Validation.LexiconViolation.Deconstruct(out string! Path, out string! Message) -> void
+ATProtoNet.Lexicon.Validation.LexiconViolation.Equals(ATProtoNet.Lexicon.Validation.LexiconViolation? other) -> bool
+ATProtoNet.Lexicon.Validation.LexiconViolation.LexiconViolation(string! Path, string! Message) -> void
+ATProtoNet.Lexicon.Validation.LexiconViolation.Message.get -> string!
+ATProtoNet.Lexicon.Validation.LexiconViolation.Message.init -> void
+ATProtoNet.Lexicon.Validation.LexiconViolation.Path.get -> string!
+ATProtoNet.Lexicon.Validation.LexiconViolation.Path.init -> void
 ATProtoNet.Nsid
 ATProtoNet.Nsid.Authority.get -> string!
 ATProtoNet.Nsid.CompareTo(ATProtoNet.Nsid? other) -> int
@@ -743,6 +1161,19 @@ ATProtoNet.Spaces.SpaceTokenType
 ATProtoNet.Spaces.SpaceTokenType.ClientAttestation = 2 -> ATProtoNet.Spaces.SpaceTokenType
 ATProtoNet.Spaces.SpaceTokenType.Credential = 1 -> ATProtoNet.Spaces.SpaceTokenType
 ATProtoNet.Spaces.SpaceTokenType.Delegation = 0 -> ATProtoNet.Spaces.SpaceTokenType
+ATProtoNet.Spaces.SpaceTypeDeclaration
+ATProtoNet.Spaces.SpaceTypeDeclaration.<Clone>$() -> ATProtoNet.Spaces.SpaceTypeDeclaration!
+ATProtoNet.Spaces.SpaceTypeDeclaration.Collections.get -> System.Collections.Generic.IReadOnlyList<string!>!
+ATProtoNet.Spaces.SpaceTypeDeclaration.Collections.init -> void
+ATProtoNet.Spaces.SpaceTypeDeclaration.Deconstruct(out ATProtoNet.Nsid! Type, out string? Name, out System.Collections.Generic.IReadOnlyDictionary<string!, string!>? LocalizedNames, out System.Collections.Generic.IReadOnlyList<string!>! Collections) -> void
+ATProtoNet.Spaces.SpaceTypeDeclaration.Equals(ATProtoNet.Spaces.SpaceTypeDeclaration? other) -> bool
+ATProtoNet.Spaces.SpaceTypeDeclaration.LocalizedNames.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+ATProtoNet.Spaces.SpaceTypeDeclaration.LocalizedNames.init -> void
+ATProtoNet.Spaces.SpaceTypeDeclaration.Name.get -> string?
+ATProtoNet.Spaces.SpaceTypeDeclaration.Name.init -> void
+ATProtoNet.Spaces.SpaceTypeDeclaration.SpaceTypeDeclaration(ATProtoNet.Nsid! Type, string? Name, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? LocalizedNames, System.Collections.Generic.IReadOnlyList<string!>! Collections) -> void
+ATProtoNet.Spaces.SpaceTypeDeclaration.Type.get -> ATProtoNet.Nsid!
+ATProtoNet.Spaces.SpaceTypeDeclaration.Type.init -> void
 ATProtoNet.Spaces.SpaceVerificationError
 ATProtoNet.Spaces.SpaceVerificationError.BadMac = 2 -> ATProtoNet.Spaces.SpaceVerificationError
 ATProtoNet.Spaces.SpaceVerificationError.DigestMismatch = 3 -> ATProtoNet.Spaces.SpaceVerificationError
@@ -772,6 +1203,7 @@ abstract ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.<Clone>$() -> ATP
 abstract ATProtoNet.Crypto.HttpSignatures.StructuredMember.<Clone>$() -> ATProtoNet.Crypto.HttpSignatures.StructuredMember!
 abstract ATProtoNet.Crypto.KemAlgorithm.<Clone>$() -> ATProtoNet.Crypto.KemAlgorithm!
 abstract ATProtoNet.Data.DataModelValue.<Clone>$() -> ATProtoNet.Data.DataModelValue!
+abstract ATProtoNet.Lexicon.LexSchema.<Clone>$() -> ATProtoNet.Lexicon.LexSchema!
 const ATProtoNet.AtDatetime.MaxFractionDigits = 20 -> int
 const ATProtoNet.AtDatetime.MaxLength = 64 -> int
 const ATProtoNet.AtIdentifier.MaxLength = 2048 -> int
@@ -805,6 +1237,31 @@ const ATProtoNet.Did.MinLength = 7 -> int
 const ATProtoNet.Handle.MaxLabelLength = 63 -> int
 const ATProtoNet.Handle.MaxLength = 253 -> int
 const ATProtoNet.Language.MaxLength = 128 -> int
+const ATProtoNet.Lexicon.LexiconDocument.SchemaCollection = "com.atproto.lexicon.schema" -> string!
+const ATProtoNet.Lexicon.LexiconLimits.MaxDefinitionsPerDocument = 1024 -> int
+const ATProtoNet.Lexicon.LexiconLimits.MaxLexiconDocumentBytes = 1048576 -> int
+const ATProtoNet.Lexicon.LexiconLimits.MaxSchemaNestingDepth = 32 -> int
+const ATProtoNet.Lexicon.LexiconLimits.MaxValidationDepth = 64 -> int
+const ATProtoNet.Lexicon.LexiconLimits.MaxValidationErrors = 100 -> int
+const ATProtoNet.Lexicon.LexiconRules.DocumentShape = "LXL001" -> string!
+const ATProtoNet.Lexicon.LexiconRules.ForbiddenDefinition = "LXL004" -> string!
+const ATProtoNet.Lexicon.LexiconRules.InfiniteRecursion = "LXL012" -> string!
+const ATProtoNet.Lexicon.LexiconRules.InvalidRef = "LXL011" -> string!
+const ATProtoNet.Lexicon.LexiconRules.InvalidSchema = "LXL003" -> string!
+const ATProtoNet.Lexicon.LexiconRules.NamedUnion = "LXL006" -> string!
+const ATProtoNet.Lexicon.LexiconRules.ParameterType = "LXL007" -> string!
+const ATProtoNet.Lexicon.LexiconRules.PermissionIgnored = "LXL024" -> string!
+const ATProtoNet.Lexicon.LexiconRules.PermissionInvalid = "LXL021" -> string!
+const ATProtoNet.Lexicon.LexiconRules.PermissionParameter = "LXL022" -> string!
+const ATProtoNet.Lexicon.LexiconRules.PermissionScope = "LXL023" -> string!
+const ATProtoNet.Lexicon.LexiconRules.PermissionSetShape = "LXL020" -> string!
+const ATProtoNet.Lexicon.LexiconRules.PrimaryType = "LXL002" -> string!
+const ATProtoNet.Lexicon.LexiconRules.SpaceCollection = "LXL030" -> string!
+const ATProtoNet.Lexicon.LexiconRules.StyleDescription = "LXL041" -> string!
+const ATProtoNet.Lexicon.LexiconRules.StyleGraphemes = "LXL042" -> string!
+const ATProtoNet.Lexicon.LexiconRules.StylePropertyName = "LXL040" -> string!
+const ATProtoNet.Lexicon.LexiconRules.UnknownType = "LXL005" -> string!
+const ATProtoNet.Lexicon.LexiconRules.UnresolvedRef = "LXL010" -> string!
 const ATProtoNet.Nsid.MaxLength = 317 -> int
 const ATProtoNet.Nsid.MaxNameLength = 63 -> int
 const ATProtoNet.RecordKey.MaxLength = 512 -> int
@@ -972,6 +1429,141 @@ override ATProtoNet.IdentifierJsonConverter<T>.WriteAsPropertyName(System.Text.J
 override ATProtoNet.Language.Equals(object? obj) -> bool
 override ATProtoNet.Language.GetHashCode() -> int
 override ATProtoNet.Language.ToString() -> string!
+override ATProtoNet.Lexicon.ExternalDefinition.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.ExternalDefinition.GetHashCode() -> int
+override ATProtoNet.Lexicon.ExternalDefinition.ToString() -> string!
+override ATProtoNet.Lexicon.LexArray.<Clone>$() -> ATProtoNet.Lexicon.LexArray!
+override ATProtoNet.Lexicon.LexArray.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexArray.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexArray.ToString() -> string!
+override ATProtoNet.Lexicon.LexBlob.<Clone>$() -> ATProtoNet.Lexicon.LexBlob!
+override ATProtoNet.Lexicon.LexBlob.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexBlob.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexBlob.ToString() -> string!
+override ATProtoNet.Lexicon.LexBody.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexBody.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexBody.ToString() -> string!
+override ATProtoNet.Lexicon.LexBoolean.<Clone>$() -> ATProtoNet.Lexicon.LexBoolean!
+override ATProtoNet.Lexicon.LexBoolean.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexBoolean.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexBoolean.ToString() -> string!
+override ATProtoNet.Lexicon.LexBytes.<Clone>$() -> ATProtoNet.Lexicon.LexBytes!
+override ATProtoNet.Lexicon.LexBytes.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexBytes.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexBytes.ToString() -> string!
+override ATProtoNet.Lexicon.LexCidLink.<Clone>$() -> ATProtoNet.Lexicon.LexCidLink!
+override ATProtoNet.Lexicon.LexCidLink.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexCidLink.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexCidLink.ToString() -> string!
+override ATProtoNet.Lexicon.LexError.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexError.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexError.ToString() -> string!
+override ATProtoNet.Lexicon.LexInteger.<Clone>$() -> ATProtoNet.Lexicon.LexInteger!
+override ATProtoNet.Lexicon.LexInteger.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexInteger.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexInteger.ToString() -> string!
+override ATProtoNet.Lexicon.LexObject.<Clone>$() -> ATProtoNet.Lexicon.LexObject!
+override ATProtoNet.Lexicon.LexObject.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexObject.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexObject.ToString() -> string!
+override ATProtoNet.Lexicon.LexParams.<Clone>$() -> ATProtoNet.Lexicon.LexParams!
+override ATProtoNet.Lexicon.LexParams.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexParams.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexParams.ToString() -> string!
+override ATProtoNet.Lexicon.LexPermission.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexPermission.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexPermission.ToString() -> string!
+override ATProtoNet.Lexicon.LexPermissionSet.<Clone>$() -> ATProtoNet.Lexicon.LexPermissionSet!
+override ATProtoNet.Lexicon.LexPermissionSet.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexPermissionSet.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexPermissionSet.ToString() -> string!
+override ATProtoNet.Lexicon.LexProcedure.<Clone>$() -> ATProtoNet.Lexicon.LexProcedure!
+override ATProtoNet.Lexicon.LexProcedure.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexProcedure.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexProcedure.ToString() -> string!
+override ATProtoNet.Lexicon.LexQuery.<Clone>$() -> ATProtoNet.Lexicon.LexQuery!
+override ATProtoNet.Lexicon.LexQuery.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexQuery.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexQuery.ToString() -> string!
+override ATProtoNet.Lexicon.LexRecord.<Clone>$() -> ATProtoNet.Lexicon.LexRecord!
+override ATProtoNet.Lexicon.LexRecord.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexRecord.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexRecord.ToString() -> string!
+override ATProtoNet.Lexicon.LexRef.<Clone>$() -> ATProtoNet.Lexicon.LexRef!
+override ATProtoNet.Lexicon.LexRef.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexRef.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexRef.ToString() -> string!
+override ATProtoNet.Lexicon.LexRefTarget.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexRefTarget.ToString() -> string!
+override ATProtoNet.Lexicon.LexSchema.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexSchema.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexSchema.ToString() -> string!
+override ATProtoNet.Lexicon.LexSpace.<Clone>$() -> ATProtoNet.Lexicon.LexSpace!
+override ATProtoNet.Lexicon.LexSpace.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexSpace.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexSpace.ToString() -> string!
+override ATProtoNet.Lexicon.LexString.<Clone>$() -> ATProtoNet.Lexicon.LexString!
+override ATProtoNet.Lexicon.LexString.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexString.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexString.ToString() -> string!
+override ATProtoNet.Lexicon.LexSubscription.<Clone>$() -> ATProtoNet.Lexicon.LexSubscription!
+override ATProtoNet.Lexicon.LexSubscription.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexSubscription.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexSubscription.ToString() -> string!
+override ATProtoNet.Lexicon.LexToken.<Clone>$() -> ATProtoNet.Lexicon.LexToken!
+override ATProtoNet.Lexicon.LexToken.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexToken.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexToken.ToString() -> string!
+override ATProtoNet.Lexicon.LexUnion.<Clone>$() -> ATProtoNet.Lexicon.LexUnion!
+override ATProtoNet.Lexicon.LexUnion.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexUnion.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexUnion.ToString() -> string!
+override ATProtoNet.Lexicon.LexUnknown.<Clone>$() -> ATProtoNet.Lexicon.LexUnknown!
+override ATProtoNet.Lexicon.LexUnknown.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexUnknown.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexUnknown.ToString() -> string!
+override ATProtoNet.Lexicon.LexUnknownType.<Clone>$() -> ATProtoNet.Lexicon.LexUnknownType!
+override ATProtoNet.Lexicon.LexUnknownType.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexUnknownType.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexUnknownType.ToString() -> string!
+override ATProtoNet.Lexicon.LexUserType.EqualityContract.get -> System.Type!
+override ATProtoNet.Lexicon.LexUserType.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexUserType.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexUserType.PrintMembers(System.Text.StringBuilder! builder) -> bool
+override ATProtoNet.Lexicon.LexUserType.ToString() -> string!
+override ATProtoNet.Lexicon.LexiconChange.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexiconChange.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexiconChange.ToString() -> string!
+override ATProtoNet.Lexicon.LexiconChangeReport.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexiconChangeReport.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexiconChangeReport.ToString() -> string!
+override ATProtoNet.Lexicon.LexiconDiagnostic.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.LexiconDiagnostic.GetHashCode() -> int
+override ATProtoNet.Lexicon.LexiconDiagnostic.ToString() -> string!
+override ATProtoNet.Lexicon.LexiconDocument.ToString() -> string!
+override ATProtoNet.Lexicon.RecordKeyType.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.RecordKeyType.GetHashCode() -> int
+override ATProtoNet.Lexicon.RecordKeyType.ToString() -> string!
+override ATProtoNet.Lexicon.ResolvedDefinition.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.ResolvedDefinition.GetHashCode() -> int
+override ATProtoNet.Lexicon.ResolvedDefinition.ToString() -> string!
+override ATProtoNet.Lexicon.Runtime.KnownValueJsonConverter<T>.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> T
+override ATProtoNet.Lexicon.Runtime.KnownValueJsonConverter<T>.Write(System.Text.Json.Utf8JsonWriter! writer, T value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.Lexicon.Runtime.LexiconRequiredUnionConverter<TUnion>.HandleNull.get -> bool
+override ATProtoNet.Lexicon.Runtime.LexiconRequiredUnionConverter<TUnion>.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> TUnion
+override ATProtoNet.Lexicon.Runtime.LexiconRequiredUnionConverter<TUnion>.Write(System.Text.Json.Utf8JsonWriter! writer, TUnion value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.Lexicon.Runtime.LexiconUnionConverter<TUnion>.HandleNull.get -> bool
+override ATProtoNet.Lexicon.Runtime.LexiconUnionConverter<TUnion>.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> TUnion
+override ATProtoNet.Lexicon.Runtime.LexiconUnionConverter<TUnion>.Write(System.Text.Json.Utf8JsonWriter! writer, TUnion value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.Lexicon.Runtime.LexiconUnknown.ToString() -> string!
+override ATProtoNet.Lexicon.Runtime.Optional<T>.GetHashCode() -> int
+override ATProtoNet.Lexicon.Runtime.Optional<T>.ToString() -> string!
+override ATProtoNet.Lexicon.Runtime.OptionalJsonConverter<T>.HandleNull.get -> bool
+override ATProtoNet.Lexicon.Runtime.OptionalJsonConverter<T>.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> ATProtoNet.Lexicon.Runtime.Optional<T>
+override ATProtoNet.Lexicon.Runtime.OptionalJsonConverter<T>.Write(System.Text.Json.Utf8JsonWriter! writer, ATProtoNet.Lexicon.Runtime.Optional<T> value, System.Text.Json.JsonSerializerOptions! options) -> void
+override ATProtoNet.Lexicon.Validation.LexiconViolation.Equals(object? obj) -> bool
+override ATProtoNet.Lexicon.Validation.LexiconViolation.GetHashCode() -> int
+override ATProtoNet.Lexicon.Validation.LexiconViolation.ToString() -> string!
 override ATProtoNet.Nsid.Equals(object? obj) -> bool
 override ATProtoNet.Nsid.GetHashCode() -> int
 override ATProtoNet.Nsid.ToString() -> string!
@@ -1016,9 +1608,13 @@ override ATProtoNet.Spaces.ClientAttestationClaims.ToString() -> string!
 override ATProtoNet.Spaces.SpaceCredentialClaims.Equals(object? obj) -> bool
 override ATProtoNet.Spaces.SpaceCredentialClaims.GetHashCode() -> int
 override ATProtoNet.Spaces.SpaceCredentialClaims.ToString() -> string!
+override ATProtoNet.Spaces.SpaceTypeDeclaration.Equals(object? obj) -> bool
+override ATProtoNet.Spaces.SpaceTypeDeclaration.GetHashCode() -> int
+override ATProtoNet.Spaces.SpaceTypeDeclaration.ToString() -> string!
 override ATProtoNet.Tid.Equals(object? obj) -> bool
 override ATProtoNet.Tid.GetHashCode() -> int
 override ATProtoNet.Tid.ToString() -> string!
+override abstract ATProtoNet.Lexicon.LexUserType.<Clone>$() -> ATProtoNet.Lexicon.LexUserType!
 override sealed ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Accepted.Equals(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict? other) -> bool
 override sealed ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict.Refused.Equals(ATProtoNet.Crypto.HttpSignatures.HttpSignatureVerdict? other) -> bool
 override sealed ATProtoNet.Crypto.HttpSignatures.StructuredInnerList.Equals(ATProtoNet.Crypto.HttpSignatures.StructuredMember? other) -> bool
@@ -1033,6 +1629,27 @@ override sealed ATProtoNet.Data.DataModelMap.Equals(ATProtoNet.Data.DataModelVal
 override sealed ATProtoNet.Data.DataModelNull.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
 override sealed ATProtoNet.Data.DataModelString.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
 override sealed ATProtoNet.Data.DataModelValue.ToString() -> string!
+override sealed ATProtoNet.Lexicon.LexArray.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexBlob.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexBoolean.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexBytes.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexCidLink.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexInteger.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexObject.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexParams.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexPermissionSet.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexProcedure.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexQuery.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexRecord.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexRef.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexSpace.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexString.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexSubscription.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexToken.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexUnion.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexUnknown.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexUnknownType.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
+override sealed ATProtoNet.Lexicon.LexUserType.Equals(ATProtoNet.Lexicon.LexSchema? other) -> bool
 static ATProtoNet.AtAddress.Parse(string! value) -> ATProtoNet.AtAddress
 static ATProtoNet.AtAddress.TryParse(string? value, out ATProtoNet.AtAddress address) -> bool
 static ATProtoNet.AtDatetime.From(System.DateTime value) -> ATProtoNet.AtDatetime!
@@ -1244,6 +1861,95 @@ static ATProtoNet.Language.TryParse(string? s, out ATProtoNet.Language? result) 
 static ATProtoNet.Language.implicit operator string?(ATProtoNet.Language? value) -> string?
 static ATProtoNet.Language.operator !=(ATProtoNet.Language? left, ATProtoNet.Language? right) -> bool
 static ATProtoNet.Language.operator ==(ATProtoNet.Language? left, ATProtoNet.Language? right) -> bool
+static ATProtoNet.Lexicon.ExternalDefinition.operator !=(ATProtoNet.Lexicon.ExternalDefinition? left, ATProtoNet.Lexicon.ExternalDefinition? right) -> bool
+static ATProtoNet.Lexicon.ExternalDefinition.operator ==(ATProtoNet.Lexicon.ExternalDefinition? left, ATProtoNet.Lexicon.ExternalDefinition? right) -> bool
+static ATProtoNet.Lexicon.LexArray.operator !=(ATProtoNet.Lexicon.LexArray? left, ATProtoNet.Lexicon.LexArray? right) -> bool
+static ATProtoNet.Lexicon.LexArray.operator ==(ATProtoNet.Lexicon.LexArray? left, ATProtoNet.Lexicon.LexArray? right) -> bool
+static ATProtoNet.Lexicon.LexBlob.operator !=(ATProtoNet.Lexicon.LexBlob? left, ATProtoNet.Lexicon.LexBlob? right) -> bool
+static ATProtoNet.Lexicon.LexBlob.operator ==(ATProtoNet.Lexicon.LexBlob? left, ATProtoNet.Lexicon.LexBlob? right) -> bool
+static ATProtoNet.Lexicon.LexBody.operator !=(ATProtoNet.Lexicon.LexBody? left, ATProtoNet.Lexicon.LexBody? right) -> bool
+static ATProtoNet.Lexicon.LexBody.operator ==(ATProtoNet.Lexicon.LexBody? left, ATProtoNet.Lexicon.LexBody? right) -> bool
+static ATProtoNet.Lexicon.LexBoolean.operator !=(ATProtoNet.Lexicon.LexBoolean? left, ATProtoNet.Lexicon.LexBoolean? right) -> bool
+static ATProtoNet.Lexicon.LexBoolean.operator ==(ATProtoNet.Lexicon.LexBoolean? left, ATProtoNet.Lexicon.LexBoolean? right) -> bool
+static ATProtoNet.Lexicon.LexBytes.operator !=(ATProtoNet.Lexicon.LexBytes? left, ATProtoNet.Lexicon.LexBytes? right) -> bool
+static ATProtoNet.Lexicon.LexBytes.operator ==(ATProtoNet.Lexicon.LexBytes? left, ATProtoNet.Lexicon.LexBytes? right) -> bool
+static ATProtoNet.Lexicon.LexCidLink.operator !=(ATProtoNet.Lexicon.LexCidLink? left, ATProtoNet.Lexicon.LexCidLink? right) -> bool
+static ATProtoNet.Lexicon.LexCidLink.operator ==(ATProtoNet.Lexicon.LexCidLink? left, ATProtoNet.Lexicon.LexCidLink? right) -> bool
+static ATProtoNet.Lexicon.LexError.operator !=(ATProtoNet.Lexicon.LexError? left, ATProtoNet.Lexicon.LexError? right) -> bool
+static ATProtoNet.Lexicon.LexError.operator ==(ATProtoNet.Lexicon.LexError? left, ATProtoNet.Lexicon.LexError? right) -> bool
+static ATProtoNet.Lexicon.LexInteger.operator !=(ATProtoNet.Lexicon.LexInteger? left, ATProtoNet.Lexicon.LexInteger? right) -> bool
+static ATProtoNet.Lexicon.LexInteger.operator ==(ATProtoNet.Lexicon.LexInteger? left, ATProtoNet.Lexicon.LexInteger? right) -> bool
+static ATProtoNet.Lexicon.LexObject.operator !=(ATProtoNet.Lexicon.LexObject? left, ATProtoNet.Lexicon.LexObject? right) -> bool
+static ATProtoNet.Lexicon.LexObject.operator ==(ATProtoNet.Lexicon.LexObject? left, ATProtoNet.Lexicon.LexObject? right) -> bool
+static ATProtoNet.Lexicon.LexParams.operator !=(ATProtoNet.Lexicon.LexParams? left, ATProtoNet.Lexicon.LexParams? right) -> bool
+static ATProtoNet.Lexicon.LexParams.operator ==(ATProtoNet.Lexicon.LexParams? left, ATProtoNet.Lexicon.LexParams? right) -> bool
+static ATProtoNet.Lexicon.LexPermission.operator !=(ATProtoNet.Lexicon.LexPermission? left, ATProtoNet.Lexicon.LexPermission? right) -> bool
+static ATProtoNet.Lexicon.LexPermission.operator ==(ATProtoNet.Lexicon.LexPermission? left, ATProtoNet.Lexicon.LexPermission? right) -> bool
+static ATProtoNet.Lexicon.LexPermissionSet.operator !=(ATProtoNet.Lexicon.LexPermissionSet? left, ATProtoNet.Lexicon.LexPermissionSet? right) -> bool
+static ATProtoNet.Lexicon.LexPermissionSet.operator ==(ATProtoNet.Lexicon.LexPermissionSet? left, ATProtoNet.Lexicon.LexPermissionSet? right) -> bool
+static ATProtoNet.Lexicon.LexProcedure.operator !=(ATProtoNet.Lexicon.LexProcedure? left, ATProtoNet.Lexicon.LexProcedure? right) -> bool
+static ATProtoNet.Lexicon.LexProcedure.operator ==(ATProtoNet.Lexicon.LexProcedure? left, ATProtoNet.Lexicon.LexProcedure? right) -> bool
+static ATProtoNet.Lexicon.LexQuery.operator !=(ATProtoNet.Lexicon.LexQuery? left, ATProtoNet.Lexicon.LexQuery? right) -> bool
+static ATProtoNet.Lexicon.LexQuery.operator ==(ATProtoNet.Lexicon.LexQuery? left, ATProtoNet.Lexicon.LexQuery? right) -> bool
+static ATProtoNet.Lexicon.LexRecord.operator !=(ATProtoNet.Lexicon.LexRecord? left, ATProtoNet.Lexicon.LexRecord? right) -> bool
+static ATProtoNet.Lexicon.LexRecord.operator ==(ATProtoNet.Lexicon.LexRecord? left, ATProtoNet.Lexicon.LexRecord? right) -> bool
+static ATProtoNet.Lexicon.LexRef.operator !=(ATProtoNet.Lexicon.LexRef? left, ATProtoNet.Lexicon.LexRef? right) -> bool
+static ATProtoNet.Lexicon.LexRef.operator ==(ATProtoNet.Lexicon.LexRef? left, ATProtoNet.Lexicon.LexRef? right) -> bool
+static ATProtoNet.Lexicon.LexRefTarget.TryParse(string! reference, ATProtoNet.Nsid! context, out ATProtoNet.Lexicon.LexRefTarget target) -> bool
+static ATProtoNet.Lexicon.LexRefTarget.operator !=(ATProtoNet.Lexicon.LexRefTarget left, ATProtoNet.Lexicon.LexRefTarget right) -> bool
+static ATProtoNet.Lexicon.LexRefTarget.operator ==(ATProtoNet.Lexicon.LexRefTarget left, ATProtoNet.Lexicon.LexRefTarget right) -> bool
+static ATProtoNet.Lexicon.LexSchema.operator !=(ATProtoNet.Lexicon.LexSchema? left, ATProtoNet.Lexicon.LexSchema? right) -> bool
+static ATProtoNet.Lexicon.LexSchema.operator ==(ATProtoNet.Lexicon.LexSchema? left, ATProtoNet.Lexicon.LexSchema? right) -> bool
+static ATProtoNet.Lexicon.LexSpace.operator !=(ATProtoNet.Lexicon.LexSpace? left, ATProtoNet.Lexicon.LexSpace? right) -> bool
+static ATProtoNet.Lexicon.LexSpace.operator ==(ATProtoNet.Lexicon.LexSpace? left, ATProtoNet.Lexicon.LexSpace? right) -> bool
+static ATProtoNet.Lexicon.LexString.operator !=(ATProtoNet.Lexicon.LexString? left, ATProtoNet.Lexicon.LexString? right) -> bool
+static ATProtoNet.Lexicon.LexString.operator ==(ATProtoNet.Lexicon.LexString? left, ATProtoNet.Lexicon.LexString? right) -> bool
+static ATProtoNet.Lexicon.LexSubscription.operator !=(ATProtoNet.Lexicon.LexSubscription? left, ATProtoNet.Lexicon.LexSubscription? right) -> bool
+static ATProtoNet.Lexicon.LexSubscription.operator ==(ATProtoNet.Lexicon.LexSubscription? left, ATProtoNet.Lexicon.LexSubscription? right) -> bool
+static ATProtoNet.Lexicon.LexToken.operator !=(ATProtoNet.Lexicon.LexToken? left, ATProtoNet.Lexicon.LexToken? right) -> bool
+static ATProtoNet.Lexicon.LexToken.operator ==(ATProtoNet.Lexicon.LexToken? left, ATProtoNet.Lexicon.LexToken? right) -> bool
+static ATProtoNet.Lexicon.LexUnion.operator !=(ATProtoNet.Lexicon.LexUnion? left, ATProtoNet.Lexicon.LexUnion? right) -> bool
+static ATProtoNet.Lexicon.LexUnion.operator ==(ATProtoNet.Lexicon.LexUnion? left, ATProtoNet.Lexicon.LexUnion? right) -> bool
+static ATProtoNet.Lexicon.LexUnknown.operator !=(ATProtoNet.Lexicon.LexUnknown? left, ATProtoNet.Lexicon.LexUnknown? right) -> bool
+static ATProtoNet.Lexicon.LexUnknown.operator ==(ATProtoNet.Lexicon.LexUnknown? left, ATProtoNet.Lexicon.LexUnknown? right) -> bool
+static ATProtoNet.Lexicon.LexUnknownType.operator !=(ATProtoNet.Lexicon.LexUnknownType? left, ATProtoNet.Lexicon.LexUnknownType? right) -> bool
+static ATProtoNet.Lexicon.LexUnknownType.operator ==(ATProtoNet.Lexicon.LexUnknownType? left, ATProtoNet.Lexicon.LexUnknownType? right) -> bool
+static ATProtoNet.Lexicon.LexUserType.operator !=(ATProtoNet.Lexicon.LexUserType? left, ATProtoNet.Lexicon.LexUserType? right) -> bool
+static ATProtoNet.Lexicon.LexUserType.operator ==(ATProtoNet.Lexicon.LexUserType? left, ATProtoNet.Lexicon.LexUserType? right) -> bool
+static ATProtoNet.Lexicon.LexiconCatalog.Create(System.Collections.Generic.IEnumerable<ATProtoNet.Lexicon.LexiconDocument!>! documents, ATProtoNet.Lexicon.IExternalLexicons? external = null) -> ATProtoNet.Lexicon.LexiconCatalog!
+static ATProtoNet.Lexicon.LexiconChange.operator !=(ATProtoNet.Lexicon.LexiconChange? left, ATProtoNet.Lexicon.LexiconChange? right) -> bool
+static ATProtoNet.Lexicon.LexiconChange.operator ==(ATProtoNet.Lexicon.LexiconChange? left, ATProtoNet.Lexicon.LexiconChange? right) -> bool
+static ATProtoNet.Lexicon.LexiconChangeReport.operator !=(ATProtoNet.Lexicon.LexiconChangeReport? left, ATProtoNet.Lexicon.LexiconChangeReport? right) -> bool
+static ATProtoNet.Lexicon.LexiconChangeReport.operator ==(ATProtoNet.Lexicon.LexiconChangeReport? left, ATProtoNet.Lexicon.LexiconChangeReport? right) -> bool
+static ATProtoNet.Lexicon.LexiconCompatibility.Compare(ATProtoNet.Lexicon.LexiconCatalog! baseline, ATProtoNet.Lexicon.LexiconCatalog! current) -> ATProtoNet.Lexicon.LexiconChangeReport!
+static ATProtoNet.Lexicon.LexiconDiagnostic.operator !=(ATProtoNet.Lexicon.LexiconDiagnostic? left, ATProtoNet.Lexicon.LexiconDiagnostic? right) -> bool
+static ATProtoNet.Lexicon.LexiconDiagnostic.operator ==(ATProtoNet.Lexicon.LexiconDiagnostic? left, ATProtoNet.Lexicon.LexiconDiagnostic? right) -> bool
+static ATProtoNet.Lexicon.LexiconDocument.Parse(System.ReadOnlySpan<byte> utf8Json) -> ATProtoNet.Lexicon.LexiconDocument!
+static ATProtoNet.Lexicon.LexiconDocument.TryParse(System.ReadOnlySpan<byte> utf8Json, out ATProtoNet.Lexicon.LexiconDocument? document, out System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.LexiconDiagnostic!>! diagnostics) -> bool
+static ATProtoNet.Lexicon.LexiconLint.Run(ATProtoNet.Lexicon.LexiconCatalog! catalog) -> System.Collections.Generic.IReadOnlyList<ATProtoNet.Lexicon.LexiconDiagnostic!>!
+static ATProtoNet.Lexicon.RecordKeyType.Any.get -> ATProtoNet.Lexicon.RecordKeyType!
+static ATProtoNet.Lexicon.RecordKeyType.ForLiteral(string! value) -> ATProtoNet.Lexicon.RecordKeyType!
+static ATProtoNet.Lexicon.RecordKeyType.Nsid.get -> ATProtoNet.Lexicon.RecordKeyType!
+static ATProtoNet.Lexicon.RecordKeyType.Tid.get -> ATProtoNet.Lexicon.RecordKeyType!
+static ATProtoNet.Lexicon.RecordKeyType.TryParse(string? text, out ATProtoNet.Lexicon.RecordKeyType? result) -> bool
+static ATProtoNet.Lexicon.RecordKeyType.operator !=(ATProtoNet.Lexicon.RecordKeyType? left, ATProtoNet.Lexicon.RecordKeyType? right) -> bool
+static ATProtoNet.Lexicon.RecordKeyType.operator ==(ATProtoNet.Lexicon.RecordKeyType? left, ATProtoNet.Lexicon.RecordKeyType? right) -> bool
+static ATProtoNet.Lexicon.ResolvedDefinition.operator !=(ATProtoNet.Lexicon.ResolvedDefinition? left, ATProtoNet.Lexicon.ResolvedDefinition? right) -> bool
+static ATProtoNet.Lexicon.ResolvedDefinition.operator ==(ATProtoNet.Lexicon.ResolvedDefinition? left, ATProtoNet.Lexicon.ResolvedDefinition? right) -> bool
+static ATProtoNet.Lexicon.Runtime.LexiconRecordExtensions.As<T>(this ATProtoNet.Data.DataModelValue! value) -> T!
+static ATProtoNet.Lexicon.Runtime.LexiconRecordExtensions.AsKnownRecord(this ATProtoNet.Data.DataModelValue! value, ATProtoNet.Lexicon.Runtime.LexiconTypeRegistry! registry) -> ATProtoNet.Lexicon.Runtime.IAtProtoRecord?
+static ATProtoNet.Lexicon.Runtime.LexiconRecordExtensions.TryAs<T>(this ATProtoNet.Data.DataModelValue! value, out T? record) -> bool
+static ATProtoNet.Lexicon.Runtime.LexiconUnionConverter<TUnion>.Case<T>(System.Func<T!, TUnion>! wrap) -> ATProtoNet.Lexicon.Runtime.LexiconUnionConverter<TUnion>.UnionCase!
+static ATProtoNet.Lexicon.Runtime.LexiconUnknown.From<T>(T! value) -> ATProtoNet.Lexicon.Runtime.LexiconUnknown!
+static ATProtoNet.Lexicon.Runtime.Optional<T>.implicit operator ATProtoNet.Lexicon.Runtime.Optional<T>(T value) -> ATProtoNet.Lexicon.Runtime.Optional<T>
+static ATProtoNet.Lexicon.Runtime.Optional<T>.operator !=(ATProtoNet.Lexicon.Runtime.Optional<T> left, ATProtoNet.Lexicon.Runtime.Optional<T> right) -> bool
+static ATProtoNet.Lexicon.Runtime.Optional<T>.operator ==(ATProtoNet.Lexicon.Runtime.Optional<T> left, ATProtoNet.Lexicon.Runtime.Optional<T> right) -> bool
+static ATProtoNet.Lexicon.Runtime.XrpcParameterReader.ParseBoolean(string! text) -> bool
+static ATProtoNet.Lexicon.Runtime.XrpcParameterReader.ParseInt64(string! text) -> long
+static ATProtoNet.Lexicon.Runtime.XrpcParameterReader.Required<T>(string! name, T? value) -> T!
+static ATProtoNet.Lexicon.Runtime.XrpcParameterReader.RequiredValue<T>(string! name, T? value) -> T
+static ATProtoNet.Lexicon.Validation.LexiconViolation.operator !=(ATProtoNet.Lexicon.Validation.LexiconViolation? left, ATProtoNet.Lexicon.Validation.LexiconViolation? right) -> bool
+static ATProtoNet.Lexicon.Validation.LexiconViolation.operator ==(ATProtoNet.Lexicon.Validation.LexiconViolation? left, ATProtoNet.Lexicon.Validation.LexiconViolation? right) -> bool
 static ATProtoNet.Nsid.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.Nsid!
 static ATProtoNet.Nsid.Parse(System.ReadOnlySpan<char> s) -> ATProtoNet.Nsid!
 static ATProtoNet.Nsid.Parse(string! s) -> ATProtoNet.Nsid!
@@ -1341,6 +2047,8 @@ static ATProtoNet.Spaces.SpaceToken.CreateClientAttestation(ATProtoNet.Spaces.Cl
 static ATProtoNet.Spaces.SpaceToken.CreateCredential(ATProtoNet.Spaces.SpaceCredentialClaims! claims, ATProtoNet.Crypto.SigningKey! authorityKey) -> string!
 static ATProtoNet.Spaces.SpaceToken.Parse(string! jwt, ATProtoNet.Spaces.SpaceTokenType expected, System.TimeProvider? time = null) -> ATProtoNet.Spaces.SpaceToken!
 static ATProtoNet.Spaces.SpaceToken.TypeName(ATProtoNet.Spaces.SpaceTokenType type) -> string!
+static ATProtoNet.Spaces.SpaceTypeDeclaration.operator !=(ATProtoNet.Spaces.SpaceTypeDeclaration? left, ATProtoNet.Spaces.SpaceTypeDeclaration? right) -> bool
+static ATProtoNet.Spaces.SpaceTypeDeclaration.operator ==(ATProtoNet.Spaces.SpaceTypeDeclaration? left, ATProtoNet.Spaces.SpaceTypeDeclaration? right) -> bool
 static ATProtoNet.Tid.FromInt64(long value) -> ATProtoNet.Tid
 static ATProtoNet.Tid.Next() -> ATProtoNet.Tid
 static ATProtoNet.Tid.Parse(System.ReadOnlySpan<byte> utf8Text) -> ATProtoNet.Tid
@@ -1370,6 +2078,12 @@ virtual ATProtoNet.Crypto.KemAlgorithm.PrintMembers(System.Text.StringBuilder! b
 virtual ATProtoNet.Data.DataModelValue.EqualityContract.get -> System.Type!
 virtual ATProtoNet.Data.DataModelValue.Equals(ATProtoNet.Data.DataModelValue? other) -> bool
 virtual ATProtoNet.Data.DataModelValue.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual ATProtoNet.Lexicon.LexSchema.EqualityContract.get -> System.Type!
+virtual ATProtoNet.Lexicon.LexSchema.Equals(ATProtoNet.Lexicon.LexSchema? other) -> bool
+virtual ATProtoNet.Lexicon.LexSchema.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual ATProtoNet.Lexicon.LexUserType.Equals(ATProtoNet.Lexicon.LexUserType? other) -> bool
 ~override ATProtoNet.Crypto.HttpSignatures.StructuredToken.Equals(object obj) -> bool
 ~override ATProtoNet.Crypto.HttpSignatures.StructuredToken.ToString() -> string
+~override ATProtoNet.Lexicon.LexRefTarget.Equals(object obj) -> bool
+~override ATProtoNet.Lexicon.Runtime.Optional<T>.Equals(object obj) -> bool
 ~override ATProtoNet.Repo.MstKey.Equals(object obj) -> bool

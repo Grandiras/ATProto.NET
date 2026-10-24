@@ -19,3 +19,5 @@ public sealed class Spaces : SpacesConformance<NextAdapter>;
 public sealed class Mst : MstConformance<NextAdapter>;
 
 public sealed class Repo : RepoConformance<NextAdapter>;
+
+public sealed class Lexicon : LexiconConformance<NextAdapter>;

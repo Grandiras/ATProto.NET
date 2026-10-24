@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "test.golden.getFeed",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A paginated query with inline known values and an inline union in its output.",
+      "parameters": {
+        "type": "params",
+        "required": ["actor"],
+        "properties": {
+          "actor": { "type": "string", "format": "at-identifier" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 },
+          "cursor": { "type": "string" },
+          "filter": { "type": "string", "knownValues": ["posts_with_replies", "posts_no_replies"] },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "since": { "type": "string", "format": "tid" },
+          "kinds": { "type": "array", "items": { "type": "string", "knownValues": ["note", "article"] } }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["feed"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "feed": { "type": "array", "items": { "type": "ref", "ref": "test.golden.post" } },
+            "thread": { "type": "union", "refs": ["test.golden.embed#images", "test.golden.embed#external"] }
+          }
+        }
+      },
+      "errors": [{ "name": "BlockedActor" }, { "name": "UnknownFeed", "description": "The feed does not exist." }]
+    }
+  }
+}

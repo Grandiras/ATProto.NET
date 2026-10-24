@@ -1,0 +1,17 @@
+{
+  // The golden set (design/specs/lexicon.md, "Conformance and tests"): one unit, every option exercised once.
+  "rootNamespace": "Golden.Lexicons",
+  "units": { "Golden": ["test.golden.**"] },
+  "accessors": { "test.golden": "Golden" },
+  "proxies": { "test.golden.chat.**": "did:web:chat.example#chat" },
+  "experimental": { "test.golden.labs.**": "ATPROTO002" },
+  "addressFields": ["test.golden.post#main.via"],
+  "fieldTypes": { "test.golden.post#location.latitude": "decimal" },
+  "unionExtensions": { "test.golden.embed#poll": ["test.golden.post#main.embed"] },
+  "renames": {
+    // A rename of an inline union.
+    "test.golden.post#main.labels": "SelfLabelSet",
+    // A union that would take its method class's name.
+    "test.golden.chat.sendMessage#input.message": "ChatMessage"
+  }
+}

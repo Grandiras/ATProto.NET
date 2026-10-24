@@ -1,0 +1,64 @@
+{
+  // First-party generation (design/specs/lexicon.md, LEX-31). `atproto-lexgen generate --unit AtProto --out
+  // src/ATProtoNet/Generated` writes the checked-in code; the other units are generated and compiled by the tests until
+  // phase 8 checks them in.
+  "rootNamespace": "ATProtoNet.Lexicons",
+  "units": {
+    "AtProto": ["com.atproto.**"],
+    "Bluesky": ["app.bsky.**"],
+    "Chat": ["chat.bsky.**"],
+    "Ozone": ["tools.ozone.**"],
+    "StandardSite": ["site.standard.**"]
+  },
+  "exclude": [
+    "internal.**",
+    // Flagged unstable upstream.
+    "app.bsky.notification.getGroupedNotifications"
+  ],
+  "accessors": {
+    "com.atproto": "@root",
+    "com.atproto.space": "Space",
+    "com.atproto.simplespace": "SimpleSpace",
+    "app.bsky": "Bsky",
+    "chat.bsky": "Chat",
+    "tools.ozone": "Ozone",
+    "site.standard": "StandardSite"
+  },
+  "proxies": { "chat.bsky.**": "did:web:api.bsky.chat#bsky_chat" },
+  "proxyExclude": ["chat.bsky.moderation.**"],
+  "experimental": { "app.bsky.unspecced.**": "ATPROTO002" },
+  "addressFields": ["com.atproto.space.**", "com.atproto.simplespace.**"],
+  // Each entry fixes a name that breaks LEX-89 or collides (LEX-37), with its reason (LEX-91).
+  "renames": {
+    // Named like its enclosing type External.
+    "app.bsky.embed.external#external": "ExternalInfo",
+    // The union's name would absorb into its owner RecordWithMedia.
+    "app.bsky.embed.recordWithMedia#main.media": "EmbedMedia",
+    // The status property is StatusValue (named like its type Status), so its known values cannot be StatusValue too.
+    "app.bsky.actor.status#main.status": "StatusKind",
+    // Longer than 40 characters.
+    "app.bsky.actor.defs#postInteractionSettingsPref.threadgateAllowRules": "InteractionThreadgateAllowRules",
+    "app.bsky.actor.defs#postInteractionSettingsPref.postgateEmbeddingRules": "InteractionPostgateEmbeddingRules",
+    "app.bsky.unspecced.getOnboardingSuggestedStarterPacksSkeleton": "GetOnboardingStarterPacksSkeleton",
+    // The message unions would absorb into their owners.
+    "chat.bsky.convo.defs#logCreateMessage.message": "LogCreateMessageView",
+    "chat.bsky.convo.defs#logDeleteMessage.message": "LogDeleteMessageView",
+    "chat.bsky.convo.defs#logReadMessage.message": "LogReadMessageView",
+    // Several methods' inline unions would share one name.
+    "com.atproto.admin.updateSubjectStatus#input.subject": "UpdateSubjectStatusSubject",
+    "com.atproto.admin.updateSubjectStatus#output.subject": "UpdatedSubjectStatusSubject",
+    "com.atproto.moderation.createReport#output.subject": "CreatedReportSubject",
+    "com.atproto.simplespace.getSpace#output.appAccess": "SpaceViewAppAccess",
+    "com.atproto.simplespace.getSpace#output.readPolicy": "SpaceViewReadPolicy",
+    "com.atproto.simplespace.getSpace#output.writePolicy": "SpaceViewWritePolicy",
+    "com.atproto.simplespace.updateSpace#input.appAccess": "SpaceUpdateAppAccess",
+    "com.atproto.simplespace.updateSpace#input.readPolicy": "SpaceUpdateReadPolicy",
+    "com.atproto.simplespace.updateSpace#input.writePolicy": "SpaceUpdateWritePolicy",
+    // The input unions would take their method class's name.
+    "com.atproto.repo.applyWrites#input.writes": "WriteOperation",
+    "com.atproto.space.applyWrites#input.writes": "WriteOperation",
+    "tools.ozone.inbox.appealActionedSubject#input.subject": "AppealedSubject",
+    "tools.ozone.moderation.emitEvent#input.event": "ModEvent",
+    "tools.ozone.moderation.scheduleAction#input.action": "SchedulableAction"
+  }
+}

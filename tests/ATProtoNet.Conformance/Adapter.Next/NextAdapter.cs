@@ -9,7 +9,7 @@ public sealed partial class NextAdapter : IProtocolAdapter
 {
     /// <inheritdoc />
     public IReadOnlyDictionary<string, string> KnownFailures { get; } =
-        new[] { SyntaxKnownFailures, DataModelKnownFailures, CidCarKnownFailures, CryptoKnownFailures, SpacesKnownFailures }
+        new[] { SyntaxKnownFailures, DataModelKnownFailures, CidCarKnownFailures, CryptoKnownFailures, SpacesKnownFailures, LexiconKnownFailures }
             .SelectMany(d => d).ToDictionary();
 
     private static NotSupportedException Later(int phase) => new($"Built in phase {phase} of design/05-rewrite-plan.md.");

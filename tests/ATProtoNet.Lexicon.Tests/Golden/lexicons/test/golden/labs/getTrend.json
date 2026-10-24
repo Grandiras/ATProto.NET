@@ -1,0 +1,11 @@
+{
+  "lexicon": 1,
+  "id": "test.golden.labs.getTrend",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "An experimental query.",
+      "output": { "encoding": "application/json", "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } } }
+    }
+  }
+}

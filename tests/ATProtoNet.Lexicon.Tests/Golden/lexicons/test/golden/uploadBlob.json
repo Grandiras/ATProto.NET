@@ -1,0 +1,12 @@
+{
+  "lexicon": 1,
+  "id": "test.golden.uploadBlob",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "A procedure with binary input.",
+      "input": { "encoding": "*/*" },
+      "output": { "encoding": "application/json", "schema": { "type": "object", "required": ["blob"], "properties": { "blob": { "type": "blob" } } } }
+    }
+  }
+}

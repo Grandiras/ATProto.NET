@@ -264,3 +264,12 @@ records the outcome here in the same PR.
 | TOO-O1 | Offer OAuth (loopback redirect) for `publish` instead of app passwords? | Not for 0.9; app passwords from the environment are enough for CI. |
 | TOO-O2 | A `diff --baseline git:<ref>` convenience that reads the manifest's Lexicons at a git ref? | Add it if `diff` against a checked-out directory proves clumsy in CI. |
 | TOO-O3 | Should `generate` also emit server handler stubs for a Lexicon set ([server.md](server.md))? | No; handlers implement interfaces keyed by the generated descriptors, which need no stubs. |
+
+*Phase 3 outcomes (`install`/`update`):* `update`'s NSID arguments select whole sources, which are
+re-read at their pin (or `--commit`, which must select exactly one git source), so a source's files
+always match its recorded commit. A namespace pattern given to `install` joins the source's
+`namespaces`; for an NSID several sources' namespaces cover, the most specific one owns it. Refs no
+source, manifest entry, `provided` pattern or `--reference` (an `install` option) accounts for are
+exit 3. `network` sources are exit 2 until phase 8, and a bare `update` skips them. Provenance is
+`commit` and `fetched`; the commit date is not recorded.
+`generate --unit` checks and cleans only those units' folders under `--out`, so units can share one output directory.

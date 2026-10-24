@@ -1,0 +1,11 @@
+{
+  "lexicon": 1,
+  "id": "test.golden.deleteThing",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "A procedure with neither input nor output.",
+      "errors": [{ "name": "InvalidSwap" }]
+    }
+  }
+}

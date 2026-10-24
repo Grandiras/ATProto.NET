@@ -1,0 +1,29 @@
+{
+  "lexicon": 1,
+  "id": "test.golden.embed",
+  "defs": {
+    "images": {
+      "type": "object",
+      "required": ["images"],
+      "properties": {
+        "images": { "type": "array", "items": { "type": "ref", "ref": "#image" }, "maxLength": 4 }
+      }
+    },
+    "image": {
+      "type": "object",
+      "required": ["alt"],
+      "properties": { "alt": { "type": "string" }, "reason": { "type": "ref", "ref": "test.golden.defs#reasonType" } }
+    },
+    "poll": {
+      "type": "object",
+      "description": "Not a case of PostEmbed: it extends it through unionExtensions (LEX-86).",
+      "required": ["options"],
+      "properties": { "options": { "type": "array", "items": { "type": "string" } } }
+    },
+    "external": {
+      "type": "object",
+      "required": ["uri"],
+      "properties": { "uri": { "type": "string", "format": "uri" }, "title": { "type": "string" } }
+    }
+  }
+}

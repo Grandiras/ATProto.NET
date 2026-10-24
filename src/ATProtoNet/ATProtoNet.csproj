@@ -5,4 +5,10 @@
     <PackageTags>atproto;bluesky;at-protocol;xrpc;spaces</PackageTags>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- The generated com.atproto.* code is checked in from phase 3 (LEX-28) and compiles into the package from phase 5,
+         when the XRPC client types it uses exist; until then tests/ATProtoNet.Lexicon.Tests compiles it against stubs. -->
+    <Compile Remove="Generated/**" />
+  </ItemGroup>
+
 </Project>

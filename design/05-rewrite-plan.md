@@ -208,6 +208,9 @@ the rename table are reviewed against 0.8's hand-written names
 reviewed and committed. The generated `com.atproto.*` code is checked in under `src/ATProtoNet/Generated/` (it compiles
 against stubs until phase 5).
 
+*Outcome (phase 3):* the spike chose the MSBuild-task fallback for users' own Lexicons (phase 8): a Roslyn generator's
+output never reaches the System.Text.Json generator ([lexicon.md](specs/lexicon.md#phase-3-outcomes)).
+
 ### Phase 4 — Identity (`ATProtoNet.Identity`)
 
 Spec: [identity](specs/identity.md). The untrusted-fetch layer, DNS TXT, DID documents (the PDS

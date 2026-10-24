@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- atproto-lexgen: the Lexicon CLI (design/specs/tooling.md). A thin host over LexgenApp; every rule it applies
+       lives in ATProtoNet.Lexicon or the shared emitter. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>atproto-lexgen</ToolCommandName>
+    <PackageId>atproto-lexgen</PackageId>
+    <Description>Vendors, lints and generates C# from AT Protocol Lexicon schemas.</Description>
+    <PackageTags>atproto;lexicon;codegen</PackageTags>
+    <RootNamespace>ATProtoNet.Lexicon.Cli</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ATProtoNet\ATProtoNet.csproj" />
+    <ProjectReference Include="..\ATProtoNet.Lexicon.CodeGen\ATProtoNet.Lexicon.CodeGen.csproj" />
+  </ItemGroup>
+
+</Project>

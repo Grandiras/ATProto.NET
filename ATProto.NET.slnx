@@ -2,6 +2,10 @@
   <Folder Name="/src/">
     <Project Path="src/ATProtoNet/ATProtoNet.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/ATProtoNet.Lexicon.Cli/ATProtoNet.Lexicon.Cli.csproj" />
+    <Project Path="tools/ATProtoNet.Lexicon.CodeGen/ATProtoNet.Lexicon.CodeGen.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/AotSmoke/AotSmoke.csproj" />
     <Project Path="tests/ATProtoNet.Architecture.Tests/ATProtoNet.Architecture.Tests.csproj" />
@@ -12,6 +16,7 @@
     <Project Path="tests/ATProtoNet.Conformance/Adapter.Next/ATProtoNet.Conformance.Next.csproj" />
     <Project Path="tests/ATProtoNet.DocSnippets/ATProtoNet.DocSnippets.csproj" />
     <Project Path="tests/ATProtoNet.DocSnippets.Generator/ATProtoNet.DocSnippets.Generator.csproj" />
+    <Project Path="tests/ATProtoNet.Lexicon.Tests/ATProtoNet.Lexicon.Tests.csproj" />
     <Project Path="tests/ATProtoNet.TestKit/ATProtoNet.TestKit.csproj" />
     <Project Path="tests/ATProtoNet.Tests/ATProtoNet.Tests.csproj" />
   </Folder>

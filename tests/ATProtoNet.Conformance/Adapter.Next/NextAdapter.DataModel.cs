@@ -12,7 +12,7 @@ public sealed partial class NextAdapter
         // EncodeDataModel converts any data-model value; drisl-encode.json encodes top-level strings, integers,
         // arrays, links and bytes through the same member, so one of the two verdicts has to give.
         ["data-model/data-model-invalid.json#top-level not an object"] =
-            "A record (not a value) must be an object: record-level validation, phase 3 (Lexicon record validation, lexicon/interop/record-data-*).",
+            "A record (not a value) must be an object: LexiconValidator.ValidateRecord checks that (lexicon/interop/record-data-*), not the data model.",
     };
 
     /// <inheritdoc />

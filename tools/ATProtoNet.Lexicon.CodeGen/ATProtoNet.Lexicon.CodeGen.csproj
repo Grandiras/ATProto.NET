@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The one Lexicon C# emitter (LEX-25): the atproto-lexgen CLI and the source generator inside the ATProtoNet package
+       both call it. It compiles the schema model of ATProtoNet.Lexicon as linked files, internal here (LEX-26), and
+       targets netstandard2.0 because the compiler loads it. Not a package of its own. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <DefineConstants>$(DefineConstants);LEXICON_CODEGEN</DefineConstants>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\ATProtoNet\Lexicon\*.cs" Exclude="..\..\src\ATProtoNet\Lexicon\LexiconModel.Public.cs;..\..\src\ATProtoNet\Lexicon\LexiconDocument.Record.cs;..\..\src\ATProtoNet\Lexicon\LexiconCompatibility*.cs;..\..\src\ATProtoNet\Lexicon\LexiconChangeReport.cs" LinkBase="Model" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

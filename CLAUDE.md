@@ -31,7 +31,11 @@ Other jobs: `lexicons`, `aot`, `api`, `integration-pds`, `integration-spaces`, `
 - `src/ATProtoNet/`: the base package, namespace layers 0–4 enforced by
   `tests/ATProtoNet.Architecture.Tests` (`Layers.cs` classifies every namespace; a new one must be
   added there). The extension packages (`ATProtoNet.AspNetCore`, `ATProtoNet.EntityFrameworkCore`,
-  `ATProtoNet.Aspire.Hosting`) and the tools appear in the phases that build them.
+  `ATProtoNet.Aspire.Hosting`) appear in the phases that build them. `src/ATProtoNet/Generated/` is
+  generated code (never edit it; `atproto-lexgen generate --unit AtProto --out src/ATProtoNet/Generated`).
+- `tools/`: `ATProtoNet.Lexicon.CodeGen` (the one C# emitter, netstandard2.0, linking the schema model
+  of `src/ATProtoNet/Lexicon/*.cs`) and `ATProtoNet.Lexicon.Cli` (`atproto-lexgen`). `lexgen.json` holds
+  the first-party generation options, including the reviewed `renames`.
 - `tests/ATProtoNet.Conformance/`: protocol vectors (`vectors/`, provenance in `MANIFEST.md`)
   behind `IProtocolAdapter`; `Adapter.Legacy` runs them against the 0.8 NuGet packages and must
   stay green, with known 0.8 failures listed in `LegacyKnownFailures.cs` by issue.
@@ -40,7 +44,8 @@ Other jobs: `lexicons`, `aot`, `api`, `integration-pds`, `integration-spaces`, `
   (`[RequiresFact(Requirement.X)]`, trait `Requirement=X`).
 - `tests/ATProtoNet.Benchmarks/`: BenchmarkDotNet scenarios; `baseline/` holds the 0.8 results each
   phase gate compares against.
-- `lexicons/` + `lexicons.json`: vendored Lexicons; `scripts/vendor-lexicons.py` maintains them.
+- `lexicons/` + `lexicons.json`: vendored Lexicons; `atproto-lexgen install|update` maintains them
+  (`scripts/vendor-lexicons.py` for the network source until phase 8).
 - `tests/ATProtoNet.DocSnippets`: compiles every C# block of `README.md` and `docs/*.md`.
 
 ## Conventions

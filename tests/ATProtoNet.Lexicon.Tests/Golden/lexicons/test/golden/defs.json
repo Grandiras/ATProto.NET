@@ -1,0 +1,33 @@
+{
+  "lexicon": 1,
+  "id": "test.golden.defs",
+  "defs": {
+    "strongRef": {
+      "type": "object",
+      "description": "An object used both as a union case and as a plain ref: it writes $type only in union position.",
+      "required": ["uri", "cid"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" }
+      }
+    },
+    "selfLabels": {
+      "type": "object",
+      "required": ["values"],
+      "properties": { "values": { "type": "array", "items": { "type": "string" }, "maxLength": 10 } }
+    },
+    "reasonType": {
+      "type": "string",
+      "description": "A named string with known values, shared by every property that refs it.",
+      "knownValues": ["test.golden.defs#reply", "test.golden.defs#spam", "other"]
+    },
+    "reply": { "type": "token", "description": "A reply." },
+    "spam": { "type": "token", "description": "Deprecated: use other." },
+    "visibility": { "type": "string", "enum": ["public", "private"] },
+    "items": {
+      "type": "array",
+      "description": "A named array of a union.",
+      "items": { "type": "union", "refs": ["test.golden.embed#images", "test.golden.embed#external"] }
+    }
+  }
+}

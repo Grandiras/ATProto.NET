@@ -1,0 +1,11 @@
+{
+  "lexicon": 1,
+  "id": "test.golden.getRepo",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A query with binary output and no parameters.",
+      "output": { "encoding": "application/vnd.ipld.car" }
+    }
+  }
+}

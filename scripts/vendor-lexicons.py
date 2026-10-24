@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Vendors the first-party Lexicons into lexicons/ and writes lexicons.json.
 
-Stands in for `atproto-lexgen install|update` until phase 3 builds it (TOO-14..18).
+`atproto-lexgen install|update` covers git and directory sources; this script remains for the
+network source (site.standard.*) until phase 8 adds network installs (TOO-14).
 
   scripts/vendor-lexicons.py                  recompute lexicons.json from lexicons/ (no network)
   scripts/vendor-lexicons.py --fetch [--atproto <commit>] [--spaces <commit>]

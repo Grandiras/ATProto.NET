@@ -1,0 +1,12 @@
+{
+  "lexicon": 1,
+  "id": "test.golden.uploadPart",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "A procedure with parameters and binary input.",
+      "parameters": { "type": "params", "required": ["part"], "properties": { "part": { "type": "integer", "minimum": 0, "maximum": 10000 } } },
+      "input": { "encoding": "video/mp4" }
+    }
+  }
+}

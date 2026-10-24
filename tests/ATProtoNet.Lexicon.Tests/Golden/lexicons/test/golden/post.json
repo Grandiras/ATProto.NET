@@ -1,0 +1,56 @@
+{
+  "lexicon": 1,
+  "id": "test.golden.post",
+  "description": "A record: required and optional fields, an open union, a renamed union, known values, nested defs, every scalar kind.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A post.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["text", "kind"],
+        "nullable": ["swap", "pinned"],
+        "properties": {
+          "text": { "type": "string", "maxLength": 3000, "maxGraphemes": 300, "description": "The text." },
+          "kind": { "type": "string", "knownValues": ["note", "article", "test.golden.defs#reply"] },
+          "embed": { "type": "union", "refs": ["test.golden.embed#images", "test.golden.embed#external", "test.golden.defs#strongRef"] },
+          "labels": { "type": "union", "refs": ["test.golden.defs#selfLabels"], "closed": true },
+          "reply": { "type": "ref", "ref": "#replyRef" },
+          "langs": { "type": "array", "items": { "type": "string", "format": "language" }, "maxLength": 3 },
+          "count": { "type": "integer", "minimum": 0, "maximum": 1000 },
+          "views": { "type": "integer", "minimum": 0 },
+          "flag": { "type": "boolean", "default": false },
+          "data": { "type": "bytes", "maxLength": 64 },
+          "link": { "type": "cid-link" },
+          "image": { "type": "blob", "accept": ["image/*"], "maxSize": 1000000 },
+          "extra": { "type": "unknown" },
+          "via": { "type": "string", "format": "at-uri" },
+          "author": { "type": "string", "format": "did" },
+          "rev": { "type": "string", "format": "tid" },
+          "location": { "type": "ref", "ref": "#location" },
+          "swap": { "type": "string", "format": "cid" },
+          "pinned": { "type": "ref", "ref": "#replyRef" },
+          "note": { "type": "string", "description": "Deprecated: use text." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "replyRef": {
+      "type": "object",
+      "required": ["root", "parent"],
+      "properties": {
+        "root": { "type": "ref", "ref": "test.golden.defs#strongRef" },
+        "parent": { "type": "ref", "ref": "test.golden.defs#strongRef" }
+      }
+    },
+    "location": {
+      "type": "object",
+      "required": ["latitude"],
+      "properties": {
+        "latitude": { "type": "string" },
+        "detail": { "type": "object", "properties": { "name": { "type": "string" } } }
+      }
+    }
+  }
+}
