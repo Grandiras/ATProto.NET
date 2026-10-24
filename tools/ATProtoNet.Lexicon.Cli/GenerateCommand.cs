@@ -77,7 +77,7 @@ public sealed partial class LexgenApp
                 var bytes = Env.Files.ReadAllBytes(path);
                 var document = Catch(path, () => LexiconDocument.Parse(bytes));
                 if (document.Id.ToString() != nsid) throw new LexgenException(ExitCodes.Input, $"{path}: the file's id is {document.Id}, not {nsid}.");
-                if (document.ComputeRecordCid().ToString() != manifest.CidOf(nsid))
+                if (Catch(path, document.ComputeRecordCid).ToString() != manifest.CidOf(nsid))
                     throw new LexgenException(ExitCodes.Input, $"{path}: the file does not match its CID in {manifestPath}; vendored Lexicons are never edited by hand (use install or update).");
                 sources.Add(new(path, bytes, manifest.PinOf(nsid)));
             }

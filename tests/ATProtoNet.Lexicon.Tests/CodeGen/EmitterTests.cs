@@ -206,4 +206,11 @@ public sealed class EmitterTests
         Assert.Contains("LXL011", Ids(result));
         Assert.Empty(result.Files);
     }
+
+    [Fact]
+    [Trait("Spec", "LEX-86")]
+    public void Generate_UnionExtensionOfAClosedUnion_IsAnError() =>
+        Assert.Contains("ATLEX011", Ids(Generate("""{"unionExtensions":{"com.example.extra":["com.example.thing#main.a"]}}""",
+            Doc("com.example.thing", """ "main":{"type":"object","properties":{"a":{"type":"union","refs":["#b"],"closed":true}}},"b":{"type":"object","properties":{}} """),
+            Doc("com.example.extra", """ "main":{"type":"object","properties":{}} """))));
 }

@@ -92,7 +92,7 @@ public sealed partial class LexgenApp
         {
             var path = LexiconManifest.PathOf(directory, nsid);
             var bytes = tree.Files[nsid];
-            var cid = Parse(tree, nsid).ComputeRecordCid().ToString();
+            var cid = Catch(path, Parse(tree, nsid).ComputeRecordCid).ToString();
             var before = Env.Files.FileExists(path) ? Env.Files.ReadAllBytes(path) : null;
             if (before is not null && before.AsSpan().SequenceEqual(bytes) && manifest.SourceOf(nsid) == tree.Name && manifest.CidOf(nsid) == cid) continue;
             changes.Add(new(nsid, manifest.CidOf(nsid) is null || before is null ? "added" : Classify(before, bytes)));

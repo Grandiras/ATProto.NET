@@ -30,7 +30,7 @@ internal sealed partial class Planner
 
     // The C# type of an open union by its definition path, here or in a referenced assembly (LEX-86).
     public string? UnionType(string path) =>
-        AllDecls.FirstOrDefault(d => d.Kind == DeclKind.Union && d.Path == path)?.Ref
+        AllDecls.FirstOrDefault(d => d.Kind == DeclKind.Union && d.Path == path && d.Union?.Closed == false)?.Ref
         ?? (_external is not null && _external.TryResolve(path, out var name, out var kind) && kind == ExternalTypeKind.Union ? "global::" + name : null);
     public IEnumerable<TypeDecl> AllDecls => Units.SelectMany(u => u.Decls).SelectMany(Flatten);
 

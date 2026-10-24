@@ -190,7 +190,7 @@ internal sealed partial class Emitter(Planner plan)
             {
                 if (plan.UnionType(union) is not { } type)
                 {
-                    plan.Diagnostics.Add(new("ATLEX011", GenerationSeverity.Error, $"\"unionExtensions\" names {union}, which is no union this generation or its references know.",
+                    plan.Diagnostics.Add(new("ATLEX011", GenerationSeverity.Error, $"\"unionExtensions\" names {union}, which is no open union this generation or its references know.",
                         decl.Document.Id.ToString(), decl.Path));
                     continue;
                 }

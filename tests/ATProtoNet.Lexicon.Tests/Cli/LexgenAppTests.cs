@@ -325,6 +325,16 @@ public sealed class LexgenAppTests : LexgenHarness
         Assert.True(Files.FileExists("victim.json"));
     }
 
+    [Fact]
+    [Trait("Spec", "TOO-3")]
+    public async Task Generate_VendoredFileWithAFloat_FailsAsAnInputError()
+    {
+        Vendor(TodoItem);
+        Write("lexicons/com/example/todo/item.json", TodoItem.Replace("\"lexicon\": 1,", "\"lexicon\": 1, \"x-weight\": 1.5,", StringComparison.Ordinal));
+
+        Assert.Equal(ExitCodes.Input, (await RunAsync("generate")).ExitCode);
+    }
+
     // Writes documents under lexicons/ with a manifest listing them under a directory source.
     private void Vendor(params string[] documents)
     {

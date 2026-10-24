@@ -102,6 +102,8 @@ atproto-lexgen generate --check                           # exit 1 if the checke
 
 `lexicons.json` records where each schema came from (a git commit, a directory or, from 0.9's
 network support, a publishing account) and its record CID; `generate` refuses a vendored file that
-no longer matches its CID. `lexgen.json` holds the few generation options: the namespace root,
-generation units, accessor names, `renames` for names that collide or read badly, `fieldTypes` for
-numbers carried in strings, default proxies and experimental markers.
+no longer matches its CID. `lexgen.json` holds the few generation options: the namespace root, generation `units`, accessor
+names, `renames` for names that collide or read badly, `fieldTypes` for numbers carried in strings,
+`unionExtensions` for a type of yours that joins an open union declared elsewhere (it travels as
+`LexiconUnknown`, with generated `TryGet…` and `From…` helpers on that union), default proxies and
+experimental markers.
